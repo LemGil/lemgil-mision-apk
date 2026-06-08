@@ -109,9 +109,18 @@ export default function Reportes() {
     const apComunDiezmos = apComunRango.filter((a) => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
     const apComunOfrendas = apComunRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
 
-    const finTotal = apTotal + apComunTotal;
     const finDiezmos = apDiezmos + apComunDiezmos;
     const finOfrendas = apOfrendas + apComunOfrendas;
+    const bienComunTotal = apTotal;
+    const bienComunPlan = metasDoc?.sostenimiento || 8000;
+
+    const colaboradoresAyuda = apComunRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresMisiones = 0;
+    const colaboradoresManosAbiertas = 0;
+    const colaboradoresTotal = apComunTotal;
+    const colaboradoresPlan = 0;
+
+    const totalFinal = bienComunTotal + colaboradoresTotal;
 
     const entrRango = enRango(entregas);
     const benefUnicos = new Set(entrRango.map((e) => e.beneficiarioId)).size;
@@ -130,7 +139,7 @@ export default function Reportes() {
       conv: { total: conv.length, mesActual: convMes, integrados: convIntegrados, grupos: grupos.length },
       evang: { total: evang.length, contactos: evangContactos, conversiones: evangConvs },
       academia: { cursos: cursos.length, cursosActivos, estudiantes: estActivos, certificados: certRango.length },
-      finanzas: { total: finTotal, diezmos: finDiezmos, ofrendas: finOfrendas, dadores: dadores.length, dadoresActivos: dadores.filter((d) => d.estado === 'Activo').length, colaboradores: colaboradores.length, colaboradoresActivos: colaboradores.filter((c) => c.estado === 'Activo').length },
+      finanzas: { diezmos: finDiezmos, ofrendas: finOfrendas, bienComunDiezmos: apDiezmos, bienComunOfrendas: apOfrendas, bienComunTotal, bienComunPlan, colaboradoresAyuda, colaboradoresMisiones, colaboradoresManosAbiertas, colaboradoresTotal, colaboradoresPlan, totalFinal },
       manos: { beneficiarios: beneficiarios.length, campanas: campanas.filter((c) => inRange(c.fechaInicio, desde, hasta)).length, entregas: entrRango.length, familias: benefUnicos, personas },
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
@@ -233,11 +242,23 @@ export default function Reportes() {
                 lines.push(`Estudiantes activos: ${datos.academia.estudiantes}`);
                 lines.push(`Certificados emitidos: ${datos.academia.certificados}`);
                 lines.push('');
-                lines.push('FINANZAS (Dadores + Colaboradores)');
-                lines.push(`Total aportes: ${money(datos.finanzas.total)}`);
-                lines.push(`Diezmos: ${money(datos.finanzas.diezmos)} | Ofrendas: ${money(datos.finanzas.ofrendas)}`);
-                lines.push(`Dadores (miembros): ${datos.finanzas.dadoresActivos} activos / ${datos.finanzas.dadores} totales`);
-                lines.push(`Colaboradores (externos): ${datos.finanzas.colaboradoresActivos} activos / ${datos.finanzas.colaboradores} totales`);
+                lines.push('FINANZAS');
+                lines.push('');
+                lines.push('BIEN COMÚN (Dadores/Miembros):');
+                lines.push(`  Diezmos: ${money(datos.finanzas.bienComunDiezmos)}`);
+                lines.push(`  Ofrendas: ${money(datos.finanzas.bienComunOfrendas)}`);
+                lines.push(`  Total Bien Común: ${money(datos.finanzas.bienComunTotal)}`);
+                lines.push(`  Plan mensual: ${money(datos.finanzas.bienComunPlan)}`);
+                lines.push('');
+                lines.push('COLABORADORES (Externos):');
+                lines.push(`  Ayuda: ${money(datos.finanzas.colaboradoresAyuda)}`);
+                lines.push(`  Misiones: ${money(datos.finanzas.colaboradoresMisiones)}`);
+                lines.push(`  Manos Abiertas: ${money(datos.finanzas.colaboradoresManosAbiertas)}`);
+                lines.push(`  Total Colaboradores: ${money(datos.finanzas.colaboradoresTotal)}`);
+                lines.push(`  Plan mensual: ${money(datos.finanzas.colaboradoresPlan)}`);
+                lines.push('');
+                lines.push(`TOTAL FINAL: ${money(datos.finanzas.totalFinal)}`);
+                lines.push(`Plan mensual: ${money(datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan)}`);
                 lines.push('');
                 lines.push('MANOS ABIERTAS');
                 lines.push(`Beneficiarios: ${datos.manos.beneficiarios}`);
@@ -283,14 +304,22 @@ export default function Reportes() {
                 ['Certificados emitidos', datos.academia.certificados],
               ]} />
 
-              <ModuleCard color="var(--oro-apostolico)" emoji="💰" title="Finanzas (Dadores + Colaboradores)" rows={[
-                ['Total aportes', money(datos.finanzas.total)],
-                ['Diezmos', money(datos.finanzas.diezmos)],
-                ['Ofrendas', money(datos.finanzas.ofrendas)],
-                ['Dadores (miembros)', `${datos.finanzas.dadoresActivos} / ${datos.finanzas.dadores}`],
-                ['Colaboradores (externos)', `${datos.finanzas.colaboradoresActivos} / ${datos.finanzas.colaboradores}`],
-                ['Meta mensual', money(metasDoc?.sostenimiento || 8000)],
-                ['% de meta', `${Math.round((datos.finanzas.total / (metasDoc?.sostenimiento || 8000)) * 100)}%`],
+              <ModuleCard color="var(--oro-apostolico)" emoji="💰" title="Finanzas" rows={[
+                ['— BIEN COMÚN (Dadores/Miembros) —', ''],
+                ['  Diezmos', money(datos.finanzas.bienComunDiezmos)],
+                ['  Ofrendas', money(datos.finanzas.bienComunOfrendas)],
+                ['  Total Bien Común', money(datos.finanzas.bienComunTotal)],
+                ['  Plan mensual', money(datos.finanzas.bienComunPlan)],
+                ['— COLABORADORES (Externos) —', ''],
+                ['  Ayuda', money(datos.finanzas.colaboradoresAyuda)],
+                ['  Misiones', money(datos.finanzas.colaboradoresMisiones)],
+                ['  Manos Abiertas', money(datos.finanzas.colaboradoresManosAbiertas)],
+                ['  Total Colaboradores', money(datos.finanzas.colaboradoresTotal)],
+                ['  Plan mensual', money(datos.finanzas.colaboradoresPlan)],
+                ['— TOTAL FINAL —', ''],
+                ['  Total Final', money(datos.finanzas.totalFinal)],
+                ['  Plan mensual', money(datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan)],
+                ['  % de meta', `${datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan ? Math.round((datos.finanzas.totalFinal / (datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan)) * 100) : 0}%`],
               ]} />
 
               <ModuleCard color="var(--manos-terracota)" emoji="🤲" title="Manos Abiertas" rows={[
@@ -412,13 +441,12 @@ export default function Reportes() {
               <div className="detail-row"><span className="detail-label">Estudiantes</span><span className="detail-value">{selResumen.academia.estudiantes}</span></div>
               <div className="detail-row"><span className="detail-label">Certificados</span><span className="detail-value">{selResumen.academia.certificados}</span></div>
 
-              <div className="form-section" style={{ marginTop: 14 }}>💰 Finanzas (Dadores + Colaboradores)</div>
-              <div className="detail-row"><span className="detail-label">Total aportes</span><span className="detail-value">{money(selResumen.finanzas.total)}</span></div>
-              <div className="detail-row"><span className="detail-label">Diezmos</span><span className="detail-value">{money(selResumen.finanzas.diezmos)}</span></div>
-              <div className="detail-row"><span className="detail-label">Ofrendas</span><span className="detail-value">{money(selResumen.finanzas.ofrendas)}</span></div>
-              <div className="detail-row"><span className="detail-label">Dadores (miembros)</span><span className="detail-value">{selResumen.finanzas.dadoresActivos} activos / {selResumen.finanzas.dadores} totales</span></div>
-              {selResumen.finanzas.colaboradores !== undefined && (
-                <div className="detail-row"><span className="detail-label">Colaboradores (externos)</span><span className="detail-value">{selResumen.finanzas.colaboradoresActivos} activos / {selResumen.finanzas.colaboradores} totales</span></div>
+              <div className="form-section" style={{ marginTop: 14 }}>💰 Finanzas</div>
+              <div className="detail-row"><span className="detail-label">Bien Común</span><span className="detail-value">{money(selResumen.finanzas.bienComunTotal)}</span></div>
+              <div className="detail-row"><span className="detail-label">Colaboradores</span><span className="detail-value">{money(selResumen.finanzas.colaboradoresTotal)}</span></div>
+              <div className="detail-row"><span className="detail-label">Total Final</span><span className="detail-value">{money(selResumen.finanzas.totalFinal)}</span></div>
+              {selResumen.finanzas.bienComunPlan && (
+                <div className="detail-row"><span className="detail-label">Plan mensual</span><span className="detail-value">{money(selResumen.finanzas.bienComunPlan + (selResumen.finanzas.colaboradoresPlan || 0))}</span></div>
               )}
 
               <div className="form-section" style={{ marginTop: 14 }}>🤲 Manos Abiertas</div>
@@ -468,12 +496,21 @@ function ModuleCard({ color, emoji, title, rows }: { color: string; emoji: strin
         </div>
       </div>
       <div>
-        {rows.map(([k, v], i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
-            <span style={{ fontSize: 12, color: 'var(--dim)' }}>{k}</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{v}</span>
-          </div>
-        ))}
+        {rows.map(([k, v], i) => {
+          if (v === '' && k.startsWith('—')) {
+            return (
+              <div key={i} style={{ padding: '10px 0 4px', fontSize: 11, fontWeight: 700, color: 'var(--dim)', letterSpacing: 0.5, borderBottom: '1px solid var(--border)' }}>
+                {k}
+              </div>
+            );
+          }
+          return (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <span style={{ fontSize: 12, color: 'var(--dim)' }}>{k}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{v}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
