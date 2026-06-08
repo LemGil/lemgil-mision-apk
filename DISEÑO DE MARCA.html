@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System — Academia del Espíritu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --gold:#C9A84C; --gold-light:#F0D080; --gold-deep:#8B6914; --gold-pale:#FAF3DC; --gold-shine:#FFFBEF;
+  --teal:#1a3a4a; --teal-mid:#245068; --teal-pale:#eaf4f8;
+  --bg-app:#fdf8f0; --bg-card:#ffffff;
+  --ink:#1a1610; --ink-2:#4a3f2f; --ink-3:#8a7a60;
+  --success:#3b6d11; --success-bg:#eaf3de;
+  --danger:#a32d2d; --danger-bg:#fcebeb;
+  --border-gold:rgba(201,168,76,0.20); --border-gold-mid:rgba(201,168,76,0.35);
+  --font-title:'Cinzel',serif; --font-body:'Crimson Pro',Georgia,serif;
+  --font-ui:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+}
+body { background: var(--bg-app); color: var(--ink); font-family: var(--font-body); padding: 0 0 60px; }
+
+.ds-header { background: var(--teal); padding: 32px 24px; text-align: center; position: relative; overflow: hidden; }
+.ds-header::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% -10%, rgba(201,168,76,0.22) 0%, transparent 65%); pointer-events:none; }
+.ds-header h1 { font-family:var(--font-title); font-size:22px; font-weight:700; color:#fff; margin-bottom:4px; position:relative;z-index:1; }
+.ds-header p  { font-family:var(--font-title); font-size:10px; letter-spacing:0.2em; color:var(--gold); text-transform:uppercase; position:relative;z-index:1; }
+
+.ds-section { padding: 20px 18px 0; }
+.ds-section-title { font-family:var(--font-title); font-size:10px; letter-spacing:0.2em; color:var(--gold-deep); text-transform:uppercase; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid var(--border-gold); }
+
+/* COLOR SWATCHES */
+.swatches { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin-bottom:6px; }
+.swatch { border-radius:10px; overflow:hidden; border:1px solid var(--border-gold); }
+.swatch-color { height:56px; }
+.swatch-info  { padding:7px 10px; background:#fff; }
+.swatch-name  { font-family:var(--font-ui); font-size:11px; font-weight:600; color:var(--ink); }
+.swatch-hex   { font-family:'Courier New',monospace; font-size:11px; color:var(--ink-3); }
+.swatch-var   { font-family:'Courier New',monospace; font-size:9px; color:var(--gold-deep); margin-top:2px; }
+
+/* TYPE SAMPLES */
+.type-row { margin-bottom:12px; padding:12px 14px; background:#fff; border-radius:10px; border:1px solid var(--border-gold); }
+.type-meta { font-family:var(--font-ui); font-size:10px; color:var(--ink-3); margin-bottom:4px; }
+.type-sample { line-height:1.3; }
+
+/* COMPONENT GRID */
+.comp-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+
+.comp-card { background:#fff; border-radius:12px; border:1px solid var(--border-gold); padding:16px; }
+.comp-card-title { font-family:var(--font-ui); font-size:10px; font-weight:700; color:var(--gold-deep); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
+
+/* verse box */
+.verse-box { border-left:3px solid var(--gold); padding:9px 13px; margin:6px 0; background:var(--gold-pale); border-radius:0 8px 8px 0; }
+.verse-box p { font-family:var(--font-body); font-size:15px; color:var(--ink-2); line-height:1.7; font-style:italic; }
+.verse-ref   { font-family:var(--font-ui); font-size:11px; color:var(--gold-deep); font-weight:600; margin-top:4px; }
+
+/* chip */
+.chip { display:inline-block; font-family:var(--font-body); font-size:13px; font-weight:600; color:var(--teal); background:var(--teal-pale); border:1px solid rgba(26,58,74,0.18); border-radius:5px; padding:1px 7px; margin:2px; }
+
+/* bullets */
+.blist { list-style:none; }
+.blist li { display:flex; gap:8px; font-size:15px; color:var(--ink-2); line-height:1.6; margin-bottom:5px; font-family:var(--font-body); }
+.blist li::before { content:'◆'; color:var(--gold); font-size:7.5px; flex-shrink:0; margin-top:5px; }
+
+/* buttons */
+.btn-row { display:flex; flex-direction:column; gap:9px; }
+.btn-primary   { background:var(--teal); color:var(--gold-light); font-family:var(--font-title); font-size:15px; font-weight:700; border:none; border-radius:9px; padding:13px 20px; letter-spacing:0.04em; cursor:pointer; }
+.btn-secondary { background:transparent; color:var(--teal); font-family:var(--font-title); font-size:14px; border:1.5px solid var(--gold); border-radius:30px; padding:10px 24px; letter-spacing:0.06em; cursor:pointer; }
+.btn-whatsapp  { background:#25D366; color:#fff; font-family:var(--font-title); font-size:15px; font-weight:700; border:none; border-radius:9px; padding:13px 20px; letter-spacing:0.03em; cursor:pointer; display:flex; align-items:center; gap:8px; justify-content:center; }
+
+/* quiz opts */
+.qopt { padding:11px 14px; border-radius:9px; border:1px solid var(--border-gold); background:var(--gold-shine); font-size:15px; font-family:var(--font-body); color:var(--ink); cursor:pointer; margin-bottom:7px; width:100%; text-align:left; }
+.qopt.correct { background:var(--success-bg); border-color:var(--success); color:var(--success); font-weight:600; }
+.qopt.wrong   { background:var(--danger-bg);  border-color:var(--danger);  color:var(--danger); }
+
+/* input */
+.input-field { width:100%; padding:11px 13px; border-radius:9px; border:1px solid var(--border-gold-mid); background:var(--gold-shine); font-size:15px; font-family:var(--font-body); color:var(--ink); outline:none; }
+
+/* circle num */
+.circle-num { width:38px; height:38px; border-radius:50%; background:var(--teal); border:1.5px solid var(--gold); display:inline-flex; align-items:center; justify-content:center; font-family:var(--font-title); font-size:13px; font-weight:700; color:var(--gold-light); }
+
+/* compare table */
+.ctable { width:100%; border-collapse:collapse; font-size:12px; font-family:var(--font-ui); }
+.ctable th { background:var(--teal); color:var(--gold-light); padding:7px 10px; text-align:left; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; }
+.ctable td { padding:7px 10px; border-bottom:1px solid var(--border-gold); color:var(--ink-2); }
+.ctable tr:last-child td { border-bottom:none; }
+.ctable tr:nth-child(even) td { background:var(--gold-shine); }
+.ctable .td-k { font-weight:700; color:var(--teal); font-family:var(--font-title); font-size:12px; }
+
+/* prep grid */
+.prep-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.prep-card { background:var(--gold-pale); border-radius:9px; border:1px solid var(--border-gold-mid); padding:9px 11px; }
+.prep-greek { font-family:var(--font-body); font-size:11px; color:var(--gold-deep); font-weight:600; margin-bottom:1px; }
+.prep-name  { font-family:var(--font-title); font-size:12px; color:var(--teal); font-weight:700; margin-bottom:2px; }
+.prep-desc  { font-family:var(--font-body); font-size:12px; color:var(--ink-2); line-height:1.4; }
+
+/* progress */
+.prog-bar { height:4px; background:rgba(201,168,76,0.18); border-radius:2px; overflow:hidden; margin-bottom:6px; }
+.prog-fill { height:100%; background:var(--gold); border-radius:2px; }
+
+/* gold divider */
+.gold-line { height:1px; background:linear-gradient(to right,transparent,var(--gold),transparent); opacity:0.5; margin:14px 0; border:none; }
+
+/* accordion sample */
+.acc-sample { border:1px solid var(--gold); border-radius:12px; overflow:hidden; }
+.acc-head { display:flex; align-items:center; gap:11px; padding:13px 15px; background:var(--gold-shine); }
+.acc-ico  { width:34px; height:34px; border-radius:8px; background:var(--teal); border:1px solid var(--border-gold-mid); display:flex; align-items:center; justify-content:center; font-size:16px; }
+.acc-ttl  { flex:1; font-family:var(--font-title); font-size:14px; font-weight:600; color:var(--teal); }
+.acc-chv  { font-size:11px; color:var(--gold); }
+.acc-body-s { padding:12px 15px; font-family:var(--font-body); font-size:14.5px; color:var(--ink-2); line-height:1.7; }
+
+.divider { height:1px; background:var(--border-gold); margin:20px 0; }
+</style>
+</head>
+<body>
+
+<div class="ds-header">
+  <h1>Academia del Espíritu</h1>
+  <p>Design System · LemGil Apostol Ministry</p>
+</div>
+
+<!-- COLORES -->
+<div class="ds-section">
+  <div class="ds-section-title">🎨 Paleta de colores</div>
+  <div class="swatches">
+    <div class="swatch"><div class="swatch-color" style="background:#C9A84C"></div><div class="swatch-info"><div class="swatch-name">Gold</div><div class="swatch-hex">#C9A84C</div><div class="swatch-var">--gold</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#F0D080"></div><div class="swatch-info"><div class="swatch-name">Gold Light</div><div class="swatch-hex">#F0D080</div><div class="swatch-var">--gold-light</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#8B6914"></div><div class="swatch-info"><div class="swatch-name">Gold Deep</div><div class="swatch-hex">#8B6914</div><div class="swatch-var">--gold-deep</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#FAF3DC"></div><div class="swatch-info"><div class="swatch-name">Gold Pale</div><div class="swatch-hex">#FAF3DC</div><div class="swatch-var">--gold-pale</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#1a3a4a"></div><div class="swatch-info"><div class="swatch-name">Teal</div><div class="swatch-hex">#1a3a4a</div><div class="swatch-var">--teal</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#245068"></div><div class="swatch-info"><div class="swatch-name">Teal Mid</div><div class="swatch-hex">#245068</div><div class="swatch-var">--teal-mid</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#eaf4f8"></div><div class="swatch-info"><div class="swatch-name">Teal Pale</div><div class="swatch-hex">#eaf4f8</div><div class="swatch-var">--teal-pale</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#fdf8f0"></div><div class="swatch-info"><div class="swatch-name">Cream (App BG)</div><div class="swatch-hex">#fdf8f0</div><div class="swatch-var">--bg-app</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#1a1610"></div><div class="swatch-info"><div class="swatch-name">Ink</div><div class="swatch-hex">#1a1610</div><div class="swatch-var">--ink</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#4a3f2f"></div><div class="swatch-info"><div class="swatch-name">Ink 2</div><div class="swatch-hex">#4a3f2f</div><div class="swatch-var">--ink-2</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#8a7a60"></div><div class="swatch-info"><div class="swatch-name">Ink 3</div><div class="swatch-hex">#8a7a60</div><div class="swatch-var">--ink-3</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#25D366"></div><div class="swatch-info"><div class="swatch-name">WhatsApp</div><div class="swatch-hex">#25D366</div><div class="swatch-var">--whatsapp</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#eaf3de"></div><div class="swatch-info"><div class="swatch-name">Success BG</div><div class="swatch-hex">#eaf3de</div><div class="swatch-var">--success-bg</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#fcebeb"></div><div class="swatch-info"><div class="swatch-name">Danger BG</div><div class="swatch-hex">#fcebeb</div><div class="swatch-var">--danger-bg</div></div></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- TIPOGRAFÍA -->
+<div class="ds-section">
+  <div class="ds-section-title">🔤 Tipografía</div>
+  <div class="comp-grid">
+    <div class="type-row"><div class="type-meta">Cinzel 700 · 24px · Hero Title</div><div class="type-sample" style="font-family:'Cinzel',serif;font-size:24px;font-weight:700;color:#1a3a4a">La Academia del Espíritu</div></div>
+    <div class="type-row"><div class="type-meta">Cinzel 700 · 19px · Page Title</div><div class="type-sample" style="font-family:'Cinzel',serif;font-size:19px;font-weight:700;color:#1a3a4a">Descodificando la Luz</div></div>
+    <div class="type-row"><div class="type-meta">Cinzel 600 · 15.5px · Accordion Title</div><div class="type-sample" style="font-family:'Cinzel',serif;font-size:15.5px;font-weight:600;color:#1a3a4a">Qué revela Bereshit acerca de Dios</div></div>
+    <div class="type-row"><div class="type-meta">Cinzel · 12px · SECCIÓN LABEL</div><div class="type-sample" style="font-family:'Cinzel',serif;font-size:12px;color:#8B6914;text-transform:uppercase;letter-spacing:0.18em">I. Bereshit — La luz que se revela</div></div>
+    <div class="type-row"><div class="type-meta">Crimson Pro · 16px · Body Text</div><div class="type-sample" style="font-family:'Crimson Pro',serif;font-size:16px;color:#4a3f2f;line-height:1.75">El Antiguo Testamento no es la revelación plena de Dios, sino una sombra de lo que estaba por venir.</div></div>
+    <div class="type-row"><div class="type-meta">Crimson Pro italic · 16px · Verse</div><div class="type-sample" style="font-family:'Crimson Pro',serif;font-size:16px;color:#4a3f2f;font-style:italic;line-height:1.7">"Yo soy la luz del mundo; el que me sigue no andará en tinieblas."</div></div>
+    <div class="type-row"><div class="type-meta">Cinzel · 17px · Quiz Question</div><div class="type-sample" style="font-family:'Cinzel',serif;font-size:17px;font-weight:600;color:#1a3a4a;line-height:1.5">¿Qué significa γινώσκω en Juan 8:32?</div></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- COMPONENTES -->
+<div class="ds-section">
+  <div class="ds-section-title">🧩 Componentes</div>
+  <div class="comp-grid">
+
+    <!-- Versículo -->
+    <div class="comp-card">
+      <div class="comp-card-title">Caja de versículo</div>
+      <div class="verse-box"><p>"Yo soy el Alfa y la Omega, el principio y el fin, el primero y el último."</p><div class="verse-ref">Apocalipsis 22:13</div></div>
+    </div>
+
+    <!-- Chips -->
+    <div class="comp-card">
+      <div class="comp-card-title">Chips de términos</div>
+      <span class="chip">βְּרֵאשִׁית (Bereshit)</span>
+      <span class="chip">γινώσκω (ginṓskō)</span>
+      <span class="chip">ἐγένετο (egeneto)</span>
+      <span class="chip">Logos (λόγος)</span>
+    </div>
+
+    <!-- Bullets -->
+    <div class="comp-card">
+      <div class="comp-card-title">Lista de puntos dorados</div>
+      <ul class="blist">
+        <li>El Logos no es creado, es eterno</li>
+        <li>El Logos no es un libro, es una persona</li>
+        <li>La Biblia habla del Logos — no es el Logos</li>
+      </ul>
+    </div>
+
+    <!-- Acordeón -->
+    <div class="comp-card">
+      <div class="comp-card-title">Acordeón (estado abierto)</div>
+      <div class="acc-sample">
+        <div class="acc-head"><div class="acc-ico">🌅</div><div class="acc-ttl">Bereshit — "En el Principio"</div><div class="acc-chv">▲</div></div>
+        <div class="acc-body-s">Significado profundo: el inicio de un proceso. Como la primera ficha del dominó que desencadena todo lo que sigue.</div>
+      </div>
+    </div>
+
+    <!-- Botones -->
+    <div class="comp-card">
+      <div class="comp-card-title">Botones</div>
+      <div class="btn-row">
+        <button class="btn-primary">Siguiente ›</button>
+        <button class="btn-secondary">Intentar de nuevo</button>
+        <button class="btn-whatsapp"><span style="font-size:18px">💬</span> Enviar por WhatsApp</button>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="comp-card">
+      <div class="comp-card-title">Campo de texto</div>
+      <input class="input-field" type="text" placeholder="Escribe tu nombre completo...">
+    </div>
+
+    <!-- Quiz opciones -->
+    <div class="comp-card">
+      <div class="comp-card-title">Opciones de quiz</div>
+      <button class="qopt correct">✓ Conocer de manera íntima y experimental</button>
+      <button class="qopt wrong">✗ Conocimiento académico de la Biblia</button>
+      <button class="qopt">Una persona: Jesucristo</button>
+    </div>
+
+    <!-- Número circular -->
+    <div class="comp-card">
+      <div class="comp-card-title">Números circulares</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="circle-num">I</span>
+        <span class="circle-num">II</span>
+        <span class="circle-num">III</span>
+        <span class="circle-num">IV</span>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="comp-card">
+      <div class="comp-card-title">Barra de progreso</div>
+      <div style="font-size:11px;font-family:var(--font-ui);color:var(--ink-3);margin-bottom:5px;display:flex;justify-content:space-between"><span>Pregunta 7 de 10</span><span>6 correctas</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:70%"></div></div>
+    </div>
+
+    <!-- Tabla comparativa -->
+    <div class="comp-card">
+      <div class="comp-card-title">Tabla comparativa</div>
+      <table class="ctable">
+        <thead><tr><th>Concepto</th><th>Naturaleza</th><th>Relación</th></tr></thead>
+        <tbody>
+          <tr><td class="td-k">LOGOS</td><td>Persona divina</td><td>Es Cristo</td></tr>
+          <tr><td class="td-k">RHEMA</td><td>Palabra hablada</td><td>Voz del Logos</td></tr>
+          <tr><td class="td-k">GRAPHÉ</td><td>Escritura escrita</td><td>Apunta a Cristo</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Preposiciones griegas -->
+    <div class="comp-card">
+      <div class="comp-card-title">Tarjetas de preposiciones</div>
+      <div class="prep-grid">
+        <div class="prep-card"><div class="prep-greek">ἐν αὐτῷ</div><div class="prep-name">En él</div><div class="prep-desc">Ámbito vital donde todo existe</div></div>
+        <div class="prep-card"><div class="prep-greek">ἐξ αὐτοῦ</div><div class="prep-name">De él</div><div class="prep-desc">Origen causal de todo</div></div>
+        <div class="prep-card"><div class="prep-greek">δι' αὐτοῦ</div><div class="prep-name">Por él</div><div class="prep-desc">Agente ejecutor del Bará</div></div>
+        <div class="prep-card"><div class="prep-greek">εἰς αὐτόν</div><div class="prep-name">Para él</div><div class="prep-desc">Propósito y Destino final</div></div>
+      </div>
+    </div>
+
+    <!-- Línea dorada -->
+    <div class="comp-card">
+      <div class="comp-card-title">Línea divisoria dorada</div>
+      <p style="font-size:14px;color:var(--ink-3);font-family:var(--font-ui);margin-bottom:8px">Separa secciones con elegancia</p>
+      <hr class="gold-line">
+      <p style="font-size:14px;color:var(--ink-3);font-family:var(--font-ui);margin-top:8px">Continúa el contenido</p>
+    </div>
+
+  </div>
+</div>
+
+<div style="text-align:center;padding:32px 20px 20px">
+  <p style="font-family:var(--font-title);font-size:10px;color:var(--gold-deep);letter-spacing:0.15em;text-transform:uppercase">Academia del Espíritu · LemGil Apostol Ministry</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,135 @@
+import Dexie, { type EntityTable } from 'dexie';
+import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Dador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, MiembroComun, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona } from './types';
+
+const database = new Dexie('LemGilDB') as Dexie & {
+  conversiones: EntityTable<Conversion, 'id'>;
+  grupos: EntityTable<Grupo, 'id'>;
+  evangelismos: EntityTable<Evangelismo, 'id'>;
+  cursos: EntityTable<Curso, 'id'>;
+  lecciones: EntityTable<Leccion, 'id'>;
+  estudiantes: EntityTable<Estudiante, 'id'>;
+  certificados: EntityTable<Certificado, 'id'>;
+  dadores: EntityTable<Dador, 'id'>;
+  aportes: EntityTable<Aporte, 'id'>;
+  beneficiarios: EntityTable<Beneficiario, 'id'>;
+  campanas: EntityTable<Campana, 'id'>;
+  entregas: EntityTable<Entrega, 'id'>;
+  metas: EntityTable<Metas, 'id'>;
+  negocios: EntityTable<Negocio, 'id'>;
+  publicaciones: EntityTable<Publicacion, 'id'>;
+  reportes: EntityTable<Reporte, 'id'>;
+  miembrosComun: EntityTable<MiembroComun, 'id'>;
+  aportesComun: EntityTable<AporteComun, 'id'>;
+  miembros: EntityTable<Miembro, 'id'>;
+  ministerios: EntityTable<Ministerio, 'id'>;
+  miembrosMinisterios: EntityTable<MiembroMinisterio, 'id'>;
+  hitos: EntityTable<Hito, 'id'>;
+  zonas: EntityTable<Zona, 'id'>;
+  colaboradores: EntityTable<MiembroComun, 'id'>;
+};
+
+database.version(1).stores({
+  conversiones: 'id, zona, estado, fecha, lider, creado',
+  grupos: 'id, zona, lider',
+  evangelismos: 'id, zona, fecha, tipo, lider, creado',
+  cursos: 'id, nivel, estado, creado',
+  lecciones: 'id, cursoId, creado',
+  estudiantes: 'id, cursoId, estado, creado',
+  certificados: 'id, estId, cursoId, emitido',
+  dadores: 'id, nombre, apellido, estado, tipo, creado',
+  aportes: 'id, dadorId, fecha, tipo, metodo, creado',
+  beneficiarios: 'id, nombre, apellido, zona, estado, creado',
+  campanas: 'id, nombre, zona, tipo, estado, fechaInicio, creado',
+  entregas: 'id, campanaId, beneficiarioId, fecha, creado',
+  metas: 'id',
+  negocios: 'id, nombre, emprendedor, rubro, zona, etapa, estado, creado',
+  publicaciones: 'id, plataforma, estado, fecha, creado',
+  reportes: 'id, generado',
+  miembrosComun: 'id, nombre, apellido, estado, creado',
+  aportesComun: 'id, miembroId, fecha, tipo, mesCorrespondiente, creado',
+  miembros: 'id, nombre, apellido, zona, estado, fechaIngreso, creado',
+  ministerios: 'id, nombre, creado',
+  miembrosMinisterios: 'id, miembroId, ministerioId, rol, desde, creado',
+   hitos: 'id, miembroId, estudianteId, fecha, tipo, creado',
+});
+
+database.version(2).stores({
+  miembros: 'id, nombre, apellido, zona, estado, fechaIngreso, conversionId, creado',
+});
+
+database.version(4).stores({
+  zonas: 'id, nombre, creado',
+  colaboradores: 'id, nombre, apellido, estado, creado',
+  aportesComun: 'id, miembroId, grupoId, fecha, tipo, mesCorrespondiente, creado',
+});
+
+database.version(5).stores({
+  grupos: 'id, zona, lider',
+}).upgrade(async (tx) => {
+  await tx.table('grupos').toCollection().modify((g: any) => {
+    if (typeof g.metaMensual !== 'number') g.metaMensual = 0;
+  });
+});
+
+database.version(6).stores({
+  conversiones: 'id, zona, estado, fecha, lider, creado, grupoId',
+}).upgrade(async (tx) => {
+  await tx.table('conversiones').toCollection().modify((c: any) => {
+    if (typeof c.grupoId === 'undefined') c.grupoId = null;
+  });
+});
+
+database.version(7).stores({
+  evangelismos: 'id, zona, fecha, tipo, lider, creado',
+}).upgrade(async (tx) => {
+  await tx.table('evangelismos').toCollection().modify((e: any) => {
+    if (!Array.isArray(e.participantes)) e.participantes = [];
+  });
+});
+
+database.version(9).stores({
+  hitos: 'id, miembroId, estudianteId, fecha, tipo, creado',
+}).upgrade(async (tx) => {
+  await tx.table('hitos').toCollection().modify((h: any) => {
+    if (typeof h.estudianteId === 'undefined') h.estudianteId = null;
+  });
+});
+
+database.version(10).stores({
+  estudiantes: 'id, cursoId, estado, origen, zona, grupoId, creado',
+}).upgrade(async (tx) => {
+  await tx.table('estudiantes').toCollection().modify((e: any) => {
+    if (typeof e.origen === 'undefined') e.origen = 'manual';
+    if (typeof e.origenId === 'undefined') e.origenId = null;
+    if (typeof e.zona === 'undefined') e.zona = '';
+    if (typeof e.grupoId === 'undefined') e.grupoId = null;
+    if (typeof e.hermanoMayorId === 'undefined') e.hermanoMayorId = null;
+    if (typeof e.email === 'undefined') e.email = '';
+    if (typeof e.direccion === 'undefined') e.direccion = '';
+    if (typeof e.profesion === 'undefined') e.profesion = '';
+    if (typeof e.bautizado === 'undefined') e.bautizado = false;
+    if (typeof e.fechaBautismo === 'undefined') e.fechaBautismo = '';
+    if (typeof e.conyuge === 'undefined') e.conyuge = '';
+    if (typeof e.hijos === 'undefined') e.hijos = '';
+  });
+});
+
+database.version(11).stores({
+  conversiones: 'id, zona, estado, fecha, lider, creado, grupoId, hermanoMayorId',
+}).upgrade(async (tx) => {
+  await tx.table('conversiones').toCollection().modify((c: any) => {
+    if (typeof c.hermanoMayorId === 'undefined') c.hermanoMayorId = null;
+    if (typeof c.email === 'undefined') c.email = '';
+    if (typeof c.profesion === 'undefined') c.profesion = '';
+    if (typeof c.bautizado === 'undefined') c.bautizado = false;
+    if (typeof c.fechaBautismo === 'undefined') c.fechaBautismo = '';
+    if (typeof c.conyuge === 'undefined') c.conyuge = '';
+    if (typeof c.hijos === 'undefined') c.hijos = '';
+  });
+});
+
+database.version(12);
+
+database.version(13);
+
+export { database as db };

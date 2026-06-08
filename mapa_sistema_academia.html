@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, serif;
+    background: #F5F1E8;
+    color: #1A3A4A;
+    padding: 32px 24px;
+  }
+
+  .titulo-mapa {
+    text-align: center;
+    font-family: 'Georgia', serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #C9A24A;
+    margin-bottom: 6px;
+  }
+  .subtitulo-mapa {
+    text-align: center;
+    font-size: 20px;
+    color: #1A3A4A;
+    letter-spacing: 1px;
+    margin-bottom: 32px;
+  }
+
+  /* CAPAS */
+  .capa {
+    margin-bottom: 20px;
+  }
+  .capa-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #C9A24A;
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .capa-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* TARJETAS */
+  .card {
+    background: white;
+    border: 1px solid #D6D0C4;
+    border-radius: 3px;
+    padding: 14px 16px;
+    flex: 1;
+    min-width: 140px;
+    position: relative;
+  }
+  .card.activo {
+    border-left: 3px solid #C9A24A;
+  }
+  .card.pendiente {
+    border-left: 3px solid #D6D0C4;
+    opacity: 0.65;
+  }
+  .card-icon {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  .card-title {
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: #1A3A4A;
+    margin-bottom: 4px;
+    font-weight: bold;
+  }
+  .card-desc {
+    font-size: 11px;
+    color: #999;
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+    margin-bottom: 6px;
+  }
+  .badge-ok { background: rgba(201,162,74,0.15); color: #1A3A4A; }
+  .badge-next { background: rgba(26,58,74,0.08); color: #888; }
+
+  /* CONECTOR */
+  .conector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 20px;
+    margin: 0 0 4px;
+    color: #C9A24A;
+    font-size: 18px;
+    opacity: 0.5;
+  }
+
+  /* JERARQUÍA DE CONTENIDO */
+  .jerarquia {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 20px;
+    background: white;
+    border: 1px solid #D6D0C4;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .jer-item {
+    flex: 1;
+    padding: 14px 16px;
+    border-right: 1px solid #D6D0C4;
+    position: relative;
+  }
+  .jer-item:last-child { border-right: none; }
+  .jer-num {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #C9A24A;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .jer-title {
+    font-size: 13px;
+    color: #1A3A4A;
+    font-weight: bold;
+    margin-bottom: 4px;
+  }
+  .jer-desc {
+    font-size: 11px;
+    color: #999;
+    font-style: italic;
+    line-height: 1.4;
+  }
+  .jer-arrow {
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    background: #C9A24A;
+    clip-path: polygon(0 0, 60% 50%, 0 100%);
+    z-index: 2;
+  }
+
+  /* SEPARADOR */
+  .sep {
+    border: none;
+    border-top: 1px solid #D6D0C4;
+    margin: 20px 0;
+  }
+
+  /* TABLAS BD */
+  .bd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .bd-card {
+    background: #1A3A4A;
+    border-radius: 3px;
+    padding: 12px 14px;
+    color: white;
+  }
+  .bd-card.light {
+    background: rgba(26,58,74,0.08);
+    color: #1A3A4A;
+    border: 1px solid #D6D0C4;
+  }
+  .bd-title {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #C9A24A;
+    margin-bottom: 6px;
+  }
+  .bd-field {
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.8;
+  }
+  .bd-field.dark { color: #888; }
+
+  /* TECH STACK */
+  .tech-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tech-pill {
+    background: white;
+    border: 1px solid #D6D0C4;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 11px;
+    color: #1A3A4A;
+    letter-spacing: 0.5px;
+  }
+  .tech-pill span {
+    color: #C9A24A;
+    margin-right: 5px;
+  }
+
+  .footer-note {
+    text-align: center;
+    font-size: 10px;
+    color: #bbb;
+    margin-top: 24px;
+    font-style: italic;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="titulo-mapa">Ministerio Apostólico LemGil</div>
+<div class="subtitulo-mapa">Academia del Espíritu — Mapa del Sistema</div>
+
+<!-- JERARQUÍA DE CONTENIDO -->
+<div class="capa-label">Jerarquía del Contenido</div>
+<div class="jerarquia">
+  <div class="jer-item">
+    <div class="jer-num">01 — Nivel</div>
+    <div class="jer-title">Nivel</div>
+    <div class="jer-desc">Etapa de formación (Nivel I, II...)</div>
+    <div class="jer-arrow"></div>
+  </div>
+  <div class="jer-item">
+    <div class="jer-num">02 — Curso</div>
+    <div class="jer-title">Curso</div>
+    <div class="jer-desc">Módulo temático con portada</div>
+    <div class="jer-arrow"></div>
+  </div>
+  <div class="jer-item">
+    <div class="jer-num">03 — Tema</div>
+    <div class="jer-title">Tema</div>
+    <div class="jer-desc">Clase con texto, PDF y video</div>
+    <div class="jer-arrow"></div>
+  </div>
+  <div class="jer-item">
+    <div class="jer-num">04 — Paso</div>
+    <div class="jer-title">Paso</div>
+    <div class="jer-desc">Actividad que el alumno completa</div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- MÓDULOS -->
+<div class="capa-label">Módulos de la Aplicación</div>
+<div class="capa-row" style="margin-bottom:20px;">
+
+  <div class="card activo">
+    <div class="badge badge-ok">✓ Activo</div>
+    <div class="card-icon">🗂</div>
+    <div class="card-title">Niveles</div>
+    <div class="card-desc">Crear, editar y eliminar niveles de formación</div>
+  </div>
+
+  <div class="card activo">
+    <div class="badge badge-ok">✓ Activo</div>
+    <div class="card-icon">📚</div>
+    <div class="card-title">Cursos</div>
+    <div class="card-desc">Gestión de cursos con imagen de portada</div>
+  </div>
+
+  <div class="card activo">
+    <div class="badge badge-ok">✓ Activo</div>
+    <div class="card-icon">📄</div>
+    <div class="card-title">Temas</div>
+    <div class="card-desc">Contenido textual, PDF y pasos por tema</div>
+  </div>
+
+  <div class="card activo">
+    <div class="badge badge-ok">✓ Activo</div>
+    <div class="card-icon">✅</div>
+    <div class="card-title">Pasos</div>
+    <div class="card-desc">Actividades que el alumno debe completar</div>
+  </div>
+
+  <div class="card activo">
+    <div class="badge badge-ok">✓ Activo</div>
+    <div class="card-icon">👥</div>
+    <div class="card-title">Estudiantes</div>
+    <div class="card-desc">Registro de alumnos asignados a niveles</div>
+  </div>
+
+</div>
+
+<div class="capa-row" style="margin-bottom:20px;">
+
+  <div class="card pendiente">
+    <div class="badge badge-next">⏳ Próximo</div>
+    <div class="card-icon">📊</div>
+    <div class="card-title">Progreso</div>
+    <div class="card-desc">Seguimiento del avance de cada estudiante por pasos y temas</div>
+  </div>
+
+  <div class="card pendiente">
+    <div class="badge badge-next">⏳ Próximo</div>
+    <div class="card-icon">🎓</div>
+    <div class="card-title">Certificados</div>
+    <div class="card-desc">Generación al completar un nivel completo</div>
+  </div>
+
+  <div class="card pendiente">
+    <div class="badge badge-next">⏳ Futuro</div>
+    <div class="card-icon">🌐</div>
+    <div class="card-title">Portal Alumno</div>
+    <div class="card-desc">Acceso propio del estudiante para ver contenido y marcar pasos</div>
+  </div>
+
+</div>
+
+<hr class="sep">
+
+<!-- BASE DE DATOS -->
+<div class="capa-label">Base de Datos — Supabase</div>
+<div class="bd-grid">
+  <div class="bd-card">
+    <div class="bd-title">niveles</div>
+    <div class="bd-field">id · nombre · descripcion<br>color · orden</div>
+  </div>
+  <div class="bd-card">
+    <div class="bd-title">cursos</div>
+    <div class="bd-field">id · nivel_id · titulo<br>descripcion · imagen_url · orden</div>
+  </div>
+  <div class="bd-card">
+    <div class="bd-title">temas</div>
+    <div class="bd-field">id · curso_id · titulo<br>contenido · pdf_url · video_url · orden</div>
+  </div>
+  <div class="bd-card">
+    <div class="bd-title">pasos</div>
+    <div class="bd-field">id · tema_id · titulo<br>tipo · descripcion · orden</div>
+  </div>
+  <div class="bd-card">
+    <div class="bd-title">estudiantes</div>
+    <div class="bd-field">id · nombre · apellido<br>email · telefono<br>fecha_ingreso · nivel_id</div>
+  </div>
+  <div class="bd-card light">
+    <div class="bd-title" style="color:#1A3A4A;">estudiante_progreso</div>
+    <div class="bd-field dark">estudiante_id · paso_id<br>completado · fecha_completado</div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- TECH STACK -->
+<div class="capa-label">Tecnología</div>
+<div class="tech-row">
+  <div class="tech-pill"><span>⚛</span>React + Vite</div>
+  <div class="tech-pill"><span>🗄</span>Supabase (PostgreSQL)</div>
+  <div class="tech-pill"><span>🖼</span>Supabase Storage</div>
+  <div class="tech-pill"><span>🎞</span>Framer Motion</div>
+  <div class="tech-pill"><span>🔤</span>Cinzel + EB Garamond</div>
+  <div class="tech-pill"><span>🎨</span>Paleta Teal / Oro</div>
+</div>
+
+<div class="footer-note">formación · revelación · Academia del Espíritu</div>
+
+</body>
+</html>

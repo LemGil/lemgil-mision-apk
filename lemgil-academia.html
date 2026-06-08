@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LemGil – Academia del Espíritu</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#C9922A;--gold-l:#E8B84B;--glow:rgba(201,146,42,0.2);
+  --d1:#0A0C10;--d2:#111318;--d3:#181C24;--d4:#1F242E;--d5:#252B37;
+  --border:rgba(201,146,42,0.18);--focus:rgba(201,146,42,0.5);
+  --txt:#E8E4DA;--dim:#7A7570;
+  --green:#4CAF7D;--yellow:#E8B84B;--blue:#4A7FD4;--red:#E05555;--purple:#7A5FC0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Nunito',sans-serif;background:var(--d1);color:var(--txt);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:210px;flex-shrink:0;background:var(--d2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+.logo{padding:22px 16px 16px;border-bottom:1px solid var(--border);}
+.logo-n{font-family:'Cinzel',serif;font-size:19px;font-weight:900;color:var(--gold);letter-spacing:3px;}
+.logo-s{font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+.nav{flex:1;padding:10px 0;overflow-y:auto;}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--dim);cursor:pointer;border-left:3px solid transparent;transition:all .2s;}
+.ni:hover{background:var(--d3);color:var(--txt);}
+.ni.active{background:linear-gradient(90deg,rgba(201,146,42,0.13),transparent);color:var(--gold-l);border-left-color:var(--gold);}
+.sf{padding:14px 16px;border-top:1px solid var(--border);}
+.ucard{display:flex;align-items:center;gap:9px;}
+.av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8B5E1A);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;font-size:13px;color:var(--d1);flex-shrink:0;}
+.un{font-size:13px;font-weight:700;}.ur{font-size:11px;color:var(--gold);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow-x:hidden;}
+.topbar{height:54px;background:var(--d2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:40;}
+.tt{font-family:'Cinzel',serif;font-size:14px;font-weight:600;letter-spacing:1px;}
+.bc{font-size:11px;color:var(--dim);}
+.bc span{color:var(--gold-l);}
+.content{padding:24px;flex:1;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--d3);padding:4px;border-radius:10px;border:1px solid var(--border);width:fit-content;}
+.tab{padding:8px 20px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dim);transition:all .2s;}
+.tab:hover{color:var(--txt);}
+.tab.active{background:var(--d4);color:var(--gold-l);border:1px solid var(--border);}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--d3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .2s;}
+.kpi:hover{border-color:var(--gold);}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--gold));}
+.kl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+.kv{font-family:'Cinzel',serif;font-size:26px;font-weight:700;margin:3px 0 2px;color:var(--c,var(--gold-l));}
+.ks{font-size:11px;color:var(--dim);}
+.ki{position:absolute;right:12px;top:12px;font-size:20px;opacity:.22;}
+
+/* BUTTONS */
+.arow{display:flex;gap:9px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .2s;white-space:nowrap;}
+.bg{background:linear-gradient(135deg,var(--gold),#8B5E1A);color:var(--d1);box-shadow:0 2px 10px var(--glow);}
+.bg:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(201,146,42,.35);}
+.bh{background:var(--d4);color:var(--txt);border:1px solid var(--border);}
+.bh:hover{border-color:var(--gold);color:var(--gold-l);}
+.bd{background:rgba(224,85,85,.13);color:var(--red);border:1px solid rgba(224,85,85,.3);}
+.bd:hover{background:rgba(224,85,85,.22);}
+.bsm{padding:5px 11px;font-size:11px;}
+.bg-sm{background:linear-gradient(135deg,var(--gold),#8B5E1A);color:var(--d1);padding:5px 11px;font-size:11px;}
+
+/* CARD */
+.card{background:var(--d3);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.card+.card{margin-top:18px;}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.ct{font-family:'Cinzel',serif;font-size:12px;font-weight:600;color:var(--gold-l);letter-spacing:1px;}
+
+/* SEARCH */
+.sbar{display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;}
+.si{flex:1;min-width:160px;background:var(--d4);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);}
+.si:focus{outline:none;border-color:var(--focus);}
+.si::placeholder{color:var(--dim);}
+.fs{background:var(--d4);border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);}
+.fs:focus{outline:none;}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);padding:8px 11px;text-align:left;border-bottom:1px solid var(--border);}
+.tbl td{padding:10px 11px;font-size:13px;border-bottom:1px solid rgba(201,146,42,.06);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:var(--d4);}
+
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.bg2{background:rgba(76,175,125,.15);color:var(--green);}
+.by{background:rgba(232,184,75,.15);color:var(--yellow);}
+.bb{background:rgba(74,127,212,.15);color:var(--blue);}
+.br{background:rgba(224,85,85,.15);color:var(--red);}
+.bp{background:rgba(122,95,192,.15);color:var(--purple);}
+
+/* MODAL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(4px);}
+.ov.open{opacity:1;pointer-events:all;}
+.modal{background:var(--d2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;transform:translateY(18px);transition:transform .25s;box-shadow:0 18px 55px rgba(0,0,0,.55);}
+.ov.open .modal{transform:translateY(0);}
+.mh{padding:20px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.mtitle{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--gold-l);letter-spacing:1px;}
+.mclose{width:28px;height:28px;border-radius:6px;background:var(--d4);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:var(--dim);transition:all .2s;}
+.mclose:hover{border-color:var(--red);color:var(--red);}
+.mb{padding:18px 22px;}
+.mf{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:9px;align-items:center;}
+
+/* FORM */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fgroup{display:flex;flex-direction:column;gap:4px;}
+.fgroup.span2{grid-column:span 2;}
+.fl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);}
+.fi,.fsel,.fta{background:var(--d4);border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);transition:border-color .2s,box-shadow .2s;width:100%;}
+.fi:focus,.fsel:focus,.fta:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px var(--glow);}
+.fi::placeholder{color:var(--dim);}
+.fsel option{background:var(--d3);}
+.fta{resize:vertical;min-height:75px;}
+.fsec{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:14px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+
+/* PROGRESS BAR */
+.prog-bar{height:6px;background:var(--d5);border-radius:3px;overflow:hidden;margin-top:6px;}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+
+/* COURSE GRID */
+.course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+.course-card{background:var(--d4);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,transform .2s;cursor:pointer;}
+.course-card:hover{border-color:var(--gold);transform:translateY(-2px);}
+.course-thumb{height:90px;display:flex;align-items:center;justify-content:center;font-size:38px;position:relative;}
+.course-body{padding:14px;}
+.course-title{font-weight:800;font-size:14px;margin-bottom:3px;}
+.course-meta{font-size:11px;color:var(--dim);margin-bottom:10px;}
+.course-actions{display:flex;gap:6px;margin-top:10px;}
+
+/* CERTIFICATE */
+.cert-card{background:linear-gradient(135deg,var(--d4),var(--d5));border:1px solid var(--gold);border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+.cert-card::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:var(--glow);border-radius:50%;}
+.cert-name{font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:var(--gold-l);}
+.cert-course{font-size:12px;color:var(--dim);margin-top:3px;}
+.cert-date{font-size:11px;color:var(--gold);margin-top:6px;}
+
+/* DETAIL ROW */
+.drow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(201,146,42,.06);}
+.drow:last-child{border-bottom:none;}
+.dlabel{font-size:12px;color:var(--dim);}
+.dval{font-size:13px;font-weight:600;}
+
+/* LESSON LIST */
+.lesson-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--d5);border-radius:8px;margin-bottom:6px;border:1px solid transparent;transition:border-color .2s;}
+.lesson-item:hover{border-color:var(--border);}
+.lesson-num{width:26px;height:26px;border-radius:50%;background:var(--d3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--dim);}
+.lesson-item.done .lesson-num{background:var(--green);border-color:var(--green);color:white;}
+.lesson-title{flex:1;font-size:13px;}
+.lesson-item.done .lesson-title{color:var(--dim);text-decoration:line-through;}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--dim);}
+.eico{font-size:40px;margin-bottom:10px;opacity:.35;}
+.etit{font-family:'Cinzel',serif;font-size:14px;margin-bottom:5px;}
+.esub{font-size:12px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--d3);border:1px solid var(--border);border-radius:9px;padding:12px 18px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;transform:translateY(70px);opacity:0;transition:all .3s;z-index:999;box-shadow:0 8px 28px rgba(0,0,0,.4);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--red);}
+.toast.info{border-left:3px solid var(--blue);}
+
+/* PANELS */
+.panel{display:none;}
+.panel.active{display:block;}
+
+@media(max-width:760px){
+  .sidebar{display:none;}
+  .kpis{grid-template-columns:repeat(2,1fr);}
+  .fgrid{grid-template-columns:1fr;}
+  .fgroup.span2{grid-column:span 1;}
+  .course-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-n">LEMGIL</div>
+    <div class="logo-s">Ministerio Apostólico</div>
+  </div>
+  <nav class="nav">
+    <div class="ni">📊 Dashboard</div>
+    <div class="ni">🌍 Misión Bíblica</div>
+    <div class="ni active">📖 Academia</div>
+    <div class="ni">🤲 Manos Abiertas</div>
+    <div class="ni">💼 Negocios Adonay</div>
+    <div class="ni">📡 Comunicación</div>
+    <div class="ni">💰 Red de Dadores</div>
+    <div class="ni">🔄 Reportes</div>
+  </nav>
+  <div class="sf">
+    <div class="ucard">
+      <div class="av">LG</div>
+      <div><div class="un">LemGil</div><div class="ur">👑 Apóstol</div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="tt">📖 Academia del Espíritu</div>
+    <div class="bc">LemGil / <span>Academia</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs -->
+    <div class="kpis">
+      <div class="kpi" style="--c:#7A5FC0">
+        <div class="kl">Cursos Activos</div>
+        <div class="kv" id="k-cursos">0</div>
+        <div class="ks" id="k-cursos-s">publicados</div>
+        <div class="ki">📚</div>
+      </div>
+      <div class="kpi" style="--c:#4CAF7D">
+        <div class="kl">Estudiantes</div>
+        <div class="kv" id="k-est">0</div>
+        <div class="ks">matriculados</div>
+        <div class="ki">🎓</div>
+      </div>
+      <div class="kpi" style="--c:#E8B84B">
+        <div class="kl">Certificados</div>
+        <div class="kv" id="k-cert">0</div>
+        <div class="ks">emitidos</div>
+        <div class="ki">🏆</div>
+      </div>
+      <div class="kpi" style="--c:#4A7FD4">
+        <div class="kl">Lecciones Totales</div>
+        <div class="kv" id="k-lec">0</div>
+        <div class="ks">en todos los cursos</div>
+        <div class="ki">📝</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('cursos')">📚 Cursos</div>
+      <div class="tab" onclick="showTab('estudiantes')">🎓 Estudiantes</div>
+      <div class="tab" onclick="showTab('certificados')">🏆 Certificados</div>
+    </div>
+
+    <!-- ═══ PANEL: CURSOS ═══ -->
+    <div class="panel active" id="panel-cursos">
+      <div class="arow">
+        <button class="btn bg" onclick="openNuevoCurso()">➕ Nuevo Curso</button>
+        <button class="btn bh" onclick="openM('m-leccion')">📝 Agregar Lección</button>
+      </div>
+      <div class="sbar">
+        <input class="si" id="sq-cursos" placeholder="🔍  Buscar curso…" oninput="renderCursos()">
+        <select class="fs" id="sf-nivel" onchange="renderCursos()">
+          <option value="">Todos los niveles</option>
+          <option>Básico</option><option>Intermedio</option><option>Avanzado</option>
+        </select>
+      </div>
+      <div id="cursos-container">
+        <div class="empty"><div class="eico">📚</div><div class="etit">Sin cursos aún</div><div class="esub">Crea el primer curso de la Academia</div></div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL: ESTUDIANTES ═══ -->
+    <div class="panel" id="panel-estudiantes">
+      <div class="arow">
+        <button class="btn bg" onclick="openNuevoEst()">➕ Matricular Estudiante</button>
+      </div>
+      <div class="sbar">
+        <input class="si" id="sq-est" placeholder="🔍  Buscar estudiante…" oninput="renderEstudiantes()">
+        <select class="fs" id="sf-curso-est" onchange="renderEstudiantes()">
+          <option value="">Todos los cursos</option>
+        </select>
+        <select class="fs" id="sf-estado-est" onchange="renderEstudiantes()">
+          <option value="">Todos los estados</option>
+          <option>Activo</option><option>Completado</option><option>Pausado</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <div class="ct">🎓 Registro de Estudiantes</div>
+          <div style="font-size:12px;color:var(--dim)" id="est-cnt">0 estudiantes</div>
+        </div>
+        <div id="est-container">
+          <div class="empty" style="padding:28px"><div class="eico" style="font-size:28px">🎓</div><div class="etit" style="font-size:13px">Sin estudiantes aún</div><div class="esub">Matricula el primer estudiante</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL: CERTIFICADOS ═══ -->
+    <div class="panel" id="panel-certificados">
+      <div class="arow">
+        <button class="btn bg" onclick="openNuevoCert()">🏆 Emitir Certificado</button>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <div class="ct">🏆 Certificados Emitidos</div>
+          <div style="font-size:12px;color:var(--dim)" id="cert-cnt">0 certificados</div>
+        </div>
+        <div id="cert-container">
+          <div class="empty" style="padding:28px"><div class="eico" style="font-size:28px">🏆</div><div class="etit" style="font-size:13px">Sin certificados aún</div><div class="esub">Emite el primer certificado</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════
+     MODALES
+══════════════════════════════════ -->
+
+<!-- MODAL: NUEVO / EDITAR CURSO -->
+<div class="ov" id="m-curso">
+  <div class="modal">
+    <div class="mh"><div class="mtitle" id="m-curso-title">📚 Nuevo Curso</div><div class="mclose" onclick="closeM('m-curso')">✕</div></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="fgroup span2"><label class="fl">Nombre del Curso *</label><input class="fi" id="c-nombre" placeholder="Ej: Cristología Bíblica"></div>
+        <div class="fgroup"><label class="fl">Nivel</label>
+          <select class="fsel" id="c-nivel"><option>Básico</option><option>Intermedio</option><option>Avanzado</option></select>
+        </div>
+        <div class="fgroup"><label class="fl">Duración (semanas)</label><input class="fi" id="c-dur" type="number" placeholder="8" min="1"></div>
+        <div class="fgroup"><label class="fl">Instructor *</label><input class="fi" id="c-inst" placeholder="Nombre del instructor"></div>
+        <div class="fgroup"><label class="fl">Emoji / Ícono</label><input class="fi" id="c-emoji" placeholder="📖" maxlength="4"></div>
+        <div class="fgroup"><label class="fl">Color de fondo</label>
+          <select class="fsel" id="c-color">
+            <option value="rgba(122,95,192,0.25)">🟣 Púrpura</option>
+            <option value="rgba(76,175,125,0.25)">🟢 Verde</option>
+            <option value="rgba(201,146,42,0.25)">🟡 Dorado</option>
+            <option value="rgba(74,127,212,0.25)">🔵 Azul</option>
+            <option value="rgba(224,85,85,0.25)">🔴 Rojo</option>
+          </select>
+        </div>
+        <div class="fgroup"><label class="fl">Estado</label>
+          <select class="fsel" id="c-estado"><option>Activo</option><option>Borrador</option><option>Archivado</option></select>
+        </div>
+        <div class="fgroup span2"><label class="fl">Descripción</label><textarea class="fta" id="c-desc" placeholder="Describe el contenido y objetivos del curso…"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bd bsm" id="m-curso-del" style="display:none;margin-right:auto" onclick="delCurso()">🗑️ Eliminar</button>
+      <button class="btn bh" onclick="closeM('m-curso')">Cancelar</button>
+      <button class="btn bg" id="m-curso-save" onclick="saveCurso()">💾 Crear Curso</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: AGREGAR LECCIÓN -->
+<div class="ov" id="m-leccion">
+  <div class="modal">
+    <div class="mh"><div class="mtitle" id="m-lec-title">📝 Agregar Lección</div><div class="mclose" onclick="closeM('m-leccion')">✕</div></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="fgroup span2"><label class="fl">Curso *</label>
+          <select class="fsel" id="l-curso"><option value="">Seleccionar curso…</option></select>
+        </div>
+        <div class="fgroup span2"><label class="fl">Título de la Lección *</label><input class="fi" id="l-titulo" placeholder="Ej: La naturaleza divina de Cristo"></div>
+        <div class="fgroup"><label class="fl">Número de Lección</label><input class="fi" id="l-num" type="number" placeholder="1" min="1"></div>
+        <div class="fgroup"><label class="fl">Duración (min)</label><input class="fi" id="l-dur" type="number" placeholder="45" min="1"></div>
+        <div class="fgroup span2"><label class="fl">Descripción / Contenido</label><textarea class="fta" id="l-desc" placeholder="Temas, referencias bíblicas, objetivos de la lección…"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bd bsm" id="m-lec-del" style="display:none;margin-right:auto" onclick="delLeccion()">🗑️ Eliminar</button>
+      <button class="btn bh" onclick="closeM('m-leccion')">Cancelar</button>
+      <button class="btn bg" id="m-lec-save" onclick="saveLeccion()">💾 Guardar Lección</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: VER CURSO (lecciones + matricular) -->
+<div class="ov" id="m-ver-curso">
+  <div class="modal" style="max-width:620px">
+    <div class="mh"><div class="mtitle" id="mvc-title">📖 Detalle del Curso</div><div class="mclose" onclick="closeM('m-ver-curso')">✕</div></div>
+    <div class="mb">
+      <div id="mvc-info"></div>
+      <div class="fsec" style="margin-top:14px">Lecciones</div>
+      <div id="mvc-lecciones"></div>
+      <div class="fsec" style="margin-top:14px">Estudiantes Matriculados</div>
+      <div id="mvc-estudiantes"></div>
+    </div>
+    <div class="mf">
+      <button class="btn bh bsm" id="mvc-edit-btn" onclick="editCursoFromDetail()">✏️ Editar Curso</button>
+      <button class="btn bg-sm btn" onclick="addLeccionFromDetail()">📝 + Lección</button>
+      <button class="btn bg" onclick="matricularDesdeCurso()">🎓 Matricular</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MATRICULAR ESTUDIANTE -->
+<div class="ov" id="m-est">
+  <div class="modal">
+    <div class="mh"><div class="mtitle" id="m-est-title">🎓 Matricular Estudiante</div><div class="mclose" onclick="closeM('m-est')">✕</div></div>
+    <div class="mb">
+      <div class="fsec">Datos del Estudiante</div>
+      <div class="fgrid">
+        <div class="fgroup"><label class="fl">Nombre *</label><input class="fi" id="e-nombre" placeholder="Nombre"></div>
+        <div class="fgroup"><label class="fl">Apellido *</label><input class="fi" id="e-apellido" placeholder="Apellido"></div>
+        <div class="fgroup"><label class="fl">Teléfono</label><input class="fi" id="e-tel" placeholder="+1 555 000 0000" type="tel"></div>
+        <div class="fgroup"><label class="fl">Edad</label><input class="fi" id="e-edad" type="number" placeholder="25" min="5" max="120"></div>
+      </div>
+      <div class="fsec">Matrícula</div>
+      <div class="fgrid">
+        <div class="fgroup span2"><label class="fl">Curso *</label>
+          <select class="fsel" id="e-curso"><option value="">Seleccionar curso…</option></select>
+        </div>
+        <div class="fgroup"><label class="fl">Fecha de Inicio *</label><input class="fi" id="e-fecha" type="date"></div>
+        <div class="fgroup"><label class="fl">Estado</label>
+          <select class="fsel" id="e-estado"><option>Activo</option><option>Pausado</option></select>
+        </div>
+        <div class="fgroup span2"><label class="fl">Notas</label><textarea class="fta" id="e-notas" placeholder="Observaciones de ingreso…" style="min-height:55px"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bd bsm" id="m-est-del" style="display:none;margin-right:auto" onclick="delEst()">🗑️ Eliminar</button>
+      <button class="btn bh" onclick="closeM('m-est')">Cancelar</button>
+      <button class="btn bg" id="m-est-save" onclick="saveEst()">💾 Matricular</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EMITIR CERTIFICADO -->
+<div class="ov" id="m-cert">
+  <div class="modal">
+    <div class="mh"><div class="mtitle" id="m-cert-title">🏆 Emitir Certificado</div><div class="mclose" onclick="closeM('m-cert')">✕</div></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="fgroup span2"><label class="fl">Estudiante *</label>
+          <select class="fsel" id="cert-est"><option value="">Seleccionar estudiante…</option></select>
+        </div>
+        <div class="fgroup span2"><label class="fl">Curso *</label>
+          <select class="fsel" id="cert-curso"><option value="">Seleccionar curso…</option></select>
+        </div>
+        <div class="fgroup"><label class="fl">Fecha de Emisión *</label><input class="fi" id="cert-fecha" type="date"></div>
+        <div class="fgroup"><label class="fl">Calificación Final</label>
+          <select class="fsel" id="cert-cal">
+            <option>Aprobado</option><option>Sobresaliente</option><option>Con Honores</option>
+          </select>
+        </div>
+        <div class="fgroup span2"><label class="fl">Observaciones</label><textarea class="fta" id="cert-obs" placeholder="Logros destacados, menciones especiales…" style="min-height:55px"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bd bsm" id="m-cert-del" style="display:none;margin-right:auto" onclick="delCert()">🗑️ Eliminar</button>
+      <button class="btn bh" onclick="closeM('m-cert')">Cancelar</button>
+      <button class="btn bg" id="m-cert-save" onclick="saveCert()">🏆 Emitir Certificado</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  PERSISTENCIA
+// ══════════════════════════════════════════
+const DB = {
+  load(k,d){try{const v=localStorage.getItem('lemgil_ac_'+k);return v?JSON.parse(v):d;}catch{return d;}},
+  save(k,v){try{localStorage.setItem('lemgil_ac_'+k,JSON.stringify(v));}catch(e){console.warn(e);}}
+};
+
+let cursos     = DB.load('cursos',[]);
+let lecciones  = DB.load('lecciones',[]);
+let estudiantes= DB.load('estudiantes',[]);
+let certs      = DB.load('certs',[]);
+
+let editCursoId=null, editLecId=null, editEstId=null, editCertId=null;
+let viewCursoId=null;
+
+const NIVEL_BADGE={Básico:'bb',Intermedio:'by',Avanzado:'br'};
+const EST_BADGE={Activo:'bg2',Completado:'bp',Pausado:'by'};
+const CAL_BADGE={Aprobado:'bg2',Sobresaliente:'bp','Con Honores':'by'};
+
+function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function tod(){return new Date().toISOString().split('T')[0];}
+function fmt(d){if(!d)return'—';const[y,m,dy]=d.split('-');const ms=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];return`${+dy} ${ms[+m-1]} ${y}`;}
+
+// Init dates
+document.querySelectorAll('input[type=date]').forEach(el=>el.value=tod());
+
+// ══ MODALS ══
+function openM(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeM(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
+document.querySelectorAll('.ov').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeM(m.id);}));
+
+// ══ TOAST ══
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  const ic={success:'✅',error:'❌',info:'ℹ️'};
+  t.innerHTML=`<span>${ic[type]}</span> ${msg}`;
+  t.className=`toast show ${type}`;
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+// ══ TABS ══
+function showTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const ids=['cursos','estudiantes','certificados'];
+    t.classList.toggle('active',ids[i]===id);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  if(id==='estudiantes') renderEstudiantes();
+  if(id==='certificados') renderCerts();
+}
+
+// ══ KPIs ══
+function updateKPIs(){
+  document.getElementById('k-cursos').textContent=cursos.filter(c=>c.estado==='Activo').length;
+  document.getElementById('k-cursos-s').textContent=`de ${cursos.length} total`;
+  document.getElementById('k-est').textContent=estudiantes.length;
+  document.getElementById('k-cert').textContent=certs.length;
+  document.getElementById('k-lec').textContent=lecciones.length;
+}
+
+// ══ POPULATE SELECTS ══
+function populateSelects(){
+  const opts = cursos.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  ['l-curso','e-curso','cert-curso','sf-curso-est'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const prev=el.value;
+    const prefix=el.id==='sf-curso-est'?'<option value="">Todos los cursos</option>':'<option value="">Seleccionar curso…</option>';
+    el.innerHTML=prefix+opts;
+    if(prev)el.value=prev;
+  });
+  const estOpts=estudiantes.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('');
+  const certEstEl=document.getElementById('cert-est');
+  if(certEstEl){certEstEl.innerHTML='<option value="">Seleccionar estudiante…</option>'+estOpts;}
+}
+
+// ══════════════════════════
+//  CURSOS
+// ══════════════════════════
+function openNuevoCurso(){
+  editCursoId=null;
+  document.getElementById('m-curso-title').textContent='📚 Nuevo Curso';
+  document.getElementById('m-curso-save').textContent='💾 Crear Curso';
+  document.getElementById('m-curso-del').style.display='none';
+  resetModal('m-curso');
+  openM('m-curso');
+}
+
+function editCurso(id){
+  const c=cursos.find(x=>x.id===id);if(!c)return;
+  editCursoId=id;
+  document.getElementById('m-curso-title').textContent='✏️ Editar Curso';
+  document.getElementById('m-curso-save').textContent='💾 Guardar Cambios';
+  document.getElementById('m-curso-del').style.display='inline-flex';
+  document.getElementById('c-nombre').value=c.nombre;
+  document.getElementById('c-nivel').value=c.nivel;
+  document.getElementById('c-dur').value=c.duracion||'';
+  document.getElementById('c-inst').value=c.instructor;
+  document.getElementById('c-emoji').value=c.emoji||'📖';
+  document.getElementById('c-color').value=c.color||'rgba(122,95,192,0.25)';
+  document.getElementById('c-estado').value=c.estado;
+  document.getElementById('c-desc').value=c.descripcion||'';
+  openM('m-curso');
+}
+
+function editCursoFromDetail(){
+  closeM('m-ver-curso');
+  editCurso(viewCursoId);
+}
+
+function saveCurso(){
+  const nombre=document.getElementById('c-nombre').value.trim();
+  const inst=document.getElementById('c-inst').value.trim();
+  if(!nombre)return toast('El nombre del curso es obligatorio','error');
+  if(!inst)return toast('El instructor es obligatorio','error');
+  const data={
+    nombre,instructor:inst,
+    nivel:document.getElementById('c-nivel').value,
+    duracion:document.getElementById('c-dur').value||'',
+    emoji:document.getElementById('c-emoji').value||'📖',
+    color:document.getElementById('c-color').value,
+    estado:document.getElementById('c-estado').value,
+    descripcion:document.getElementById('c-desc').value.trim()
+  };
+  if(editCursoId){
+    const idx=cursos.findIndex(x=>x.id===editCursoId);
+    cursos[idx]={...cursos[idx],...data};
+    toast(`Curso "${nombre}" actualizado ✅`);
+  } else {
+    cursos.push({id:gid(),creado:tod(),...data});
+    toast(`Curso "${nombre}" creado 📚`);
+  }
+  editCursoId=null;
+  DB.save('cursos',cursos);
+  updateKPIs();populateSelects();renderCursos();closeM('m-curso');resetModal('m-curso');
+}
+
+function delCurso(){
+  if(!editCursoId)return;
+  const c=cursos.find(x=>x.id===editCursoId);
+  cursos=cursos.filter(x=>x.id!==editCursoId);
+  lecciones=lecciones.filter(x=>x.cursoId!==editCursoId);
+  editCursoId=null;
+  DB.save('cursos',cursos);DB.save('lecciones',lecciones);
+  updateKPIs();populateSelects();renderCursos();closeM('m-curso');
+  toast(`Curso "${c?.nombre}" eliminado`,'info');
+}
+
+function renderCursos(){
+  const q=document.getElementById('sq-cursos').value.toLowerCase();
+  const niv=document.getElementById('sf-nivel').value;
+  let data=cursos.filter(c=>{
+    return(!q||c.nombre.toLowerCase().includes(q)||c.instructor.toLowerCase().includes(q))
+        &&(!niv||c.nivel===niv);
+  });
+  const cont=document.getElementById('cursos-container');
+  if(!data.length){
+    cont.innerHTML=cursos.length
+      ?'<div class="empty"><div class="eico">🔍</div><div class="etit">Sin resultados</div><div class="esub">Prueba otros filtros</div></div>'
+      :'<div class="empty"><div class="eico">📚</div><div class="etit">Sin cursos aún</div><div class="esub">Crea el primer curso de la Academia</div></div>';
+    return;
+  }
+  cont.innerHTML='<div class="course-grid">'+data.map(c=>{
+    const lecs=lecciones.filter(l=>l.cursoId===c.id);
+    const ests=estudiantes.filter(e=>e.cursoId===c.id);
+    return `<div class="course-card">
+      <div class="course-thumb" style="background:${c.color||'rgba(122,95,192,0.25)'}">
+        ${c.emoji||'📖'}
+        <div style="position:absolute;top:8px;right:8px"><span class="badge ${NIVEL_BADGE[c.nivel]||'bb'}">${c.nivel}</span></div>
+        ${c.estado!=='Activo'?`<div style="position:absolute;top:8px;left:8px"><span class="badge by">${c.estado}</span></div>`:''}
+      </div>
+      <div class="course-body">
+        <div class="course-title">${c.nombre}</div>
+        <div class="course-meta">👤 ${c.instructor}${c.duracion?` · ${c.duracion} sem`:''}  ·  📝 ${lecs.length} lecciones  ·  🎓 ${ests.length} estudiantes</div>
+        ${c.descripcion?`<div style="font-size:12px;color:var(--dim);margin-bottom:8px;line-height:1.5">${c.descripcion.slice(0,80)}${c.descripcion.length>80?'…':''}</div>`:''}
+        <div class="prog-bar"><div class="prog-fill" style="width:${lecs.length?Math.min(100,lecs.length*8):0}%;background:var(--purple)"></div></div>
+        <div class="course-actions">
+          <button class="btn bh bsm" onclick="verCurso('${c.id}')">👁 Ver</button>
+          <button class="btn bh bsm" onclick="editCurso('${c.id}')">✏️ Editar</button>
+          <button class="btn bg-sm btn bsm" onclick="preMatricular('${c.id}')">🎓 Matricular</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ══ VER CURSO DETALLE ══
+function verCurso(id){
+  const c=cursos.find(x=>x.id===id);if(!c)return;
+  viewCursoId=id;
+  document.getElementById('mvc-title').textContent=`${c.emoji||'📖'} ${c.nombre}`;
+  document.getElementById('mvc-info').innerHTML=`
+    <div class="drow"><span class="dlabel">Instructor</span><span class="dval">${c.instructor}</span></div>
+    <div class="drow"><span class="dlabel">Nivel</span><span class="dval"><span class="badge ${NIVEL_BADGE[c.nivel]}">${c.nivel}</span></span></div>
+    <div class="drow"><span class="dlabel">Duración</span><span class="dval">${c.duracion?c.duracion+' semanas':'—'}</span></div>
+    <div class="drow"><span class="dlabel">Estado</span><span class="dval"><span class="badge ${c.estado==='Activo'?'bg2':'by'}">${c.estado}</span></span></div>
+    ${c.descripcion?`<div class="drow"><span class="dlabel">Descripción</span><span class="dval" style="font-size:12px;color:var(--dim)">${c.descripcion}</span></div>`:''}`;
+
+  const lecs=lecciones.filter(l=>l.cursoId===id).sort((a,b)=>a.numero-b.numero);
+  const lecEl=document.getElementById('mvc-lecciones');
+  if(!lecs.length){
+    lecEl.innerHTML='<div style="color:var(--dim);font-size:13px;padding:10px 0">No hay lecciones. Agrega la primera.</div>';
+  } else {
+    lecEl.innerHTML=lecs.map(l=>`
+      <div class="lesson-item">
+        <div class="lesson-num">${l.numero||'?'}</div>
+        <div class="lesson-title">${l.titulo}${l.duracion?` <span style="font-size:10px;color:var(--dim)">· ${l.duracion}min</span>`:''}</div>
+        <button class="btn bh bsm" onclick="editLeccion('${l.id}')">✏️</button>
+      </div>`).join('');
+  }
+
+  const ests=estudiantes.filter(e=>e.cursoId===id);
+  const estEl=document.getElementById('mvc-estudiantes');
+  if(!ests.length){
+    estEl.innerHTML='<div style="color:var(--dim);font-size:13px;padding:10px 0">Sin estudiantes matriculados.</div>';
+  } else {
+    estEl.innerHTML=ests.map(e=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--d5);border-radius:7px;margin-bottom:5px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${e.nombre} ${e.apellido}</div>
+          <div style="font-size:11px;color:var(--dim)">Desde ${fmt(e.fecha)}</div>
+        </div>
+        <span class="badge ${EST_BADGE[e.estado]||'bb'}">${e.estado}</span>
+      </div>`).join('');
+  }
+  openM('m-ver-curso');
+}
+
+function preMatricular(cursoId){
+  openNuevoEst();
+  setTimeout(()=>{document.getElementById('e-curso').value=cursoId;},50);
+}
+
+function matricularDesdeCurso(){
+  closeM('m-ver-curso');
+  preMatricular(viewCursoId);
+}
+
+function addLeccionFromDetail(){
+  closeM('m-ver-curso');
+  openNuevaLeccion();
+  setTimeout(()=>{document.getElementById('l-curso').value=viewCursoId;},50);
+}
+
+// ══════════════════════════
+//  LECCIONES
+// ══════════════════════════
+function openNuevaLeccion(){
+  editLecId=null;
+  document.getElementById('m-lec-title').textContent='📝 Agregar Lección';
+  document.getElementById('m-lec-save').textContent='💾 Guardar Lección';
+  document.getElementById('m-lec-del').style.display='none';
+  resetModal('m-leccion');
+  openM('m-leccion');
+}
+
+function editLeccion(id){
+  const l=lecciones.find(x=>x.id===id);if(!l)return;
+  editLecId=id;
+  document.getElementById('m-lec-title').textContent='✏️ Editar Lección';
+  document.getElementById('m-lec-save').textContent='💾 Guardar Cambios';
+  document.getElementById('m-lec-del').style.display='inline-flex';
+  document.getElementById('l-curso').value=l.cursoId;
+  document.getElementById('l-titulo').value=l.titulo;
+  document.getElementById('l-num').value=l.numero||'';
+  document.getElementById('l-dur').value=l.duracion||'';
+  document.getElementById('l-desc').value=l.descripcion||'';
+  closeM('m-ver-curso');
+  openM('m-leccion');
+}
+
+function saveLeccion(){
+  const cursoId=document.getElementById('l-curso').value;
+  const titulo=document.getElementById('l-titulo').value.trim();
+  if(!cursoId)return toast('Selecciona un curso','error');
+  if(!titulo)return toast('El título es obligatorio','error');
+  const data={
+    cursoId,titulo,
+    numero:parseInt(document.getElementById('l-num').value)||lecciones.filter(l=>l.cursoId===cursoId).length+1,
+    duracion:parseInt(document.getElementById('l-dur').value)||null,
+    descripcion:document.getElementById('l-desc').value.trim()
+  };
+  if(editLecId){
+    const idx=lecciones.findIndex(x=>x.id===editLecId);
+    lecciones[idx]={...lecciones[idx],...data};
+    toast(`Lección "${titulo}" actualizada ✅`);
+  } else {
+    lecciones.push({id:gid(),creado:tod(),...data});
+    toast(`Lección "${titulo}" agregada 📝`);
+  }
+  editLecId=null;
+  DB.save('lecciones',lecciones);
+  updateKPIs();renderCursos();closeM('m-leccion');resetModal('m-leccion');
+}
+
+function delLeccion(){
+  if(!editLecId)return;
+  const l=lecciones.find(x=>x.id===editLecId);
+  lecciones=lecciones.filter(x=>x.id!==editLecId);
+  editLecId=null;
+  DB.save('lecciones',lecciones);
+  updateKPIs();renderCursos();closeM('m-leccion');
+  toast(`Lección "${l?.titulo}" eliminada`,'info');
+}
+
+// ══════════════════════════
+//  ESTUDIANTES
+// ══════════════════════════
+function openNuevoEst(){
+  editEstId=null;
+  document.getElementById('m-est-title').textContent='🎓 Matricular Estudiante';
+  document.getElementById('m-est-save').textContent='💾 Matricular';
+  document.getElementById('m-est-del').style.display='none';
+  resetModal('m-est');
+  document.getElementById('e-fecha').value=tod();
+  openM('m-est');
+}
+
+function editEst(id){
+  const e=estudiantes.find(x=>x.id===id);if(!e)return;
+  editEstId=id;
+  document.getElementById('m-est-title').textContent='✏️ Editar Estudiante';
+  document.getElementById('m-est-save').textContent='💾 Guardar Cambios';
+  document.getElementById('m-est-del').style.display='inline-flex';
+  document.getElementById('e-nombre').value=e.nombre;
+  document.getElementById('e-apellido').value=e.apellido;
+  document.getElementById('e-tel').value=e.telefono||'';
+  document.getElementById('e-edad').value=e.edad||'';
+  document.getElementById('e-curso').value=e.cursoId;
+  document.getElementById('e-fecha').value=e.fecha;
+  document.getElementById('e-estado').value=e.estado;
+  document.getElementById('e-notas').value=e.notas||'';
+  openM('m-est');
+}
+
+function saveEst(){
+  const nombre=document.getElementById('e-nombre').value.trim();
+  const apellido=document.getElementById('e-apellido').value.trim();
+  const cursoId=document.getElementById('e-curso').value;
+  const fecha=document.getElementById('e-fecha').value;
+  if(!nombre||!apellido)return toast('Nombre y apellido son obligatorios','error');
+  if(!cursoId)return toast('Selecciona un curso','error');
+  if(!fecha)return toast('La fecha es obligatoria','error');
+  const data={
+    nombre,apellido,cursoId,fecha,
+    telefono:document.getElementById('e-tel').value.trim(),
+    edad:document.getElementById('e-edad').value,
+    estado:document.getElementById('e-estado').value,
+    notas:document.getElementById('e-notas').value.trim()
+  };
+  if(editEstId){
+    const idx=estudiantes.findIndex(x=>x.id===editEstId);
+    estudiantes[idx]={...estudiantes[idx],...data};
+    toast(`${nombre} ${apellido} actualizado/a ✅`);
+  } else {
+    estudiantes.push({id:gid(),creado:tod(),...data});
+    toast(`${nombre} ${apellido} matriculado/a 🎓`);
+  }
+  editEstId=null;
+  DB.save('estudiantes',estudiantes);
+  updateKPIs();populateSelects();renderEstudiantes();renderCursos();closeM('m-est');resetModal('m-est');
+}
+
+function delEst(){
+  if(!editEstId)return;
+  const e=estudiantes.find(x=>x.id===editEstId);
+  estudiantes=estudiantes.filter(x=>x.id!==editEstId);
+  editEstId=null;
+  DB.save('estudiantes',estudiantes);
+  updateKPIs();populateSelects();renderEstudiantes();renderCursos();closeM('m-est');
+  toast(`${e?.nombre} ${e?.apellido} eliminado/a`,'info');
+}
+
+function renderEstudiantes(){
+  const q=document.getElementById('sq-est').value.toLowerCase();
+  const sc=document.getElementById('sf-curso-est').value;
+  const se=document.getElementById('sf-estado-est').value;
+  let data=estudiantes.filter(e=>{
+    const full=`${e.nombre} ${e.apellido} ${e.telefono||''}`.toLowerCase();
+    return(!q||full.includes(q))&&(!sc||e.cursoId===sc)&&(!se||e.estado===se);
+  });
+  document.getElementById('est-cnt').textContent=`${estudiantes.length} estudiante${estudiantes.length!==1?'s':''}`;
+  const cont=document.getElementById('est-container');
+  if(!data.length){
+    cont.innerHTML=estudiantes.length
+      ?'<div class="empty" style="padding:28px"><div class="eico">🔍</div><div class="etit">Sin resultados</div></div>'
+      :'<div class="empty" style="padding:28px"><div class="eico" style="font-size:28px">🎓</div><div class="etit" style="font-size:13px">Sin estudiantes aún</div></div>';
+    return;
+  }
+  cont.innerHTML=`<table class="tbl">
+    <thead><tr><th>#</th><th>Nombre</th><th>Curso</th><th>Inicio</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody>${data.map((e,i)=>{
+      const curso=cursos.find(c=>c.id===e.cursoId);
+      return `<tr>
+        <td style="color:var(--dim)">${i+1}</td>
+        <td><strong>${e.nombre} ${e.apellido}</strong>${e.telefono?`<br><span style="font-size:10px;color:var(--dim)">${e.telefono}</span>`:''}</td>
+        <td>${curso?`${curso.emoji||'📖'} ${curso.nombre}`:'—'}</td>
+        <td>${fmt(e.fecha)}</td>
+        <td><span class="badge ${EST_BADGE[e.estado]||'bb'}">${e.estado}</span></td>
+        <td><div style="display:flex;gap:5px">
+          <button class="btn bh bsm" onclick="editEst('${e.id}')">✏️ Editar</button>
+          <button class="btn bg-sm btn bsm" onclick="emitirCertDesdEst('${e.id}')">🏆 Cert.</button>
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function emitirCertDesdEst(estId){
+  const e=estudiantes.find(x=>x.id===estId);if(!e)return;
+  openNuevoCert();
+  setTimeout(()=>{
+    document.getElementById('cert-est').value=estId;
+    document.getElementById('cert-curso').value=e.cursoId;
+  },50);
+}
+
+// ══════════════════════════
+//  CERTIFICADOS
+// ══════════════════════════
+function openNuevoCert(){
+  editCertId=null;
+  document.getElementById('m-cert-title').textContent='🏆 Emitir Certificado';
+  document.getElementById('m-cert-save').textContent='🏆 Emitir Certificado';
+  document.getElementById('m-cert-del').style.display='none';
+  resetModal('m-cert');
+  document.getElementById('cert-fecha').value=tod();
+  openM('m-cert');
+}
+
+function editCert(id){
+  const c=certs.find(x=>x.id===id);if(!c)return;
+  editCertId=id;
+  document.getElementById('m-cert-title').textContent='✏️ Editar Certificado';
+  document.getElementById('m-cert-save').textContent='💾 Guardar Cambios';
+  document.getElementById('m-cert-del').style.display='inline-flex';
+  document.getElementById('cert-est').value=c.estId;
+  document.getElementById('cert-curso').value=c.cursoId;
+  document.getElementById('cert-fecha').value=c.fecha;
+  document.getElementById('cert-cal').value=c.calificacion;
+  document.getElementById('cert-obs').value=c.observaciones||'';
+  openM('m-cert');
+}
+
+function saveCert(){
+  const estId=document.getElementById('cert-est').value;
+  const cursoId=document.getElementById('cert-curso').value;
+  const fecha=document.getElementById('cert-fecha').value;
+  if(!estId)return toast('Selecciona un estudiante','error');
+  if(!cursoId)return toast('Selecciona un curso','error');
+  if(!fecha)return toast('La fecha es obligatoria','error');
+  const data={estId,cursoId,fecha,
+    calificacion:document.getElementById('cert-cal').value,
+    observaciones:document.getElementById('cert-obs').value.trim()
+  };
+  if(editCertId){
+    const idx=certs.findIndex(x=>x.id===editCertId);
+    certs[idx]={...certs[idx],...data};
+    toast('Certificado actualizado ✅');
+  } else {
+    // mark estudiante as completado
+    const est=estudiantes.find(e=>e.id===estId);
+    if(est){est.estado='Completado';DB.save('estudiantes',estudiantes);}
+    certs.push({id:gid(),emitido:tod(),...data});
+    toast('¡Certificado emitido! 🏆');
+  }
+  editCertId=null;
+  DB.save('certs',certs);
+  updateKPIs();renderEstudiantes();renderCerts();closeM('m-cert');resetModal('m-cert');
+}
+
+function delCert(){
+  if(!editCertId)return;
+  certs=certs.filter(x=>x.id!==editCertId);
+  editCertId=null;
+  DB.save('certs',certs);
+  updateKPIs();renderCerts();closeM('m-cert');
+  toast('Certificado eliminado','info');
+}
+
+function renderCerts(){
+  document.getElementById('cert-cnt').textContent=`${certs.length} certificado${certs.length!==1?'s':''}`;
+  const cont=document.getElementById('cert-container');
+  if(!certs.length){
+    cont.innerHTML='<div class="empty" style="padding:28px"><div class="eico" style="font-size:28px">🏆</div><div class="etit" style="font-size:13px">Sin certificados aún</div></div>';
+    return;
+  }
+  cont.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">'+
+    certs.map(c=>{
+      const est=estudiantes.find(e=>e.id===c.estId);
+      const curso=cursos.find(x=>x.id===c.cursoId);
+      return `<div class="cert-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="cert-name">${est?`${est.nombre} ${est.apellido}`:'—'}</div>
+            <div class="cert-course">${curso?`${curso.emoji||'📖'} ${curso.nombre}`:'—'}</div>
+            <div class="cert-date">📅 ${fmt(c.fecha)}</div>
+          </div>
+          <span class="badge ${CAL_BADGE[c.calificacion]||'bg2'}" style="margin-top:4px">${c.calificacion}</span>
+        </div>
+        ${c.observaciones?`<div style="font-size:11px;color:var(--dim);margin-top:8px">${c.observaciones}</div>`:''}
+        <div style="margin-top:10px">
+          <button class="btn bh bsm" onclick="editCert('${c.id}')">✏️ Editar</button>
+        </div>
+      </div>`;
+    }).join('')+'</div>';
+}
+
+// ══ RESET MODAL ══
+function resetModal(id){
+  const m=document.getElementById(id);
+  m.querySelectorAll('input:not([type=date])').forEach(e=>e.value='');
+  m.querySelectorAll('textarea').forEach(e=>e.value='');
+  m.querySelectorAll('select').forEach(e=>e.selectedIndex=0);
+  m.querySelectorAll('input[type=date]').forEach(e=>e.value=tod());
+}
+
+// ══ INIT ══
+updateKPIs();
+populateSelects();
+renderCursos();
+renderEstudiantes();
+renderCerts();
+</script>
+</body>
+</html>

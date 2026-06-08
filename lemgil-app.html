@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LemGil – Ministerio Apostólico</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #C9922A;
+    --gold-light: #E8B84B;
+    --gold-glow: rgba(201,146,42,0.25);
+    --dark: #0A0C10;
+    --dark2: #111318;
+    --dark3: #181C24;
+    --dark4: #1F242E;
+    --border: rgba(201,146,42,0.18);
+    --text: #E8E4DA;
+    --text-dim: #8A8478;
+    --red: #E05555;
+    --green: #4CAF7D;
+    --yellow: #E8B84B;
+    --blue: #4A7FD4;
+    --purple: #7A5FC0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: 240px;
+    background: var(--dark2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    z-index: 100;
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar-logo {
+    padding: 28px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-mark {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 3px;
+    text-shadow: 0 0 20px var(--gold-glow);
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 16px 0;
+    overflow-y: auto;
+  }
+
+  .nav-section-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 12px 20px 6px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    position: relative;
+  }
+
+  .nav-item:hover {
+    background: var(--dark3);
+    color: var(--text);
+    border-left-color: var(--gold-light);
+  }
+
+  .nav-item.active {
+    background: linear-gradient(90deg, rgba(201,146,42,0.12), transparent);
+    color: var(--gold-light);
+    border-left-color: var(--gold);
+  }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--red);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .user-card {
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), #8B5E1A);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--dark);
+    flex-shrink: 0;
+  }
+
+  .user-info .name { font-size: 13px; font-weight: 700; }
+  .user-info .role { font-size: 11px; color: var(--gold); }
+
+  /* === MAIN CONTENT === */
+  .main {
+    margin-left: 240px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  .topbar {
+    height: 60px;
+    background: var(--dark2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px;
+    position: sticky; top: 0; z-index: 50;
+  }
+
+  .page-title {
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+
+  .status-dot {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--green);
+  }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .notif-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--dark3);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; position: relative;
+  }
+
+  .notif-count {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--red); color: #fff;
+    font-size: 9px; font-weight: 700;
+    width: 16px; height: 16px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* === PAGES === */
+  .page { display: none; padding: 28px; animation: fadeIn 0.3s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* === DASHBOARD === */
+  .dashboard-header {
+    margin-bottom: 24px;
+  }
+
+  .greeting {
+    font-family: 'Cinzel', serif;
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .greeting-sub { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--dark3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .kpi-card:hover { transform: translateY(-2px); border-color: var(--gold); }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent-color, var(--gold));
+  }
+
+  .kpi-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
+  .kpi-value { font-family: 'Cinzel', serif; font-size: 32px; font-weight: 700; margin: 6px 0 2px; }
+  .kpi-change { font-size: 12px; }
+  .kpi-change.up { color: var(--green); }
+  .kpi-change.down { color: var(--red); }
+  .kpi-icon { position: absolute; top: 16px; right: 16px; font-size: 24px; opacity: 0.3; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .row3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+  .card {
+    background: var(--dark3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .card-title {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gold-light);
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* === SEMÁFORO === */
+  .semaforo {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+
+  .semaforo-item {
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .semaforo-item.green { background: rgba(76,175,125,0.12); border: 1px solid rgba(76,175,125,0.3); }
+  .semaforo-item.yellow { background: rgba(232,184,75,0.12); border: 1px solid rgba(232,184,75,0.3); }
+  .semaforo-item.red { background: rgba(224,85,85,0.12); border: 1px solid rgba(224,85,85,0.3); }
+
+  .semaforo-dot { font-size: 20px; display: block; margin-bottom: 6px; }
+  .semaforo-label { font-size: 11px; font-weight: 700; }
+  .semaforo-item.green .semaforo-label { color: var(--green); }
+  .semaforo-item.yellow .semaforo-label { color: var(--yellow); }
+  .semaforo-item.red .semaforo-label { color: var(--red); }
+  .semaforo-count { font-family: 'Cinzel', serif; font-size: 22px; font-weight: 700; }
+  .semaforo-sub { font-size: 10px; color: var(--text-dim); }
+
+  /* === BAR CHART === */
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
+
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+
+  .bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.8s ease;
+    min-height: 4px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .bar:hover::after {
+    content: attr(data-val);
+    position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+    background: var(--dark); border: 1px solid var(--border);
+    font-size: 10px; padding: 2px 6px; border-radius: 4px;
+    white-space: nowrap; color: var(--gold-light);
+  }
+
+  .bar-label { font-size: 10px; color: var(--text-dim); }
+
+  /* === ACTIVITY LIST === */
+  .activity-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .activity-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px;
+    background: var(--dark4);
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .activity-item:hover { border-color: var(--border); }
+
+  .activity-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .activity-text { flex: 1; }
+  .activity-text .title { font-size: 13px; font-weight: 600; }
+  .activity-text .meta { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  .activity-time { font-size: 11px; color: var(--text-dim); }
+
+  /* === ALERTAS === */
+  .alert-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .alert-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+  }
+
+  .alert-item.warn { background: rgba(232,184,75,0.1); border-left: 3px solid var(--yellow); }
+  .alert-item.danger { background: rgba(224,85,85,0.1); border-left: 3px solid var(--red); }
+  .alert-item.info { background: rgba(74,127,212,0.1); border-left: 3px solid var(--blue); }
+
+  /* === PROGRESS BARS === */
+  .progress-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .progress-item .prog-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+  .prog-bar { height: 6px; background: var(--dark4); border-radius: 3px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+  /* === MÓDULO GENERAL === */
+  .module-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .module-icon-big {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    border: 1px solid var(--border);
+  }
+
+  .module-title { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700; }
+  .module-desc { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+
+  .actions-row {
+    display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; border: none;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold), #8B5E1A);
+    color: var(--dark);
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--gold-glow); }
+
+  .btn-secondary {
+    background: var(--dark4);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover { border-color: var(--gold); color: var(--gold-light); }
+
+  /* === TABLE === */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table th {
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--text-dim); padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table td {
+    padding: 12px 14px; font-size: 13px;
+    border-bottom: 1px solid rgba(201,146,42,0.06);
+    transition: background 0.2s;
+  }
+
+  .data-table tr:hover td { background: var(--dark4); }
+
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+  }
+
+  .badge-green { background: rgba(76,175,125,0.15); color: var(--green); }
+  .badge-yellow { background: rgba(232,184,75,0.15); color: var(--yellow); }
+  .badge-red { background: rgba(224,85,85,0.15); color: var(--red); }
+  .badge-blue { background: rgba(74,127,212,0.15); color: var(--blue); }
+  .badge-purple { background: rgba(122,95,192,0.15); color: var(--purple); }
+
+  /* === CURSO CARDS === */
+  .courses-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+
+  .course-card {
+    background: var(--dark4);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .course-card:hover { transform: translateY(-3px); border-color: var(--gold); }
+
+  .course-thumb {
+    height: 100px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+
+  .course-body { padding: 14px; }
+  .course-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .course-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+
+  .mini-prog { height: 4px; background: var(--dark3); border-radius: 2px; }
+  .mini-prog-fill { height: 100%; border-radius: 2px; background: var(--gold); }
+
+  /* === COMUNICACIÓN === */
+  .content-calendar {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+  }
+
+  .cal-day {
+    background: var(--dark4); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px; text-align: center;
+    min-height: 70px; cursor: pointer; transition: border-color 0.2s;
+  }
+
+  .cal-day:hover { border-color: var(--gold); }
+  .cal-day.has-content { border-color: rgba(201,146,42,0.4); }
+  .cal-day.today { border-color: var(--gold); background: var(--gold-glow); }
+
+  .cal-day-num { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+  .cal-dot { width: 6px; height: 6px; border-radius: 50%; margin: 2px auto; }
+
+  /* === DADORES === */
+  .dadores-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+
+  .dador-card {
+    background: var(--dark4); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .dador-card:hover { border-color: var(--gold); }
+
+  .dador-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+
+  .dador-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: var(--dark);
+  }
+
+  .dador-name { font-weight: 700; font-size: 14px; }
+  .dador-level { font-size: 11px; color: var(--gold); }
+
+  .dador-stat { display: flex; justify-content: space-between; font-size: 12px; margin-top: 6px; }
+  .dador-stat .val { font-weight: 700; color: var(--gold-light); }
+
+  /* === MOBILE TOGGLE === */
+  .mobile-toggle {
+    display: none;
+    position: fixed; top: 14px; left: 14px; z-index: 200;
+    width: 38px; height: 38px; border-radius: 8px;
+    background: var(--dark3); border: 1px solid var(--border);
+    align-items: center; justify-content: center;
+    font-size: 18px; cursor: pointer;
+  }
+
+  @media (max-width: 900px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; }
+    .mobile-toggle { display: flex; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .row2, .row3 { grid-template-columns: 1fr; }
+    .courses-grid { grid-template-columns: repeat(2, 1fr); }
+    .dadores-grid { grid-template-columns: 1fr; }
+    .content-calendar { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  /* === STAT RINGS === */
+  .ring-container { display: flex; justify-content: center; align-items: center; padding: 16px 0; }
+
+  svg.ring { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--dark4); stroke-width: 8; }
+  .ring-fill { fill: none; stroke-width: 8; stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease; }
+
+  .ring-text { text-anchor: middle; dominant-baseline: middle;
+    font-family: 'Cinzel', serif; fill: var(--gold-light); }
+
+  /* Overlay for mobile */
+  .overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 90;
+  }
+  .overlay.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">LEMGIL</div>
+    <div class="logo-sub">Ministerio Apostólico</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Principal</div>
+    <div class="nav-item active" onclick="showPage('dashboard', this)">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+
+    <div class="nav-section-label">Ministerio</div>
+    <div class="nav-item" onclick="showPage('mision', this)">
+      <span class="nav-icon">🌍</span> Misión Bíblica
+      <span class="nav-badge">3</span>
+    </div>
+    <div class="nav-item" onclick="showPage('academia', this)">
+      <span class="nav-icon">📖</span> Academia
+    </div>
+    <div class="nav-item" onclick="showPage('social', this)">
+      <span class="nav-icon">🤲</span> Manos Abiertas
+    </div>
+    <div class="nav-item" onclick="showPage('negocios', this)">
+      <span class="nav-icon">💼</span> Negocios Adonay
+    </div>
+
+    <div class="nav-section-label">Operaciones</div>
+    <div class="nav-item" onclick="showPage('comunicacion', this)">
+      <span class="nav-icon">📡</span> Comunicación
+    </div>
+    <div class="nav-item" onclick="showPage('dadores', this)">
+      <span class="nav-icon">💰</span> Red de Dadores
+    </div>
+    <div class="nav-item" onclick="showPage('reportes', this)">
+      <span class="nav-icon">🔄</span> Reportes
+      <span class="nav-badge">2</span>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="avatar">LG</div>
+      <div class="user-info">
+        <div class="name">LemGil</div>
+        <div class="role">👑 Apóstol</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="pageTitle">Dashboard Principal</div>
+    <div class="topbar-right">
+      <div class="status-dot"><div class="dot"></div> Sistema activo</div>
+      <div class="notif-btn">🔔<div class="notif-count">5</div></div>
+    </div>
+  </div>
+
+  <!-- ===== DASHBOARD ===== -->
+  <div class="page active" id="page-dashboard">
+
+    <div class="dashboard-header">
+      <div class="greeting">Bienvenido, LemGil</div>
+      <div class="greeting-sub">Viernes, 1 de mayo de 2026 &nbsp;·&nbsp; Semana 18 del año ministerial</div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--accent-color:#4CAF7D">
+        <div class="kpi-label">Miembros Activos</div>
+        <div class="kpi-value" style="color:var(--green)">347</div>
+        <div class="kpi-change up">▲ +12 este mes</div>
+        <div class="kpi-icon">👥</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#E8B84B">
+        <div class="kpi-label">Grupos de Discipulado</div>
+        <div class="kpi-value" style="color:var(--yellow)">24</div>
+        <div class="kpi-change up">▲ +3 nuevos</div>
+        <div class="kpi-icon">🌍</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#C9922A">
+        <div class="kpi-label">Sostenimiento Mensual</div>
+        <div class="kpi-value" style="color:var(--gold-light)">$4,820</div>
+        <div class="kpi-change up">▲ +8.2%</div>
+        <div class="kpi-icon">💰</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#7A5FC0">
+        <div class="kpi-label">Estudiantes Academia</div>
+        <div class="kpi-value" style="color:var(--purple)">89</div>
+        <div class="kpi-change up">▲ +15 matriculados</div>
+        <div class="kpi-icon">📖</div>
+      </div>
+    </div>
+
+    <div class="row3">
+      <div class="card">
+        <div class="card-title">📈 Crecimiento Ministerial — Mayo 2026</div>
+        <div class="bar-chart">
+          <div class="bar-wrap">
+            <div class="bar" style="height:55%;background:linear-gradient(180deg,var(--gold),var(--gold-glow))" data-val="Conversiones: 18"></div>
+            <div class="bar-label">Ene</div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar" style="height:62%;background:linear-gradient(180deg,var(--gold),var(--gold-glow))" data-val="Conversiones: 21"></div>
+            <div class="bar-label">Feb</div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar" style="height:70%;background:linear-gradient(180deg,var(--gold),var(--gold-glow))" data-val="Conversiones: 24"></div>
+            <div class="bar-label">Mar</div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar" style="height:58%;background:linear-gradient(180deg,var(--gold),var(--gold-glow))" data-val="Conversiones: 19"></div>
+            <div class="bar-label">Abr</div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar" style="height:85%;background:linear-gradient(180deg,#4CAF7D,rgba(76,175,125,0.2))" data-val="Conversiones: 29"></div>
+            <div class="bar-label">May</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🚦 Semáforo Ministerial</div>
+        <div class="semaforo">
+          <div class="semaforo-item green">
+            <span class="semaforo-dot">🟢</span>
+            <div class="semaforo-count">18</div>
+            <div class="semaforo-label">Activos</div>
+            <div class="semaforo-sub">áreas</div>
+          </div>
+          <div class="semaforo-item yellow">
+            <span class="semaforo-dot">🟡</span>
+            <div class="semaforo-count">5</div>
+            <div class="semaforo-label">Alerta</div>
+            <div class="semaforo-sub">áreas</div>
+          </div>
+          <div class="semaforo-item red">
+            <span class="semaforo-dot">🔴</span>
+            <div class="semaforo-count">2</div>
+            <div class="semaforo-label">Críticos</div>
+            <div class="semaforo-sub">áreas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <div class="card-title">⚡ Actividad Reciente</div>
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-icon" style="background:rgba(76,175,125,0.15)">🌍</div>
+            <div class="activity-text">
+              <div class="title">3 conversiones registradas — Zona Norte</div>
+              <div class="meta">Liderado por Hermano Marcos</div>
+            </div>
+            <div class="activity-time">hace 2h</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background:rgba(122,95,192,0.15)">📖</div>
+            <div class="activity-text">
+              <div class="title">Módulo 4 completado — Cristología</div>
+              <div class="meta">12 estudiantes aprobaron</div>
+            </div>
+            <div class="activity-time">hace 5h</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background:rgba(201,146,42,0.15)">💰</div>
+            <div class="activity-text">
+              <div class="title">Ofrenda recibida — $340</div>
+              <div class="meta">Red de dadores — 8 nuevas contribuciones</div>
+            </div>
+            <div class="activity-time">ayer</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background:rgba(74,127,212,0.15)">🤲</div>
+            <div class="activity-text">
+              <div class="title">Campaña Alimentaria — 45 familias</div>
+              <div class="meta">Manos Abiertas — Sector Sur</div>
+            </div>
+            <div class="activity-time">ayer</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚠️ Alertas del Sistema</div>
+        <div class="alert-list">
+          <div class="alert-item danger">
+            🔴 2 reportes de líderes vencidos — Zona Este y Sur
+          </div>
+          <div class="alert-item warn">
+            🟡 Sostenimiento Zona Oeste: 68% de meta mensual
+          </div>
+          <div class="alert-item warn">
+            🟡 5 estudiantes sin avance en 2 semanas
+          </div>
+          <div class="alert-item info">
+            🔵 Próximo evento: Reunión apostólica — 5 mayo
+          </div>
+          <div class="alert-item info">
+            🔵 Nueva versión del curriculum disponible
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Metas Anuales — Progreso</div>
+      <div class="progress-list">
+        <div class="progress-item">
+          <div class="prog-header"><span>👥 Membresía: 500 miembros</span><span style="color:var(--gold)">347 / 500 · 69%</span></div>
+          <div class="prog-bar"><div class="prog-fill" style="width:69%;background:var(--green)"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="prog-header"><span>🎓 Academia: 150 graduados</span><span style="color:var(--gold)">89 / 150 · 59%</span></div>
+          <div class="prog-bar"><div class="prog-fill" style="width:59%;background:var(--purple)"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="prog-header"><span>💰 Sostenimiento: $8,000/mes</span><span style="color:var(--gold)">$4,820 / $8,000 · 60%</span></div>
+          <div class="prog-bar"><div class="prog-fill" style="width:60%;background:var(--gold)"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="prog-header"><span>🤲 Familias impactadas: 200</span><span style="color:var(--gold)">134 / 200 · 67%</span></div>
+          <div class="prog-bar"><div class="prog-fill" style="width:67%;background:var(--blue)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MISIÓN BÍBLICA ===== -->
+  <div class="page" id="page-mision">
+    <div class="module-header">
+      <div class="module-icon-big" style="background:rgba(76,175,125,0.1)">🌍</div>
+      <div>
+        <div class="module-title">Misión Bíblica</div>
+        <div class="module-desc">Conversiones · Discipulado · Plantación de grupos</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary">➕ Nueva Conversión</button>
+      <button class="btn btn-secondary">👥 Nuevo Grupo</button>
+      <button class="btn btn-secondary">📋 Ver Seguimiento</button>
+    </div>
+    <div class="kpi-grid" style="margin-bottom:24px">
+      <div class="kpi-card" style="--accent-color:#4CAF7D">
+        <div class="kpi-label">Conversiones — 2026</div>
+        <div class="kpi-value" style="color:var(--green)">111</div>
+        <div class="kpi-change up">▲ +29 este mes</div>
+        <div class="kpi-icon">✝️</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#E8B84B">
+        <div class="kpi-label">Grupos Activos</div>
+        <div class="kpi-value" style="color:var(--yellow)">24</div>
+        <div class="kpi-change up">▲ +3 este mes</div>
+        <div class="kpi-icon">🏘️</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#4A7FD4">
+        <div class="kpi-label">En Discipulado</div>
+        <div class="kpi-value" style="color:var(--blue)">78</div>
+        <div class="kpi-change up">▲ Activos</div>
+        <div class="kpi-icon">📖</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#C9922A">
+        <div class="kpi-label">Bautizados — 2026</div>
+        <div class="kpi-value" style="color:var(--gold-light)">43</div>
+        <div class="kpi-change up">▲ +6 este mes</div>
+        <div class="kpi-icon">💧</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Registro de Evangelismos</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nombre</th><th>Zona</th><th>Fecha</th><th>Líder</th><th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>María González</td><td>Norte</td><td>28 abr</td><td>Marcos R.</td><td><span class="badge badge-yellow">Discipulado</span></td></tr>
+          <tr><td>Roberto Pérez</td><td>Sur</td><td>27 abr</td><td>Ana L.</td><td><span class="badge badge-green">Bautizado</span></td></tr>
+          <tr><td>Carmen Silva</td><td>Este</td><td>25 abr</td><td>Pedro M.</td><td><span class="badge badge-blue">Nuevo</span></td></tr>
+          <tr><td>Luis Hernández</td><td>Centro</td><td>22 abr</td><td>Marcos R.</td><td><span class="badge badge-green">Integrado</span></td></tr>
+          <tr><td>Familia Ortiz</td><td>Norte</td><td>20 abr</td><td>Sara V.</td><td><span class="badge badge-yellow">Discipulado</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== ACADEMIA ===== -->
+  <div class="page" id="page-academia">
+    <div class="module-header">
+      <div class="module-icon-big" style="background:rgba(122,95,192,0.1)">📖</div>
+      <div>
+        <div class="module-title">Academia del Espíritu</div>
+        <div class="module-desc">Cursos · Evaluaciones · Certificados · Progreso</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary">➕ Nuevo Curso</button>
+      <button class="btn btn-secondary">👤 Matricular Estudiante</button>
+      <button class="btn btn-secondary">🏆 Ver Certificados</button>
+    </div>
+    <div class="courses-grid">
+      <div class="course-card">
+        <div class="course-thumb" style="background:linear-gradient(135deg,rgba(122,95,192,0.3),rgba(74,127,212,0.2))">✝️</div>
+        <div class="course-body">
+          <div class="course-title">Cristología Bíblica</div>
+          <div class="course-meta">24 lecciones · 47 estudiantes</div>
+          <div class="mini-prog"><div class="mini-prog-fill" style="width:78%"></div></div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">78% completado</div>
+        </div>
+      </div>
+      <div class="course-card">
+        <div class="course-thumb" style="background:linear-gradient(135deg,rgba(76,175,125,0.3),rgba(74,127,212,0.2))">📜</div>
+        <div class="course-body">
+          <div class="course-title">Hermenéutica Bíblica</div>
+          <div class="course-meta">18 lecciones · 32 estudiantes</div>
+          <div class="mini-prog"><div class="mini-prog-fill" style="width:45%"></div></div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">45% completado</div>
+        </div>
+      </div>
+      <div class="course-card">
+        <div class="course-thumb" style="background:linear-gradient(135deg,rgba(201,146,42,0.3),rgba(139,94,26,0.2))">🕊️</div>
+        <div class="course-body">
+          <div class="course-title">Pneumatología</div>
+          <div class="course-meta">20 lecciones · 28 estudiantes</div>
+          <div class="mini-prog"><div class="mini-prog-fill" style="width:60%"></div></div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">60% completado</div>
+        </div>
+      </div>
+      <div class="course-card">
+        <div class="course-thumb" style="background:linear-gradient(135deg,rgba(224,85,85,0.2),rgba(122,95,192,0.2))">📖</div>
+        <div class="course-body">
+          <div class="course-title">Liderazgo Apostólico</div>
+          <div class="course-meta">16 lecciones · 19 estudiantes</div>
+          <div class="mini-prog"><div class="mini-prog-fill" style="width:30%"></div></div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">30% completado</div>
+        </div>
+      </div>
+      <div class="course-card">
+        <div class="course-thumb" style="background:linear-gradient(135deg,rgba(74,127,212,0.3),rgba(76,175,125,0.2))">🌿</div>
+        <div class="course-body">
+          <div class="course-title">Escatología Bíblica</div>
+          <div class="course-meta">22 lecciones · 15 estudiantes</div>
+          <div class="mini-prog"><div class="mini-prog-fill" style="width:15%"></div></div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">15% completado · Nuevo</div>
+        </div>
+      </div>
+      <div class="course-card" style="border-style:dashed;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:160px">
+        <div style="text-align:center;color:var(--text-dim)">
+          <div style="font-size:30px;margin-bottom:8px">➕</div>
+          <div style="font-size:13px">Crear nuevo curso</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MANOS ABIERTAS ===== -->
+  <div class="page" id="page-social">
+    <div class="module-header">
+      <div class="module-icon-big" style="background:rgba(74,127,212,0.1)">🤲</div>
+      <div>
+        <div class="module-title">Manos Abiertas</div>
+        <div class="module-desc">Acción social · Beneficiarios · Campañas</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary">➕ Registrar Ayuda</button>
+      <button class="btn btn-secondary">📋 Nueva Campaña</button>
+    </div>
+    <div class="kpi-grid" style="margin-bottom:24px">
+      <div class="kpi-card" style="--accent-color:#4A7FD4">
+        <div class="kpi-label">Familias Atendidas</div>
+        <div class="kpi-value" style="color:var(--blue)">134</div>
+        <div class="kpi-icon">🏠</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#4CAF7D">
+        <div class="kpi-label">Campañas Activas</div>
+        <div class="kpi-value" style="color:var(--green)">4</div>
+        <div class="kpi-icon">📢</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#E8B84B">
+        <div class="kpi-label">Recursos Entregados</div>
+        <div class="kpi-value" style="color:var(--yellow)">$2,140</div>
+        <div class="kpi-icon">📦</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#7A5FC0">
+        <div class="kpi-label">Voluntarios Activos</div>
+        <div class="kpi-value" style="color:var(--purple)">31</div>
+        <div class="kpi-icon">🙌</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Casos Sociales Activos</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Beneficiario</th><th>Tipo de Ayuda</th><th>Zona</th><th>Monto</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Familia Ramírez (5)</td><td>Alimentos</td><td>Sur</td><td>$80</td><td><span class="badge badge-green">Entregado</span></td></tr>
+          <tr><td>Abuela Carmen</td><td>Medicamentos</td><td>Centro</td><td>$45</td><td><span class="badge badge-yellow">Pendiente</span></td></tr>
+          <tr><td>Familia Torres (3)</td><td>Alimentos + ropa</td><td>Norte</td><td>$120</td><td><span class="badge badge-green">Entregado</span></td></tr>
+          <tr><td>Niños Martínez</td><td>Útiles escolares</td><td>Este</td><td>$60</td><td><span class="badge badge-blue">En proceso</span></td></tr>
+          <tr><td>Sr. Vidal</td><td>Asistencia médica</td><td>Sur</td><td>$90</td><td><span class="badge badge-red">Urgente</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== NEGOCIOS ===== -->
+  <div class="page" id="page-negocios">
+    <div class="module-header">
+      <div class="module-icon-big" style="background:rgba(201,146,42,0.1)">💼</div>
+      <div>
+        <div class="module-title">Negocios Adonay</div>
+        <div class="module-desc">Emprendimientos · Mentorías · Progreso económico</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary">➕ Nuevo Proyecto</button>
+      <button class="btn btn-secondary">🧑‍🏫 Asignar Mentor</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🚀 Proyectos Activos</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Proyecto</th><th>Emprendedor</th><th>Mentor</th><th>Etapa</th><th>Progreso</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Panadería Familiar</td><td>Hermana Rosa</td><td>Lic. Carlos</td>
+            <td><span class="badge badge-green">Operando</span></td>
+            <td>
+              <div class="prog-bar" style="width:120px">
+                <div class="prog-fill" style="width:80%;background:var(--green)"></div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Taller de Costura</td><td>Grupo Mujeres</td><td>Lic. María</td>
+            <td><span class="badge badge-yellow">Lanzamiento</span></td>
+            <td>
+              <div class="prog-bar" style="width:120px">
+                <div class="prog-fill" style="width:55%;background:var(--yellow)"></div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Huerto Comunitario</td><td>Hermano Pedro</td><td>Ing. Luis</td>
+            <td><span class="badge badge-blue">Planificación</span></td>
+            <td>
+              <div class="prog-bar" style="width:120px">
+                <div class="prog-fill" style="width:30%;background:var(--blue)"></div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Carpintería Artesanal</td><td>Hermano José</td><td>Sin asignar</td>
+            <td><span class="badge badge-purple">Idea</span></td>
+            <td>
+              <div class="prog-bar" style="width:120px">
+                <div class="prog-fill" style="width:10%;background:var(--purple)"></div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== COMUNICACIÓN ===== -->
+  <div class="page" id="page-comunicacion">
+    <div class="module-header">
+      <div class="module-icon-big" style="background:rgba(74,127,212,0.1)">📡</div>
+      <div>
+        <div class="module-title">Comunicación</div>
+        <div class="module-desc">Publicaciones · YouTube · Redes sociales · Calendario</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary">➕ Nueva Publicación</button>
+      <button class="btn btn-secondary">📅 Programar</button>
+    </div>
+    <div class="row2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">📅 Calendario de Contenido — Mayo</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;font-size:10px;color:var(--text-dim)">
+          <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+        </div>
+        <div class="content-calendar">
+          <div class="cal-day"><div class="cal-day-num">1</div><div class="cal-dot" style="background:var(--blue)"></div></div>
+          <div class="cal-day has-content today"><div class="cal-day-num">2</div><div class="cal-dot" style="background:var(--gold)"></div><div class="cal-dot" style="background:var(--green)"></div></div>
+          <div class="cal-day"><div class="cal-day-num">3</div></div>
+          <div class="cal-day has-content"><div class="cal-day-num">4</div><div class="cal-dot" style="background:var(--purple)"></div></div>
+          <div class="cal-day has-content"><div class="cal-day-num">5</div><div class="cal-dot" style="background:var(--gold)"></div></div>
+          <div class="cal-day"><div class="cal-day-num">6</div></div>
+          <div class="cal-day has-content"><div class="cal-day-num">7</div><div class="cal-dot" style="background:var(--blue)"></div></div>
+          <div class="cal-day has-content"><div class="cal-day-num">8</div><div class="cal-dot" style="background:var(--green)"></div></div>
+          <div class="cal-day"><div class="cal-day-num">9</div></div>
+          <div class="cal-day has-content"><div class="cal-day-num">10</div><div class="cal-dot" style="background:var(--gold)"></div></div>
+          <div class="cal-day"><div class="cal-day-num">11</div></div>
+          <div class="cal-day has-content"><div class="cal-day-num">12</div><div class="cal-dot" style="background:var(--red)"></div></div>
+          <div class="cal-day"><div class="cal-day-num">13</div></div>
+          <div class="cal-day has-content"><div class="cal-day-num">14</div><div class="cal-dot" style="background:var(--purple)"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Métricas de Alcance</div>
+        <div class="progress-list">
+          <div class="progress-item">
+            <div class="prog-header"><span>▶️ YouTube</span><span style="color:var(--red)">1,240 vistas</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:62%;background:var(--red)"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="prog-header"><span>📘 Facebook</span><span style="color:var(--blue)">3,820 alcance</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:76%;background:var(--blue)"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="prog-header"><span>📸 Instagram</span><span style="color:var(--purple)">980 seguidores</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:49%;background:var(--purple)"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="prog-header"><span>💬 WhatsApp</span><span style="color:var(--green)">340 contactos</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:85%;background:var(--green)"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DADORES ===== -->
+  <div class="page" id="page-dadores">
+    <div class="module-header">
+      <div class="module-icon-big" style="background:rgba(201,146,42,0.15)">💰</div>
+      <div>
+        <div class="module-title">Red de Dadores</div>
+        <div class="module-desc">Aportes · Historial · Impacto · Sostenimiento</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary">➕ Registrar Aporte</button>
+      <button class="btn btn-secondary">📊 Ver Historial</button>
+    </div>
+    <div class="kpi-grid" style="margin-bottom:24px">
+      <div class="kpi-card" style="--accent-color:#C9922A">
+        <div class="kpi-label">Dadores Activos</div>
+        <div class="kpi-value" style="color:var(--gold-light)">67</div>
+        <div class="kpi-change up">▲ +4 este mes</div>
+        <div class="kpi-icon">🙏</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#4CAF7D">
+        <div class="kpi-label">Sostenimiento Mayo</div>
+        <div class="kpi-value" style="color:var(--green)">$4,820</div>
+        <div class="kpi-change up">▲ 8.2% vs abril</div>
+        <div class="kpi-icon">📈</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#E8B84B">
+        <div class="kpi-label">Meta Mensual</div>
+        <div class="kpi-value" style="color:var(--yellow)">60%</div>
+        <div class="kpi-change">$4,820 / $8,000</div>
+        <div class="kpi-icon">🎯</div>
+      </div>
+      <div class="kpi-card" style="--accent-color:#7A5FC0">
+        <div class="kpi-label">Aportado — 2026</div>
+        <div class="kpi-value" style="color:var(--purple)">$22,400</div>
+        <div class="kpi-change up">▲ En curso</div>
+        <div class="kpi-icon">💎</div>
+      </div>
+    </div>
+    <div class="dadores-grid">
+      <div class="dador-card">
+        <div class="dador-header">
+          <div class="dador-avatar" style="background:linear-gradient(135deg,var(--gold),#8B5E1A)">RM</div>
+          <div><div class="dador-name">Roberto Méndez</div><div class="dador-level">💎 Dador Diamante</div></div>
+        </div>
+        <div class="dador-stat"><span>Este mes</span><span class="val">$300</span></div>
+        <div class="dador-stat"><span>Total 2026</span><span class="val">$1,500</span></div>
+        <div class="dador-stat"><span>Meses consecutivos</span><span class="val">14</span></div>
+      </div>
+      <div class="dador-card">
+        <div class="dador-header">
+          <div class="dador-avatar" style="background:linear-gradient(135deg,var(--blue),#2a4a8B)">AV</div>
+          <div><div class="dador-name">Ana Vargas</div><div class="dador-level">🥇 Dadora Oro</div></div>
+        </div>
+        <div class="dador-stat"><span>Este mes</span><span class="val">$150</span></div>
+        <div class="dador-stat"><span>Total 2026</span><span class="val">$720</span></div>
+        <div class="dador-stat"><span>Meses consecutivos</span><span class="val">8</span></div>
+      </div>
+      <div class="dador-card">
+        <div class="dador-header">
+          <div class="dador-avatar" style="background:linear-gradient(135deg,var(--purple),#3a2a6B)">CL</div>
+          <div><div class="dador-name">Carlos López</div><div class="dador-level">🥈 Dador Plata</div></div>
+        </div>
+        <div class="dador-stat"><span>Este mes</span><span class="val">$80</span></div>
+        <div class="dador-stat"><span>Total 2026</span><span class="val">$360</span></div>
+        <div class="dador-stat"><span>Meses consecutivos</span><span class="val">5</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REPORTES ===== -->
+  <div class="page" id="page-reportes">
+    <div class="module-header">
+      <div class="module-icon-big" style="background:rgba(76,175,125,0.1)">🔄</div>
+      <div>
+        <div class="module-title">Sistema de Reportes</div>
+        <div class="module-desc">Semanales · Mensuales · KPI · Evaluaciones</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary">📝 Nuevo Reporte</button>
+      <button class="btn btn-secondary">📥 Exportar PDF</button>
+    </div>
+    <div class="row2">
+      <div class="card">
+        <div class="card-title">📅 Reportes Semanales Pendientes</div>
+        <div class="alert-list" style="margin-bottom:12px">
+          <div class="alert-item danger">🔴 Zona Este — Sem. 17 — Vencido hace 3 días</div>
+          <div class="alert-item danger">🔴 Zona Sur — Sem. 17 — Vencido hace 1 día</div>
+        </div>
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-icon" style="background:rgba(76,175,125,0.15)">✅</div>
+            <div class="activity-text">
+              <div class="title">Zona Norte — Sem. 17</div>
+              <div class="meta">Entregado · Líder: Marcos R.</div>
+            </div>
+            <span class="badge badge-green">Completo</span>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background:rgba(76,175,125,0.15)">✅</div>
+            <div class="activity-text">
+              <div class="title">Zona Centro — Sem. 17</div>
+              <div class="meta">Entregado · Líder: Pedro M.</div>
+            </div>
+            <span class="badge badge-green">Completo</span>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background:rgba(76,175,125,0.15)">✅</div>
+            <div class="activity-text">
+              <div class="title">Academia — Sem. 17</div>
+              <div class="meta">Entregado · Coordinadora: Sara V.</div>
+            </div>
+            <span class="badge badge-green">Completo</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📈 KPI Mensual — Abril 2026</div>
+        <div class="progress-list">
+          <div class="progress-item">
+            <div class="prog-header"><span>Conversiones</span><span style="color:var(--green)">19 / 25 · 76%</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:76%;background:var(--green)"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="prog-header"><span>Discipulado</span><span style="color:var(--blue)">78 / 90 · 87%</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:87%;background:var(--blue)"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="prog-header"><span>Finanzas</span><span style="color:var(--yellow)">$4,460 / $8,000</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:56%;background:var(--yellow)"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="prog-header"><span>Acción social</span><span style="color:var(--purple)">28 / 40 familias</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:70%;background:var(--purple)"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="prog-header"><span>Academia</span><span style="color:var(--gold)">72 / 80 activos</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:90%;background:var(--gold)"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+const pageTitles = {
+  dashboard: 'Dashboard Principal',
+  mision: 'Misión Bíblica',
+  academia: 'Academia del Espíritu',
+  social: 'Manos Abiertas',
+  negocios: 'Negocios Adonay',
+  comunicacion: 'Comunicación',
+  dadores: 'Red de Dadores',
+  reportes: 'Sistema de Reportes'
+};
+
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[id] || id;
+  closeSidebar();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('show');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+</script>
+</body>
+</html>

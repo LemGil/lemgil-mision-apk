@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LemGil – Bien Común</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#C9922A;--gold-l:#E8B84B;--gold-d:#8B5E1A;--glow:rgba(201,146,42,0.2);
+  --d1:#0A0C10;--d2:#111318;--d3:#181C24;--d4:#1F242E;--d5:#252B37;
+  --border:rgba(201,146,42,0.18);--focus:rgba(201,146,42,0.5);
+  --txt:#E8E4DA;--dim:#7A7570;
+  --green:#4CAF7D;--yellow:#E8B84B;--blue:#4A7FD4;--red:#E05555;--purple:#7A5FC0;
+  --teal:#2A9D8F;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Nunito',sans-serif;background:var(--d1);color:var(--txt);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:210px;flex-shrink:0;background:var(--d2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+.logo{padding:22px 16px 16px;border-bottom:1px solid var(--border);}
+.logo-n{font-family:'Cinzel',serif;font-size:19px;font-weight:900;color:var(--gold);letter-spacing:3px;}
+.logo-s{font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+.nav{flex:1;padding:10px 0;overflow-y:auto;}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--dim);cursor:pointer;border-left:3px solid transparent;transition:all .2s;}
+.ni:hover{background:var(--d3);color:var(--txt);}
+.ni.active{background:linear-gradient(90deg,rgba(201,146,42,0.13),transparent);color:var(--gold-l);border-left-color:var(--gold);}
+.sf{padding:14px 16px;border-top:1px solid var(--border);}
+.ucard{display:flex;align-items:center;gap:9px;}
+.av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8B5E1A);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;font-size:13px;color:var(--d1);flex-shrink:0;}
+.un{font-size:13px;font-weight:700;}.ur{font-size:11px;color:var(--gold);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow-x:hidden;}
+.topbar{height:54px;background:var(--d2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:40;}
+.tt{font-family:'Cinzel',serif;font-size:14px;font-weight:600;letter-spacing:1px;}
+.bc{font-size:11px;color:var(--dim);} .bc span{color:var(--gold-l);}
+.content{padding:24px;flex:1;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--d3);padding:4px;border-radius:10px;border:1px solid var(--border);width:fit-content;flex-wrap:wrap;}
+.tab{padding:8px 18px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dim);transition:all .2s;}
+.tab:hover{color:var(--txt);}
+.tab.active{background:var(--d4);color:var(--gold-l);border:1px solid var(--border);}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--d3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .2s;}
+.kpi:hover{border-color:var(--gold);}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--gold));}
+.kl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+.kv{font-family:'Cinzel',serif;font-size:24px;font-weight:700;margin:3px 0 2px;color:var(--c,var(--gold-l));}
+.ks{font-size:11px;color:var(--dim);}
+.ki{position:absolute;right:12px;top:12px;font-size:20px;opacity:.22;}
+
+/* BUTTONS */
+.arow{display:flex;gap:9px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .2s;white-space:nowrap;}
+.bg{background:linear-gradient(135deg,var(--gold),var(--gold-d));color:var(--d1);box-shadow:0 2px 10px var(--glow);}
+.bg:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(201,146,42,.35);}
+.bh{background:var(--d4);color:var(--txt);border:1px solid var(--border);}
+.bh:hover{border-color:var(--gold);color:var(--gold-l);}
+.bd{background:rgba(224,85,85,.13);color:var(--red);border:1px solid rgba(224,85,85,.3);}
+.bd:hover{background:rgba(224,85,85,.22);}
+.bsm{padding:5px 11px;font-size:11px;}
+
+/* CARD */
+.card{background:var(--d3);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.card+.card{margin-top:18px;}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.ct{font-family:'Cinzel',serif;font-size:12px;font-weight:600;color:var(--gold-l);letter-spacing:1px;}
+
+/* SEARCH */
+.sbar{display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;}
+.si{flex:1;min-width:160px;background:var(--d4);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);}
+.si:focus{outline:none;border-color:var(--focus);}
+.si::placeholder{color:var(--dim);}
+.fs{background:var(--d4);border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);}
+.fs:focus{outline:none;}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);padding:8px 11px;text-align:left;border-bottom:1px solid var(--border);}
+.tbl td{padding:10px 11px;font-size:13px;border-bottom:1px solid rgba(201,146,42,.06);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:var(--d4);}
+.tbl td.num{text-align:right;font-family:'Cinzel',serif;font-weight:700;}
+.tbl th.num{text-align:right;}
+
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.bg2{background:rgba(76,175,125,.15);color:var(--green);}
+.by{background:rgba(232,184,75,.15);color:var(--yellow);}
+.bb{background:rgba(74,127,212,.15);color:var(--blue);}
+.br2{background:rgba(224,85,85,.15);color:var(--red);}
+.bp{background:rgba(122,95,192,.15);color:var(--purple);}
+.bt{background:rgba(42,157,143,.15);color:var(--teal);}
+
+/* MODAL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(4px);}
+.ov.open{opacity:1;pointer-events:all;}
+.modal{background:var(--d2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;transform:translateY(18px);transition:transform .25s;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.ov.open .modal{transform:translateY(0);}
+.mh{padding:20px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.mtitle{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--gold-l);letter-spacing:1px;}
+.mclose{width:28px;height:28px;border-radius:6px;background:var(--d4);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:var(--dim);transition:all .2s;}
+.mclose:hover{border-color:var(--red);color:var(--red);}
+.mb{padding:18px 22px;}
+.mf{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:9px;align-items:center;}
+
+/* FORM */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fgroup{display:flex;flex-direction:column;gap:4px;}
+.fgroup.span2{grid-column:span 2;}
+.fl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);}
+.fi,.fsel,.fta{background:var(--d4);border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);transition:border-color .2s,box-shadow .2s;width:100%;}
+.fi:focus,.fsel:focus,.fta:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px var(--glow);}
+.fi::placeholder{color:var(--dim);}
+.fsel option{background:var(--d3);}
+.fta{resize:vertical;min-height:65px;}
+.fsec{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:14px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+
+/* PROG */
+.prog-bar{height:6px;background:var(--d5);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;transition:width .7s ease;}
+
+/* DIEZMADOR CARD */
+.dz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.dz-card{background:var(--d4);border:1px solid var(--border);border-radius:12px;padding:16px;transition:border-color .2s,transform .15s;cursor:pointer;}
+.dz-card:hover{border-color:var(--gold);transform:translateY(-2px);}
+.dz-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;font-size:15px;color:var(--d1);flex-shrink:0;}
+.dz-name{font-weight:800;font-size:14px;}
+.dz-role{font-size:11px;color:var(--gold);margin-top:1px;}
+
+/* RESUMEN ANUAL */
+.grid-meses{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin:10px 0;}
+.mes-cell{background:var(--d5);border-radius:4px;padding:5px 2px;text-align:center;font-size:9px;color:var(--dim);transition:background .2s;}
+.mes-cell.activo{background:rgba(201,146,42,.25);color:var(--gold-l);}
+.mes-cell.completo{background:rgba(76,175,125,.2);color:var(--green);}
+
+/* DETALLE DIEZMADOR */
+.detail-modal{max-width:700px !important;}
+.mes-resumen{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:10px;}
+.mes-box{background:var(--d5);border:1px solid var(--border);border-radius:8px;padding:10px 12px;transition:border-color .2s;}
+.mes-box:hover{border-color:var(--gold);}
+.mes-box.vacio{opacity:.45;}
+.mes-nombre{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}
+.mes-monto{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold-l);}
+.mes-tipos{font-size:10px;color:var(--dim);margin-top:3px;}
+
+/* TOTALES ROW */
+.totales-row{background:linear-gradient(90deg,rgba(201,146,42,.08),transparent);border:1px solid rgba(201,146,42,.25);border-radius:8px;padding:12px 16px;display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;}
+.total-item{text-align:center;}
+.total-label{font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;}
+.total-val{font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--gold-l);}
+
+/* PANEL */
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* EMPTY */
+.empty{text-align:center;padding:44px 20px;color:var(--dim);}
+.eico{font-size:42px;margin-bottom:10px;opacity:.35;}
+.etit{font-family:'Cinzel',serif;font-size:14px;margin-bottom:5px;}
+.esub{font-size:12px;}
+
+/* DROW */
+.drow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(201,146,42,.06);}
+.drow:last-child{border-bottom:none;}
+.dlabel{font-size:12px;color:var(--dim);}
+.dval{font-size:13px;font-weight:600;}
+
+/* EXPORT */
+.exp-section{margin-bottom:14px;}
+.exp-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;}
+.exp-ta{width:100%;height:110px;background:var(--d5);border:1px solid var(--border);border-radius:7px;padding:9px;font-family:monospace;font-size:11px;color:var(--txt);resize:vertical;cursor:text;}
+.exp-ta:focus{outline:none;border-color:var(--focus);}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--d3);border:1px solid var(--border);border-radius:9px;padding:12px 18px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;transform:translateY(70px);opacity:0;transition:all .3s;z-index:999;box-shadow:0 8px 28px rgba(0,0,0,.4);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--red);}
+.toast.info{border-left:3px solid var(--blue);}
+
+@media(max-width:760px){
+  .sidebar{display:none;}
+  .kpis{grid-template-columns:repeat(2,1fr);}
+  .fgrid{grid-template-columns:1fr;}
+  .fgroup.span2{grid-column:span 1;}
+  .grid-meses{grid-template-columns:repeat(6,1fr);}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-n">LEMGIL</div>
+    <div class="logo-s">Ministerio Apostólico</div>
+  </div>
+  <nav class="nav">
+    <div class="ni">📊 Dashboard</div>
+    <div class="ni">🌍 Misión Bíblica</div>
+    <div class="ni">📖 Academia</div>
+    <div class="ni">🤲 Manos Abiertas</div>
+    <div class="ni">💼 Negocios Adonay</div>
+    <div class="ni">📡 Comunicación</div>
+    <div class="ni">💰 Red de Dadores</div>
+    <div class="ni active">🕊️ Bien Común</div>
+    <div class="ni">🔄 Reportes</div>
+  </nav>
+  <div class="sf">
+    <div class="ucard">
+      <div class="av">LG</div>
+      <div><div class="un">LemGil</div><div class="ur">👑 Apóstol</div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="tt">🕊️ Bien Común</div>
+    <div class="bc">LemGil / <span>Bien Común</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs -->
+    <div class="kpis">
+      <div class="kpi" style="--c:#C9922A">
+        <div class="kl">Total Recaudado</div>
+        <div class="kv" id="k-total">$0</div>
+        <div class="ks" id="k-total-s">acumulado</div>
+        <div class="ki">💰</div>
+      </div>
+      <div class="kpi" style="--c:#4CAF7D">
+        <div class="kl">Diezmadores Activos</div>
+        <div class="kv" id="k-dz">0</div>
+        <div class="ks">registrados</div>
+        <div class="ki">🙏</div>
+      </div>
+      <div class="kpi" style="--c:#4A7FD4">
+        <div class="kl">Diezmos del Mes</div>
+        <div class="kv" id="k-mes">$0</div>
+        <div class="ks" id="k-mes-s">mes actual</div>
+        <div class="ki">📅</div>
+      </div>
+      <div class="kpi" style="--c:#7A5FC0">
+        <div class="kl">Ofrendas del Mes</div>
+        <div class="kv" id="k-ofr">$0</div>
+        <div class="ks">mes actual</div>
+        <div class="ki">🎁</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('registros')">💰 Registros</div>
+      <div class="tab" onclick="showTab('diezmadores')">🙏 Diezmadores</div>
+      <div class="tab" onclick="showTab('resumen')">📊 Resumen Mensual</div>
+    </div>
+
+    <!-- ═══ PANEL: REGISTROS ═══ -->
+    <div class="panel active" id="panel-registros">
+      <div class="arow">
+        <button class="btn bg" onclick="openNuevoReg()">➕ Registrar Diezmo / Ofrenda</button>
+        <button class="btn bh" onclick="exportarDatos()">📥 Exportar</button>
+      </div>
+      <div class="sbar">
+        <input class="si" id="sq-reg" placeholder="🔍  Buscar nombre, servicio…" oninput="renderRegistros()">
+        <select class="fs" id="sf-tipo-reg" onchange="renderRegistros()">
+          <option value="">Todos los tipos</option>
+          <option>Diezmo</option><option>Ofrenda</option><option>Ofrenda Especial</option>
+          <option>Primera Fruta</option><option>Voto</option><option>Misiones</option>
+        </select>
+        <select class="fs" id="sf-mes-reg" onchange="renderRegistros()">
+          <option value="">Todos los meses</option>
+        </select>
+        <select class="fs" id="sf-dz-reg" onchange="renderRegistros()">
+          <option value="">Todos los diezmadores</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <div class="ct">📋 Historial de Diezmos y Ofrendas</div>
+          <div style="font-size:12px;color:var(--dim)" id="reg-cnt">0 registros</div>
+        </div>
+        <div id="reg-container">
+          <div class="empty"><div class="eico">💰</div><div class="etit">Sin registros aún</div><div class="esub">Registra el primer diezmo u ofrenda</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL: DIEZMADORES ═══ -->
+    <div class="panel" id="panel-diezmadores">
+      <div class="arow">
+        <button class="btn bg" onclick="openNuevoDz()">➕ Registrar Diezmador</button>
+      </div>
+      <div class="sbar">
+        <input class="si" id="sq-dz" placeholder="🔍  Buscar nombre, zona…" oninput="renderDiezmadores()">
+        <select class="fs" id="sf-zona-dz" onchange="renderDiezmadores()">
+          <option value="">Todas las zonas</option>
+          <option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Centro</option>
+        </select>
+        <select class="fs" id="sf-estado-dz" onchange="renderDiezmadores()">
+          <option value="">Todos</option>
+          <option>Activo</option><option>Irregular</option><option>Inactivo</option>
+        </select>
+      </div>
+      <div id="dz-container">
+        <div class="empty"><div class="eico">🙏</div><div class="etit">Sin diezmadores aún</div><div class="esub">Registra el primer diezmador</div></div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL: RESUMEN MENSUAL ═══ -->
+    <div class="panel" id="panel-resumen">
+      <div class="arow">
+        <select class="fs" id="sf-anio-res" onchange="renderResumen()" style="padding:9px 16px;font-size:13px;font-weight:700"></select>
+      </div>
+      <div id="resumen-container"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════
+     MODALES
+══════════════════════════════════ -->
+
+<!-- MODAL: NUEVO / EDITAR REGISTRO -->
+<div class="ov" id="m-reg">
+  <div class="modal">
+    <div class="mh"><div class="mtitle" id="m-reg-title">💰 Registrar Diezmo / Ofrenda</div><div class="mclose" onclick="closeM('m-reg')">✕</div></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="fgroup span2"><label class="fl">Diezmador / Persona *</label>
+          <select class="fsel" id="r-dz"><option value="">Seleccionar…</option></select>
+        </div>
+        <div class="fgroup"><label class="fl">Tipo *</label>
+          <select class="fsel" id="r-tipo">
+            <option>Diezmo</option><option>Ofrenda</option><option>Ofrenda Especial</option>
+            <option>Primera Fruta</option><option>Voto</option><option>Misiones</option>
+          </select>
+        </div>
+        <div class="fgroup"><label class="fl">Monto * ($)</label>
+          <input class="fi" id="r-monto" type="number" placeholder="0.00" min="0.01" step="0.01">
+        </div>
+        <div class="fgroup"><label class="fl">Fecha *</label>
+          <input class="fi" id="r-fecha" type="date">
+        </div>
+        <div class="fgroup"><label class="fl">Servicio / Culto</label>
+          <select class="fsel" id="r-servicio">
+            <option value="">General</option>
+            <option>Domingo AM</option><option>Domingo PM</option>
+            <option>Miércoles</option><option>Viernes</option>
+            <option>Sábado</option><option>Especial</option><option>Online</option>
+          </select>
+        </div>
+        <div class="fgroup"><label class="fl">Método de Pago</label>
+          <select class="fsel" id="r-metodo">
+            <option>Efectivo</option><option>Transferencia</option>
+            <option>Tarjeta</option><option>Cheque</option><option>Otro</option>
+          </select>
+        </div>
+        <div class="fgroup"><label class="fl">N° Recibo / Ref.</label>
+          <input class="fi" id="r-recibo" placeholder="Opcional">
+        </div>
+        <div class="fgroup span2"><label class="fl">Observaciones</label>
+          <textarea class="fta" id="r-obs" placeholder="Notas adicionales…" style="min-height:55px"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bd bsm" id="m-reg-del" style="display:none;margin-right:auto" onclick="delReg()">🗑️ Eliminar</button>
+      <button class="btn bh" onclick="closeM('m-reg')">Cancelar</button>
+      <button class="btn bg" id="m-reg-save" onclick="saveReg()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO / EDITAR DIEZMADOR -->
+<div class="ov" id="m-dz">
+  <div class="modal">
+    <div class="mh"><div class="mtitle" id="m-dz-title">🙏 Registrar Diezmador</div><div class="mclose" onclick="closeM('m-dz')">✕</div></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="fgroup"><label class="fl">Nombre *</label><input class="fi" id="dz-nombre" placeholder="Nombre"></div>
+        <div class="fgroup"><label class="fl">Apellido *</label><input class="fi" id="dz-apellido" placeholder="Apellido"></div>
+        <div class="fgroup"><label class="fl">Teléfono</label><input class="fi" id="dz-tel" type="tel" placeholder="+1 555 000 0000"></div>
+        <div class="fgroup"><label class="fl">Zona</label>
+          <select class="fsel" id="dz-zona">
+            <option value="">Seleccionar…</option>
+            <option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Centro</option>
+          </select>
+        </div>
+        <div class="fgroup"><label class="fl">Grupo / Célula</label><input class="fi" id="dz-grupo" placeholder="Nombre del grupo"></div>
+        <div class="fgroup"><label class="fl">Estado</label>
+          <select class="fsel" id="dz-estado"><option>Activo</option><option>Irregular</option><option>Inactivo</option></select>
+        </div>
+        <div class="fgroup"><label class="fl">Fecha de Inicio</label><input class="fi" id="dz-inicio" type="date"></div>
+        <div class="fgroup"><label class="fl">Diezmo Base Aprox. ($)</label>
+          <input class="fi" id="dz-base" type="number" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="fgroup span2"><label class="fl">Notas</label>
+          <textarea class="fta" id="dz-notas" placeholder="Observaciones…" style="min-height:55px"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bd bsm" id="m-dz-del" style="display:none;margin-right:auto" onclick="delDz()">🗑️ Eliminar</button>
+      <button class="btn bh" onclick="closeM('m-dz')">Cancelar</button>
+      <button class="btn bg" id="m-dz-save" onclick="saveDz()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETALLE DIEZMADOR -->
+<div class="ov" id="m-ver-dz">
+  <div class="modal detail-modal" style="max-width:700px">
+    <div class="mh"><div class="mtitle" id="mvd-title">🙏 Historial del Diezmador</div><div class="mclose" onclick="closeM('m-ver-dz')">✕</div></div>
+    <div class="mb">
+      <div id="mvd-totales"></div>
+      <div class="fsec">Aportaciones por Mes — Año Actual</div>
+      <div id="mvd-meses"></div>
+      <div class="fsec" style="margin-top:14px">Historial Completo</div>
+      <div id="mvd-historial"></div>
+    </div>
+    <div class="mf">
+      <button class="btn bh bsm" id="mvd-edit-btn" onclick="editDzFromDetail()">✏️ Editar</button>
+      <button class="btn bg" onclick="regDesdeDetalle()">➕ Registrar Aporte</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EXPORTAR -->
+<div class="ov" id="m-export">
+  <div class="modal" style="max-width:600px">
+    <div class="mh"><div class="mtitle">📥 Exportar Datos</div><div class="mclose" onclick="closeM('m-export')">✕</div></div>
+    <div class="mb">
+      <p style="font-size:13px;color:var(--dim);margin-bottom:16px">Haz clic en cada cuadro para seleccionar, luego copia y pega en Excel o Google Sheets.</p>
+      <div id="exp-body"></div>
+    </div>
+    <div class="mf">
+      <button class="btn bh" onclick="closeM('m-export')">Cerrar</button>
+      <button class="btn bg" onclick="copiarTodo()">📋 Copiar Todo</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  PERSISTENCIA
+// ══════════════════════════════════════════
+const DB={
+  load(k,d){try{const v=localStorage.getItem('lemgil_bc_'+k);return v?JSON.parse(v):d;}catch{return d;}},
+  save(k,v){try{localStorage.setItem('lemgil_bc_'+k,JSON.stringify(v));}catch(e){console.warn(e);}}
+};
+
+let diezmadores = DB.load('diezmadores',[]);
+let registros   = DB.load('registros',[]);
+
+let editDzId=null, editRegId=null, viewDzId=null;
+
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MESES_C=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const TIPO_BADGE={Diezmo:'bg2',Ofrenda:'by','Ofrenda Especial':'bp','Primera Fruta':'bt',Voto:'bb',Misiones:'br2'};
+const DZ_BADGE={Activo:'bg2',Irregular:'by',Inactivo:'br2'};
+const COLORS=['#C9922A','#4CAF7D','#4A7FD4','#7A5FC0','#E05555','#2A9D8F','#E8B84B','#E76F51'];
+
+function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function tod(){return new Date().toISOString().split('T')[0];}
+function anioActual(){return new Date().getFullYear();}
+function mesActual(){return new Date().getMonth();}  // 0-based
+function fmt(d){if(!d)return'—';const[y,m,dy]=d.split('-');return`${+dy} ${MESES_C[+m-1]} ${y}`;}
+function fmtM(v){if(!v&&v!==0)return'$0';return'$'+parseFloat(v).toLocaleString('es',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function mesKey(fecha){return fecha?fecha.slice(0,7):'';}  // "2026-05"
+
+document.querySelectorAll('input[type=date]').forEach(el=>el.value=tod());
+
+// ══ MODALS ══
+function openM(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeM(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
+document.querySelectorAll('.ov').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeM(m.id);}));
+
+// ══ TOAST ══
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  const ic={success:'✅',error:'❌',info:'ℹ️'};
+  t.innerHTML=`<span>${ic[type]}</span> ${msg}`;
+  t.className=`toast show ${type}`;
+  setTimeout(()=>t.classList.remove('show'),3400);
+}
+
+// ══ TABS ══
+function showTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const ids=['registros','diezmadores','resumen'];
+    t.classList.toggle('active',ids[i]===id);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  if(id==='diezmadores') renderDiezmadores();
+  if(id==='resumen'){populateAnios();renderResumen();}
+}
+
+// ══ KPIs ══
+function updateKPIs(){
+  const total=registros.reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const mesK=new Date().toISOString().slice(0,7);
+  const resMes=registros.filter(r=>mesKey(r.fecha)===mesK);
+  const dzMes=resMes.filter(r=>r.tipo==='Diezmo').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const ofrMes=resMes.filter(r=>r.tipo!=='Diezmo').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  document.getElementById('k-total').textContent=fmtM(total);
+  document.getElementById('k-total-s').textContent=`${registros.length} registros`;
+  document.getElementById('k-dz').textContent=diezmadores.filter(d=>d.estado==='Activo').length;
+  document.getElementById('k-mes').textContent=fmtM(dzMes);
+  document.getElementById('k-mes-s').textContent=MESES[mesActual()];
+  document.getElementById('k-ofr').textContent=fmtM(ofrMes);
+}
+
+// ══ POPULATE SELECTS ══
+function populateSelects(){
+  const opts=diezmadores.map(d=>`<option value="${d.id}">${d.nombre} ${d.apellido}</option>`).join('');
+  ['r-dz','sf-dz-reg'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const prev=el.value;
+    const pre=id==='sf-dz-reg'?'<option value="">Todos los diezmadores</option>':'<option value="">Seleccionar…</option>';
+    el.innerHTML=pre+opts;
+    if(prev)el.value=prev;
+  });
+  // populate mes filter
+  const meses=new Set(registros.map(r=>mesKey(r.fecha)).filter(Boolean));
+  const mesEl=document.getElementById('sf-mes-reg');
+  const prevMes=mesEl.value;
+  mesEl.innerHTML='<option value="">Todos los meses</option>'+
+    [...meses].sort().reverse().map(mk=>{
+      const[y,m]=mk.split('-');
+      return `<option value="${mk}">${MESES[+m-1]} ${y}</option>`;
+    }).join('');
+  if(prevMes)mesEl.value=prevMes;
+}
+
+function populateAnios(){
+  const anios=new Set(registros.map(r=>r.fecha?r.fecha.slice(0,4):null).filter(Boolean));
+  anios.add(String(anioActual()));
+  const el=document.getElementById('sf-anio-res');
+  const prev=el.value;
+  el.innerHTML=[...anios].sort().reverse().map(a=>`<option value="${a}">${a}</option>`).join('');
+  if(prev)el.value=prev;
+  else el.value=String(anioActual());
+}
+
+// ══ RESET ══
+function resetModal(id){
+  const m=document.getElementById(id);
+  m.querySelectorAll('input:not([type=date])').forEach(e=>e.value='');
+  m.querySelectorAll('textarea').forEach(e=>e.value='');
+  m.querySelectorAll('select').forEach(e=>e.selectedIndex=0);
+  m.querySelectorAll('input[type=date]').forEach(e=>e.value=tod());
+}
+
+// ══════════════════════════
+//  REGISTROS
+// ══════════════════════════
+function openNuevoReg(){
+  editRegId=null;
+  document.getElementById('m-reg-title').textContent='💰 Registrar Diezmo / Ofrenda';
+  document.getElementById('m-reg-save').textContent='💾 Guardar';
+  document.getElementById('m-reg-del').style.display='none';
+  populateSelects();
+  resetModal('m-reg');
+  openM('m-reg');
+}
+
+function editReg(id){
+  const r=registros.find(x=>x.id===id);if(!r)return;
+  editRegId=id;
+  document.getElementById('m-reg-title').textContent='✏️ Editar Registro';
+  document.getElementById('m-reg-save').textContent='💾 Guardar Cambios';
+  document.getElementById('m-reg-del').style.display='inline-flex';
+  populateSelects();
+  setTimeout(()=>document.getElementById('r-dz').value=r.dzId||'',30);
+  document.getElementById('r-tipo').value=r.tipo;
+  document.getElementById('r-monto').value=r.monto;
+  document.getElementById('r-fecha').value=r.fecha;
+  document.getElementById('r-servicio').value=r.servicio||'';
+  document.getElementById('r-metodo').value=r.metodo||'Efectivo';
+  document.getElementById('r-recibo').value=r.recibo||'';
+  document.getElementById('r-obs').value=r.obs||'';
+  openM('m-reg');
+}
+
+function saveReg(){
+  const dzId=document.getElementById('r-dz').value;
+  const monto=parseFloat(document.getElementById('r-monto').value);
+  const fecha=document.getElementById('r-fecha').value;
+  if(!dzId)return toast('Selecciona un diezmador','error');
+  if(!monto||monto<=0)return toast('El monto debe ser mayor a 0','error');
+  if(!fecha)return toast('La fecha es obligatoria','error');
+
+  const dz=diezmadores.find(d=>d.id===dzId);
+  const data={
+    dzId,monto,fecha,
+    dzNombre:dz?`${dz.nombre} ${dz.apellido}`:'Desconocido',
+    tipo:document.getElementById('r-tipo').value,
+    servicio:document.getElementById('r-servicio').value||'General',
+    metodo:document.getElementById('r-metodo').value,
+    recibo:document.getElementById('r-recibo').value.trim(),
+    obs:document.getElementById('r-obs').value.trim()
+  };
+
+  if(editRegId){
+    const idx=registros.findIndex(x=>x.id===editRegId);
+    registros[idx]={...registros[idx],...data};
+    toast('Registro actualizado ✅');
+  }else{
+    registros.unshift({id:gid(),creado:tod(),...data});
+    toast(`${data.tipo} de ${fmtM(monto)} registrado 💰`);
+  }
+  editRegId=null;
+  DB.save('registros',registros);
+  updateKPIs();populateSelects();renderRegistros();closeM('m-reg');resetModal('m-reg');
+}
+
+function delReg(){
+  if(!editRegId)return;
+  registros=registros.filter(x=>x.id!==editRegId);
+  editRegId=null;
+  DB.save('registros',registros);
+  updateKPIs();populateSelects();renderRegistros();closeM('m-reg');
+  toast('Registro eliminado','info');
+}
+
+function renderRegistros(){
+  const q=document.getElementById('sq-reg').value.toLowerCase();
+  const tipo=document.getElementById('sf-tipo-reg').value;
+  const mes=document.getElementById('sf-mes-reg').value;
+  const dzId=document.getElementById('sf-dz-reg').value;
+
+  let data=registros.filter(r=>{
+    const full=`${r.dzNombre||''} ${r.servicio||''} ${r.tipo}`.toLowerCase();
+    return(!q||full.includes(q))
+      &&(!tipo||r.tipo===tipo)
+      &&(!mes||mesKey(r.fecha)===mes)
+      &&(!dzId||r.dzId===dzId);
+  });
+
+  document.getElementById('reg-cnt').textContent=`${data.length} registro${data.length!==1?'s':''}`;
+  const cont=document.getElementById('reg-container');
+
+  if(!data.length){
+    cont.innerHTML=registros.length
+      ?'<div class="empty"><div class="eico">🔍</div><div class="etit">Sin resultados</div></div>'
+      :'<div class="empty"><div class="eico">💰</div><div class="etit">Sin registros aún</div><div class="esub">Registra el primer diezmo u ofrenda</div></div>';
+    return;
+  }
+
+  // totales del filtro actual
+  const totalFiltro=data.reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totalDiezmos=data.filter(r=>r.tipo==='Diezmo').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totalOfrendas=totalFiltro-totalDiezmos;
+
+  cont.innerHTML=`
+    <div class="totales-row">
+      <div class="total-item"><div class="total-label">Total</div><div class="total-val">${fmtM(totalFiltro)}</div></div>
+      <div class="total-item"><div class="total-label">Diezmos</div><div class="total-val" style="color:var(--green)">${fmtM(totalDiezmos)}</div></div>
+      <div class="total-item"><div class="total-label">Ofrendas</div><div class="total-val" style="color:var(--yellow)">${fmtM(totalOfrendas)}</div></div>
+      <div class="total-item"><div class="total-label">Registros</div><div class="total-val" style="color:var(--blue)">${data.length}</div></div>
+    </div>
+    <table class="tbl">
+      <thead><tr>
+        <th>#</th><th>Diezmador</th><th>Tipo</th><th class="num">Monto</th>
+        <th>Fecha</th><th>Servicio</th><th>Método</th><th>Recibo</th><th>Acción</th>
+      </tr></thead>
+      <tbody>${data.map((r,i)=>`<tr>
+        <td style="color:var(--dim)">${i+1}</td>
+        <td><strong>${r.dzNombre||'—'}</strong></td>
+        <td><span class="badge ${TIPO_BADGE[r.tipo]||'by'}">${r.tipo}</span></td>
+        <td class="num" style="color:var(--gold-l)">${fmtM(r.monto)}</td>
+        <td>${fmt(r.fecha)}</td>
+        <td style="color:var(--dim)">${r.servicio||'General'}</td>
+        <td style="color:var(--dim)">${r.metodo||'—'}</td>
+        <td style="color:var(--dim)">${r.recibo||'—'}</td>
+        <td><button class="btn bh bsm" onclick="editReg('${r.id}')">✏️</button></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+// ══════════════════════════
+//  DIEZMADORES
+// ══════════════════════════
+function openNuevoDz(){
+  editDzId=null;
+  document.getElementById('m-dz-title').textContent='🙏 Registrar Diezmador';
+  document.getElementById('m-dz-save').textContent='💾 Guardar';
+  document.getElementById('m-dz-del').style.display='none';
+  resetModal('m-dz');
+  openM('m-dz');
+}
+
+function editDz(id){
+  const d=diezmadores.find(x=>x.id===id);if(!d)return;
+  editDzId=id;
+  document.getElementById('m-dz-title').textContent='✏️ Editar Diezmador';
+  document.getElementById('m-dz-save').textContent='💾 Guardar Cambios';
+  document.getElementById('m-dz-del').style.display='inline-flex';
+  document.getElementById('dz-nombre').value=d.nombre;
+  document.getElementById('dz-apellido').value=d.apellido;
+  document.getElementById('dz-tel').value=d.telefono||'';
+  document.getElementById('dz-zona').value=d.zona||'';
+  document.getElementById('dz-grupo').value=d.grupo||'';
+  document.getElementById('dz-estado').value=d.estado;
+  document.getElementById('dz-inicio').value=d.inicio||tod();
+  document.getElementById('dz-base').value=d.base||'';
+  document.getElementById('dz-notas').value=d.notas||'';
+  openM('m-dz');
+}
+
+function editDzFromDetail(){
+  closeM('m-ver-dz');
+  editDz(viewDzId);
+}
+
+function saveDz(){
+  const nombre=document.getElementById('dz-nombre').value.trim();
+  const apellido=document.getElementById('dz-apellido').value.trim();
+  if(!nombre||!apellido)return toast('Nombre y apellido son obligatorios','error');
+  const data={
+    nombre,apellido,
+    telefono:document.getElementById('dz-tel').value.trim(),
+    zona:document.getElementById('dz-zona').value,
+    grupo:document.getElementById('dz-grupo').value.trim(),
+    estado:document.getElementById('dz-estado').value,
+    inicio:document.getElementById('dz-inicio').value,
+    base:parseFloat(document.getElementById('dz-base').value)||0,
+    notas:document.getElementById('dz-notas').value.trim()
+  };
+  if(editDzId){
+    const idx=diezmadores.findIndex(x=>x.id===editDzId);
+    diezmadores[idx]={...diezmadores[idx],...data};
+    toast(`${nombre} ${apellido} actualizado/a ✅`);
+  }else{
+    diezmadores.push({id:gid(),creado:tod(),...data});
+    toast(`${nombre} ${apellido} registrado/a como diezmador/a 🙏`);
+  }
+  editDzId=null;
+  DB.save('diezmadores',diezmadores);
+  updateKPIs();populateSelects();renderDiezmadores();closeM('m-dz');resetModal('m-dz');
+}
+
+function delDz(){
+  if(!editDzId)return;
+  const d=diezmadores.find(x=>x.id===editDzId);
+  diezmadores=diezmadores.filter(x=>x.id!==editDzId);
+  editDzId=null;
+  DB.save('diezmadores',diezmadores);
+  updateKPIs();populateSelects();renderDiezmadores();closeM('m-dz');
+  toast(`${d?.nombre} ${d?.apellido} eliminado/a`,'info');
+}
+
+function renderDiezmadores(){
+  const q=document.getElementById('sq-dz').value.toLowerCase();
+  const zona=document.getElementById('sf-zona-dz').value;
+  const est=document.getElementById('sf-estado-dz').value;
+  let data=diezmadores.filter(d=>{
+    const full=`${d.nombre} ${d.apellido} ${d.zona||''} ${d.grupo||''}`.toLowerCase();
+    return(!q||full.includes(q))&&(!zona||d.zona===zona)&&(!est||d.estado===est);
+  });
+  const cont=document.getElementById('dz-container');
+  if(!data.length){
+    cont.innerHTML=diezmadores.length
+      ?'<div class="empty"><div class="eico">🔍</div><div class="etit">Sin resultados</div></div>'
+      :'<div class="empty"><div class="eico">🙏</div><div class="etit">Sin diezmadores aún</div><div class="esub">Registra el primer diezmador</div></div>';
+    return;
+  }
+  const anio=anioActual();
+  cont.innerHTML='<div class="dz-grid">'+data.map((d,i)=>{
+    const regs=registros.filter(r=>r.dzId===d.id);
+    const total=regs.reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+    const mesK=new Date().toISOString().slice(0,7);
+    const estesMes=regs.filter(r=>mesKey(r.fecha)===mesK).length>0;
+    // meses del año actual con aportación
+    const mesesConAporte=new Set(regs.filter(r=>r.fecha&&r.fecha.startsWith(anio)).map(r=>+r.fecha.split('-')[1]-1));
+    const color=COLORS[i%COLORS.length];
+    const iniciales=(d.nombre[0]+(d.apellido[0]||'')).toUpperCase();
+    return `<div class="dz-card" onclick="verDz('${d.id}')">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="dz-av" style="background:${color}20;border:2px solid ${color}40;color:${color}">${iniciales}</div>
+        <div>
+          <div class="dz-name">${d.nombre} ${d.apellido}</div>
+          <div class="dz-role">${d.grupo||d.zona||'Sin grupo'}</div>
+        </div>
+        <span class="badge ${DZ_BADGE[d.estado]||'by'}" style="margin-left:auto;flex-shrink:0">${d.estado}</span>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:8px">
+        💰 Total: <strong style="color:var(--gold-l)">${fmtM(total)}</strong> &nbsp;·&nbsp;
+        📋 ${regs.length} registro${regs.length!==1?'s':''}
+        ${d.base?` &nbsp;·&nbsp; Base: ${fmtM(d.base)}`:''}
+      </div>
+      <div class="grid-meses">
+        ${MESES_C.map((mn,mi)=>{
+          const cls=mesesConAporte.has(mi)?'completo':'';
+          return `<div class="mes-cell ${cls}" title="${mn}">${mn}</div>`;
+        }).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:5px;display:flex;gap:12px">
+        <span>🟢 Con aporte &nbsp; ⬜ Sin aporte</span>
+        <span style="margin-left:auto">${estesMes?'✅ Al día':'⚠️ Sin registro este mes'}</span>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ── VER DETALLE DIEZMADOR ──
+function verDz(id){
+  const d=diezmadores.find(x=>x.id===id);if(!d)return;
+  viewDzId=id;
+  document.getElementById('mvd-title').textContent=`🙏 ${d.nombre} ${d.apellido}`;
+
+  const regs=registros.filter(r=>r.dzId===id);
+  const totalAcum=regs.reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totalDiezmos=regs.filter(r=>r.tipo==='Diezmo').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totalOfr=totalAcum-totalDiezmos;
+  const mesK=new Date().toISOString().slice(0,7);
+  const estesMes=regs.filter(r=>mesKey(r.fecha)===mesK).reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+
+  document.getElementById('mvd-totales').innerHTML=`
+    <div class="totales-row">
+      <div class="total-item"><div class="total-label">Acumulado</div><div class="total-val">${fmtM(totalAcum)}</div></div>
+      <div class="total-item"><div class="total-label">Diezmos</div><div class="total-val" style="color:var(--green)">${fmtM(totalDiezmos)}</div></div>
+      <div class="total-item"><div class="total-label">Ofrendas</div><div class="total-val" style="color:var(--yellow)">${fmtM(totalOfr)}</div></div>
+      <div class="total-item"><div class="total-label">Este Mes</div><div class="total-val" style="color:var(--blue)">${fmtM(estesMes)}</div></div>
+    </div>
+    <div style="margin-bottom:6px">
+      <div class="drow"><span class="dlabel">Zona</span><span class="dval">${d.zona||'—'}</span></div>
+      <div class="drow"><span class="dlabel">Grupo / Célula</span><span class="dval">${d.grupo||'—'}</span></div>
+      <div class="drow"><span class="dlabel">Estado</span><span class="dval"><span class="badge ${DZ_BADGE[d.estado]}">${d.estado}</span></span></div>
+      <div class="drow"><span class="dlabel">Diezmo Base</span><span class="dval">${d.base?fmtM(d.base):'No definido'}</span></div>
+      <div class="drow"><span class="dlabel">Desde</span><span class="dval">${fmt(d.inicio)}</span></div>
+      ${d.notas?`<div class="drow"><span class="dlabel">Notas</span><span class="dval" style="font-size:12px;color:var(--dim)">${d.notas}</span></div>`:''}
+    </div>`;
+
+  // meses del año actual
+  const anio=anioActual();
+  const mesesHtml=MESES.map((mn,mi)=>{
+    const mk=`${anio}-${String(mi+1).padStart(2,'0')}`;
+    const regsM=regs.filter(r=>mesKey(r.fecha)===mk);
+    const totalM=regsM.reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+    const vacio=!regsM.length;
+    const tipos=[...new Set(regsM.map(r=>r.tipo))].join(', ');
+    return `<div class="mes-box ${vacio?'vacio':''}">
+      <div class="mes-nombre">${mn}</div>
+      <div class="mes-monto">${vacio?'—':fmtM(totalM)}</div>
+      ${!vacio?`<div class="mes-tipos">${tipos} · ${regsM.length} reg.</div>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('mvd-meses').innerHTML='<div class="mes-resumen">'+mesesHtml+'</div>';
+
+  // historial completo
+  if(regs.length){
+    document.getElementById('mvd-historial').innerHTML=`
+      <table class="tbl">
+        <thead><tr><th>Tipo</th><th class="num">Monto</th><th>Fecha</th><th>Servicio</th><th>Método</th><th>Acción</th></tr></thead>
+        <tbody>${regs.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>`<tr>
+          <td><span class="badge ${TIPO_BADGE[r.tipo]||'by'}">${r.tipo}</span></td>
+          <td class="num" style="color:var(--gold-l)">${fmtM(r.monto)}</td>
+          <td>${fmt(r.fecha)}</td>
+          <td style="color:var(--dim)">${r.servicio||'General'}</td>
+          <td style="color:var(--dim)">${r.metodo||'—'}</td>
+          <td><button class="btn bh bsm" onclick="editReg('${r.id}');closeM('m-ver-dz')">✏️</button></td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }else{
+    document.getElementById('mvd-historial').innerHTML='<div style="color:var(--dim);font-size:13px;padding:12px 0">Sin registros aún.</div>';
+  }
+  openM('m-ver-dz');
+}
+
+function regDesdeDetalle(){
+  closeM('m-ver-dz');
+  openNuevoReg();
+  setTimeout(()=>document.getElementById('r-dz').value=viewDzId,60);
+}
+
+// ══════════════════════════
+//  RESUMEN MENSUAL
+// ══════════════════════════
+function renderResumen(){
+  const anio=document.getElementById('sf-anio-res').value||String(anioActual());
+  const cont=document.getElementById('resumen-container');
+
+  if(!registros.length){
+    cont.innerHTML='<div class="empty"><div class="eico">📊</div><div class="etit">Sin datos aún</div></div>';
+    return;
+  }
+
+  const regsAnio=registros.filter(r=>r.fecha&&r.fecha.startsWith(anio));
+  const totalAnio=regsAnio.reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totalDzAnio=regsAnio.filter(r=>r.tipo==='Diezmo').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+  const totalOfrAnio=totalAnio-totalDzAnio;
+
+  let html=`
+    <div class="totales-row" style="margin-bottom:20px">
+      <div class="total-item"><div class="total-label">Total ${anio}</div><div class="total-val">${fmtM(totalAnio)}</div></div>
+      <div class="total-item"><div class="total-label">Diezmos</div><div class="total-val" style="color:var(--green)">${fmtM(totalDzAnio)}</div></div>
+      <div class="total-item"><div class="total-label">Ofrendas</div><div class="total-val" style="color:var(--yellow)">${fmtM(totalOfrAnio)}</div></div>
+      <div class="total-item"><div class="total-label">Registros</div><div class="total-val" style="color:var(--blue)">${regsAnio.length}</div></div>
+    </div>`;
+
+  // tabla por mes
+  html+=`<div class="card"><div class="ct" style="margin-bottom:14px">📅 Desglose por Mes — ${anio}</div>
+    <table class="tbl">
+      <thead><tr><th>Mes</th><th class="num">Diezmos</th><th class="num">Ofrendas</th><th class="num">Especiales</th><th class="num">Total Mes</th><th>Diezmadores</th></tr></thead>
+      <tbody>${MESES.map((mn,mi)=>{
+        const mk=`${anio}-${String(mi+1).padStart(2,'0')}`;
+        const rm=registros.filter(r=>mesKey(r.fecha)===mk);
+        if(!rm.length)return`<tr><td>${mn}</td><td class="num" style="color:var(--dim)">—</td><td class="num" style="color:var(--dim)">—</td><td class="num" style="color:var(--dim)">—</td><td class="num" style="color:var(--dim)">—</td><td style="color:var(--dim)">—</td></tr>`;
+        const dz=rm.filter(r=>r.tipo==='Diezmo').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+        const ofr=rm.filter(r=>r.tipo==='Ofrenda').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+        const esp=rm.filter(r=>r.tipo==='Ofrenda Especial'||r.tipo==='Primera Fruta'||r.tipo==='Voto'||r.tipo==='Misiones').reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+        const tot=rm.reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+        const dzU=new Set(rm.map(r=>r.dzId)).size;
+        return`<tr>
+          <td><strong>${mn}</strong></td>
+          <td class="num" style="color:var(--green)">${fmtM(dz)}</td>
+          <td class="num" style="color:var(--yellow)">${fmtM(ofr)}</td>
+          <td class="num" style="color:var(--purple)">${fmtM(esp)}</td>
+          <td class="num" style="color:var(--gold-l);font-size:14px">${fmtM(tot)}</td>
+          <td><span class="badge bb">${dzU}</span></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+
+  // tabla por diezmador en el año
+  const dzIds=[...new Set(regsAnio.map(r=>r.dzId))];
+  if(dzIds.length){
+    html+=`<div class="card"><div class="ct" style="margin-bottom:14px">🙏 Aportaciones por Diezmador — ${anio}</div>
+      <table class="tbl">
+        <thead><tr><th>Diezmador</th>${MESES_C.map(m=>`<th class="num" style="font-size:9px">${m}</th>`).join('')}<th class="num">Total</th></tr></thead>
+        <tbody>${dzIds.map(dzId=>{
+          const dz=diezmadores.find(d=>d.id===dzId);
+          const nombre=dz?`${dz.nombre} ${dz.apellido}`:regsAnio.find(r=>r.dzId===dzId)?.dzNombre||'—';
+          const total=regsAnio.filter(r=>r.dzId===dzId).reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+          const celdas=MESES.map((_,mi)=>{
+            const mk=`${anio}-${String(mi+1).padStart(2,'0')}`;
+            const t=regsAnio.filter(r=>r.dzId===dzId&&mesKey(r.fecha)===mk).reduce((s,r)=>s+(parseFloat(r.monto)||0),0);
+            return t?`<td class="num" style="color:var(--gold-l)">${fmtM(t)}</td>`:`<td class="num" style="color:var(--dim)">—</td>`;
+          }).join('');
+          return `<tr><td><strong>${nombre}</strong></td>${celdas}<td class="num" style="color:var(--gold-l);font-weight:800">${fmtM(total)}</td></tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+  }
+
+  cont.innerHTML=html;
+}
+
+// ══ EXPORTAR ══
+function toCSV(headers,rows){
+  return[headers,...rows].map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+}
+function exportarDatos(){
+  const total=registros.length+diezmadores.length;
+  if(!total)return toast('No hay datos para exportar','info');
+  let html='';
+  if(registros.length){
+    const h=['Diezmador','Tipo','Monto','Fecha','Servicio','Método','Recibo','Obs'];
+    const r=registros.map(x=>[x.dzNombre||'',x.tipo,x.monto,x.fecha,x.servicio||'',x.metodo||'',x.recibo||'',x.obs||'']);
+    html+=`<div class="exp-section"><div class="exp-label">💰 Registros (${registros.length})</div><textarea class="exp-ta" onclick="this.select()">${toCSV(h,r)}</textarea></div>`;
+  }
+  if(diezmadores.length){
+    const h=['Nombre','Apellido','Telefono','Zona','Grupo','Estado','Inicio','Base'];
+    const r=diezmadores.map(d=>[d.nombre,d.apellido,d.telefono||'',d.zona||'',d.grupo||'',d.estado,d.inicio||'',d.base||0]);
+    html+=`<div class="exp-section"><div class="exp-label">🙏 Diezmadores (${diezmadores.length})</div><textarea class="exp-ta" onclick="this.select()">${toCSV(h,r)}</textarea></div>`;
+  }
+  document.getElementById('exp-body').innerHTML=html;
+  openM('m-export');
+}
+function copiarTodo(){
+  const areas=document.querySelectorAll('#exp-body .exp-ta');
+  const all=[...areas].map(a=>a.value).join('\n\n');
+  navigator.clipboard.writeText(all).then(()=>toast('Copiado al portapapeles ✅'))
+    .catch(()=>{if(areas[0]){areas[0].select();document.execCommand('copy');toast('Copiado ✅');}});
+}
+
+// ══ INIT ══
+populateSelects();
+populateAnios();
+updateKPIs();
+renderRegistros();
+renderDiezmadores();
+renderResumen();
+</script>
+</body>
+</html>

@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LemGil – Misión Bíblica</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold:#C9922A; --gold-l:#E8B84B; --glow:rgba(201,146,42,0.2);
+  --d1:#0A0C10; --d2:#111318; --d3:#181C24; --d4:#1F242E; --d5:#252B37;
+  --border:rgba(201,146,42,0.18); --focus:rgba(201,146,42,0.5);
+  --txt:#E8E4DA; --dim:#7A7570;
+  --green:#4CAF7D; --yellow:#E8B84B; --blue:#4A7FD4; --red:#E05555; --purple:#7A5FC0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Nunito',sans-serif;background:var(--d1);color:var(--txt);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:210px;flex-shrink:0;background:var(--d2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+.logo{padding:22px 16px 16px;border-bottom:1px solid var(--border);}
+.logo-n{font-family:'Cinzel',serif;font-size:19px;font-weight:900;color:var(--gold);letter-spacing:3px;}
+.logo-s{font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+.nav{flex:1;padding:10px 0;}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--dim);cursor:pointer;border-left:3px solid transparent;transition:all .2s;}
+.ni:hover{background:var(--d3);color:var(--txt);}
+.ni.active{background:linear-gradient(90deg,rgba(201,146,42,0.13),transparent);color:var(--gold-l);border-left-color:var(--gold);}
+.sf{padding:14px 16px;border-top:1px solid var(--border);}
+.ucard{display:flex;align-items:center;gap:9px;}
+.av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#8B5E1A);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;font-size:13px;color:var(--d1);flex-shrink:0;}
+.un{font-size:13px;font-weight:700;}.ur{font-size:11px;color:var(--gold);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow-x:hidden;}
+.topbar{height:54px;background:var(--d2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:40;}
+.tt{font-family:'Cinzel',serif;font-size:14px;font-weight:600;letter-spacing:1px;}
+.bc{font-size:11px;color:var(--dim);} .bc span{color:var(--gold-l);}
+.content{padding:24px;flex:1;}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--d3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .2s;}
+.kpi:hover{border-color:var(--gold);}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--gold));}
+.kl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+.kv{font-family:'Cinzel',serif;font-size:26px;font-weight:700;margin:3px 0 2px;color:var(--c,var(--gold-l));}
+.ks{font-size:11px;color:var(--dim);}
+.ki{position:absolute;right:12px;top:12px;font-size:20px;opacity:.22;}
+
+/* BUTTONS */
+.arow{display:flex;gap:9px;margin-bottom:20px;flex-wrap:wrap;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .2s;white-space:nowrap;}
+.bg{background:linear-gradient(135deg,var(--gold),#8B5E1A);color:var(--d1);box-shadow:0 2px 10px var(--glow);}
+.bg:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(201,146,42,.35);}
+.bh{background:var(--d4);color:var(--txt);border:1px solid var(--border);}
+.bh:hover{border-color:var(--gold);color:var(--gold-l);}
+.bd{background:rgba(224,85,85,.13);color:var(--red);border:1px solid rgba(224,85,85,.3);}
+.bd:hover{background:rgba(224,85,85,.22);}
+.bsm{padding:5px 11px;font-size:11px;}
+
+/* CARD */
+.card{background:var(--d3);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.card+.card{margin-top:18px;}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.ct{font-family:'Cinzel',serif;font-size:12px;font-weight:600;color:var(--gold-l);letter-spacing:1px;}
+
+/* SEARCH */
+.sbar{display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;}
+.si{flex:1;min-width:160px;background:var(--d4);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);}
+.si:focus{outline:none;border-color:var(--focus);}
+.si::placeholder{color:var(--dim);}
+.fs{background:var(--d4);border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);}
+.fs:focus{outline:none;}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);padding:8px 11px;text-align:left;border-bottom:1px solid var(--border);}
+.tbl td{padding:10px 11px;font-size:13px;border-bottom:1px solid rgba(201,146,42,.06);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:var(--d4);}
+
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.bg2{background:rgba(76,175,125,.15);color:var(--green);}
+.by{background:rgba(232,184,75,.15);color:var(--yellow);}
+.bb{background:rgba(74,127,212,.15);color:var(--blue);}
+.br{background:rgba(224,85,85,.15);color:var(--red);}
+.bp{background:rgba(122,95,192,.15);color:var(--purple);}
+
+/* MODAL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(4px);}
+.ov.open{opacity:1;pointer-events:all;}
+.modal{background:var(--d2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;transform:translateY(18px);transition:transform .25s;box-shadow:0 18px 55px rgba(0,0,0,.55),0 0 0 1px rgba(201,146,42,.1);}
+.ov.open .modal{transform:translateY(0);}
+.mh{padding:20px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.mtitle{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--gold-l);letter-spacing:1px;}
+.mclose{width:28px;height:28px;border-radius:6px;background:var(--d4);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:var(--dim);transition:all .2s;}
+.mclose:hover{border-color:var(--red);color:var(--red);}
+.mb{padding:18px 22px;}
+.mf{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:9px;}
+
+/* FORM */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fg.full{grid-template-columns:1fr;}
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg.s2{grid-column:span 2;}
+.fl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);}
+.fi,.fsel,.fta{background:var(--d4);border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--txt);transition:border-color .2s,box-shadow .2s;width:100%;}
+.fi:focus,.fsel:focus,.fta:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px var(--glow);}
+.fi::placeholder{color:var(--dim);}
+.fsel option{background:var(--d3);}
+.fta{resize:vertical;min-height:75px;}
+.fsec{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:14px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+
+/* STEPS */
+.steps{display:flex;margin:10px 0;}
+.step{flex:1;text-align:center;position:relative;cursor:pointer;}
+.step::before{content:'';position:absolute;top:15px;left:50%;right:-50%;height:2px;background:var(--d5);z-index:0;}
+.step:last-child::before{display:none;}
+.sdot{width:30px;height:30px;border-radius:50%;background:var(--d5);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;margin:0 auto 5px;position:relative;z-index:1;transition:all .2s;}
+.step.done .sdot{background:var(--green);border-color:var(--green);}
+.step.active .sdot{background:var(--gold);border-color:var(--gold);color:var(--d1);}
+.slabel{font-size:10px;color:var(--dim);}
+.step.done .slabel,.step.active .slabel{color:var(--txt);}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--d3);border:1px solid var(--border);border-radius:9px;padding:12px 18px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;transform:translateY(70px);opacity:0;transition:all .3s;z-index:999;box-shadow:0 8px 28px rgba(0,0,0,.4);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--red);}
+.toast.info{border-left:3px solid var(--blue);}
+
+/* EMPTY */
+.empty{text-align:center;padding:44px 20px;color:var(--dim);}
+.eico{font-size:44px;margin-bottom:10px;opacity:.35;}
+.etit{font-family:'Cinzel',serif;font-size:15px;margin-bottom:5px;}
+.esub{font-size:12px;}
+
+/* DETAIL */
+.drow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(201,146,42,.06);}
+.drow:last-child{border-bottom:none;}
+.dlabel{font-size:12px;color:var(--dim);}
+.dval{font-size:13px;font-weight:600;}
+
+/* GRUPOS GRID */
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px;}
+.gcard{background:var(--d4);border:1px solid var(--border);border-radius:9px;padding:14px;transition:border-color .2s;}
+.gcard:hover{border-color:var(--gold);}
+
+/* GRUPOS GRID */
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px;}
+.gcard{background:var(--d4);border:1px solid var(--border);border-radius:9px;padding:14px;transition:border-color .2s;}
+.gcard:hover{border-color:var(--gold);}
+
+@media(max-width:760px){
+  .sidebar{display:none;}
+  .kpis{grid-template-columns:repeat(2,1fr);}
+  .fg{grid-template-columns:1fr;}
+  .fg.s2{grid-column:span 1;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-n">LEMGIL</div>
+    <div class="logo-s">Ministerio Apostólico</div>
+  </div>
+  <nav class="nav">
+    <div class="ni">📊 Dashboard</div>
+    <div class="ni active">🌍 Misión Bíblica</div>
+    <div class="ni">📖 Academia</div>
+    <div class="ni">🤲 Manos Abiertas</div>
+    <div class="ni">💼 Negocios Adonay</div>
+    <div class="ni">📡 Comunicación</div>
+    <div class="ni">💰 Red de Dadores</div>
+    <div class="ni">🔄 Reportes</div>
+  </nav>
+  <div class="sf">
+    <div class="ucard">
+      <div class="av">LG</div>
+      <div><div class="un">LemGil</div><div class="ur">👑 Apóstol</div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="tt">🌍 Misión Bíblica</div>
+    <div class="bc">LemGil / <span>Misión Bíblica</span></div>
+  </div>
+
+  <div class="content">
+    <!-- KPIs -->
+    <div class="kpis">
+      <div class="kpi" style="--c:#4CAF7D">
+        <div class="kl">Conversiones 2026</div>
+        <div class="kv" id="k1">0</div>
+        <div class="ks" id="k1s">este mes: 0</div>
+        <div class="ki">✝️</div>
+      </div>
+      <div class="kpi" style="--c:#E8B84B">
+        <div class="kl">En Discipulado</div>
+        <div class="kv" id="k2">0</div>
+        <div class="ks">seguimiento activo</div>
+        <div class="ki">📖</div>
+      </div>
+      <div class="kpi" style="--c:#4A7FD4">
+        <div class="kl">Bautizados</div>
+        <div class="kv" id="k3">0</div>
+        <div class="ks">confirmados</div>
+        <div class="ki">💧</div>
+      </div>
+      <div class="kpi" style="--c:#C9922A">
+        <div class="kl">Integrados</div>
+        <div class="kv" id="k4">0</div>
+        <div class="ks">al ministerio</div>
+        <div class="ki">🏘️</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="arow">
+      <button class="btn bg" onclick="openM('mc')">➕ Nueva Conversión</button>
+      <button class="btn bh" onclick="openM('mg')">👥 Nuevo Grupo</button>
+      <button class="btn bh" onclick="openM('me')">📋 Registrar Evangelismo</button>
+      <button class="btn bh" onclick="exportCSV()">📥 Exportar CSV</button>
+    </div>
+
+    <!-- TABLA -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📋 Registro de Conversiones</div>
+        <div style="font-size:12px;color:var(--dim)" id="cnt">0 registros</div>
+      </div>
+      <div class="sbar">
+        <input class="si" id="sq" placeholder="🔍  Buscar nombre, zona, líder…" oninput="renderTbl()">
+        <select class="fs" id="se" onchange="renderTbl()">
+          <option value="">Todos los estados</option>
+          <option>Nuevo</option><option>Discipulado</option>
+          <option>Bautizado</option><option>Integrado</option>
+        </select>
+        <select class="fs" id="sz" onchange="renderTbl()">
+          <option value="">Todas las zonas</option>
+          <option>Norte</option><option>Sur</option>
+          <option>Este</option><option>Oeste</option><option>Centro</option>
+        </select>
+      </div>
+      <div id="tblc">
+        <div class="empty"><div class="eico">🌱</div><div class="etit">Sin registros aún</div><div class="esub">Presiona "➕ Nueva Conversión" para comenzar</div></div>
+      </div>
+    </div>
+
+    <!-- GRUPOS -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">🏘️ Grupos de Discipulado</div>
+        <div style="font-size:12px;color:var(--dim)" id="gcnt">0 grupos</div>
+      </div>
+      <div id="gc">
+        <div class="empty" style="padding:28px"><div class="eico" style="font-size:30px">👥</div><div class="etit" style="font-size:13px">Sin grupos aún</div><div class="esub">Crea el primer grupo</div></div>
+      </div>
+    </div>
+
+    <!-- EVANGELISMOS -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📋 Actividades de Evangelismo</div>
+        <div style="font-size:12px;color:var(--dim)" id="ecnt">0 actividades</div>
+      </div>
+      <div id="etblc">
+        <div class="empty" style="padding:28px"><div class="eico" style="font-size:30px">📢</div><div class="etit" style="font-size:13px">Sin actividades aún</div><div class="esub">Presiona "📋 Registrar Evangelismo" para comenzar</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ MODAL: NUEVA CONVERSIÓN ══ -->
+<div class="ov" id="mc">
+  <div class="modal">
+    <div class="mh"><div class="mtitle">✝️ Nueva Conversión</div><div class="mclose" onclick="closeM('mc')">✕</div></div>
+    <div class="mb">
+      <div class="fsec">Datos Personales</div>
+      <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="cn" placeholder="Nombre"></div>
+        <div class="fg"><label class="fl">Apellido *</label><input class="fi" id="ca" placeholder="Apellido"></div>
+        <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="ct2" placeholder="+1 555 000 0000" type="tel"></div>
+        <div class="fg"><label class="fl">Edad</label><input class="fi" id="ced" placeholder="28" type="number" min="1" max="120"></div>
+        <div class="fg"><label class="fl">Dirección / Barrio</label><input class="fi" id="cdir" placeholder="Sector, barrio…"></div>
+        <div class="fg"><label class="fl">¿Familia en el ministerio?</label><select class="fsel" id="cfam"><option>No</option><option>Sí</option></select></div>
+      </div>
+      <div class="fsec">Datos del Evangelismo</div>
+      <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label class="fl">Fecha *</label><input class="fi" id="cf" type="date"></div>
+        <div class="fg"><label class="fl">Zona *</label><select class="fsel" id="cz"><option value="">Seleccionar…</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Centro</option></select></div>
+        <div class="fg"><label class="fl">Líder Responsable *</label><input class="fi" id="cl" placeholder="Nombre del líder"></div>
+        <div class="fg"><label class="fl">Estado Inicial</label><select class="fsel" id="ces"><option>Nuevo</option><option>Discipulado</option></select></div>
+        <div class="fg s2" style="grid-column:span 2"><label class="fl">Notas / Contexto</label><textarea class="fta" id="cno" placeholder="¿Cómo fue contactado? Situación especial…"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bh" onclick="closeM('mc')">Cancelar</button>
+      <button class="btn bg" onclick="saveConv()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: NUEVO GRUPO ══ -->
+<div class="ov" id="mg">
+  <div class="modal">
+    <div class="mh"><div class="mtitle">👥 Nuevo Grupo de Discipulado</div><div class="mclose" onclick="closeM('mg')">✕</div></div>
+    <div class="mb">
+      <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label class="fl">Nombre del Grupo *</label><input class="fi" id="gn" placeholder="Ej: Grupo Esperanza Norte"></div>
+        <div class="fg"><label class="fl">Zona *</label><select class="fsel" id="gz"><option value="">Seleccionar…</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Centro</option></select></div>
+        <div class="fg"><label class="fl">Líder *</label><input class="fi" id="gl" placeholder="Nombre del líder"></div>
+        <div class="fg"><label class="fl">Día de Reunión</label><select class="fsel" id="gd"><option>Lunes</option><option>Martes</option><option>Miércoles</option><option>Jueves</option><option>Viernes</option><option>Sábado</option><option>Domingo</option></select></div>
+        <div class="fg"><label class="fl">Hora</label><input class="fi" id="gh" type="time" value="19:00"></div>
+        <div class="fg"><label class="fl">Capacidad Máx.</label><input class="fi" id="gcap" type="number" placeholder="15" min="1"></div>
+        <div class="fg" style="grid-column:span 2"><label class="fl">Lugar</label><input class="fi" id="glug" placeholder="Casa, iglesia, salón…"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bh" onclick="closeM('mg')">Cancelar</button>
+      <button class="btn bg" onclick="saveGrupo()">💾 Crear Grupo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: EVANGELISMO ══ -->
+<div class="ov" id="me">
+  <div class="modal">
+    <div class="mh"><div class="mtitle">📋 Registrar Evangelismo</div><div class="mclose" onclick="closeM('me')">✕</div></div>
+    <div class="mb">
+      <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label class="fl">Tipo de Actividad *</label><select class="fsel" id="et"><option>Visita domiciliaria</option><option>Campaña en plaza</option><option>Evangelismo en calle</option><option>Reunión de célula</option><option>Invitación personal</option></select></div>
+        <div class="fg"><label class="fl">Fecha *</label><input class="fi" id="ef" type="date"></div>
+        <div class="fg"><label class="fl">Zona</label><select class="fsel" id="ez"><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Centro</option></select></div>
+        <div class="fg"><label class="fl">Líder</label><input class="fi" id="el2" placeholder="Nombre"></div>
+        <div class="fg"><label class="fl">Personas Contactadas</label><input class="fi" id="eco" type="number" placeholder="0" min="0"></div>
+        <div class="fg"><label class="fl">Conversiones del evento</label><input class="fi" id="ecv" type="number" placeholder="0" min="0"></div>
+        <div class="fg" style="grid-column:span 2"><label class="fl">Observaciones</label><textarea class="fta" id="eno" placeholder="Resultados, situaciones especiales…"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bh" onclick="closeM('me')">Cancelar</button>
+      <button class="btn bg" onclick="saveEvang()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: DETALLE ══ -->
+<div class="ov" id="md">
+  <div class="modal">
+    <div class="mh"><div class="mtitle" id="dtitle">📄 Detalle</div><div class="mclose" onclick="closeM('md')">✕</div></div>
+    <div class="mb">
+      <div class="fsec">Estado de Seguimiento — clic para avanzar</div>
+      <div class="steps" id="stps">
+        <div class="step" onclick="setEst('Nuevo')"><div class="sdot">🌱</div><div class="slabel">Nuevo</div></div>
+        <div class="step" onclick="setEst('Discipulado')"><div class="sdot">📖</div><div class="slabel">Discipulado</div></div>
+        <div class="step" onclick="setEst('Bautizado')"><div class="sdot">💧</div><div class="slabel">Bautizado</div></div>
+        <div class="step" onclick="setEst('Integrado')"><div class="sdot">🏘️</div><div class="slabel">Integrado</div></div>
+      </div>
+      <div class="fsec">Datos Registrados</div>
+      <div id="dcont"></div>
+      <div class="fsec" style="margin-top:14px">Agregar Nota de Seguimiento</div>
+      <div class="fg"><textarea class="fta" id="snota" placeholder="Visita, bautismo, integración, conversación…"></textarea></div>
+      <div id="shist"></div>
+    </div>
+    <div class="mf">
+      <button class="btn bd bsm" onclick="confirmDel()">🗑️ Eliminar</button>
+      <button class="btn bh" onclick="closeM('md')">Cerrar</button>
+      <button class="btn bg" onclick="saveSeg()">💾 Guardar Cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CONFIRMAR ELIMINAR ══ -->
+<div class="ov" id="mconf">
+  <div class="modal" style="max-width:360px">
+    <div class="mh"><div class="mtitle">⚠️ Confirmar</div><div class="mclose" onclick="closeM('mconf')">✕</div></div>
+    <div class="mb" style="text-align:center">
+      <div style="font-size:44px;margin-bottom:10px">🗑️</div>
+      <p style="color:var(--dim);font-size:14px;line-height:1.6">¿Eliminar el registro de <strong style="color:var(--txt)" id="cname"></strong>?<br>Esta acción no se puede deshacer.</p>
+    </div>
+    <div class="mf">
+      <button class="btn bh" onclick="closeM('mconf')">Cancelar</button>
+      <button class="btn bd" onclick="delConv()">Sí, Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  PERSISTENCIA — localStorage
+// ══════════════════════════════════════════
+const DB = {
+  load(k,def){try{const v=localStorage.getItem('lemgil_'+k);return v?JSON.parse(v):def;}catch{return def;}},
+  save(k,v){try{localStorage.setItem('lemgil_'+k,JSON.stringify(v));}catch(e){console.warn('localStorage no disponible:',e);}}
+};
+
+let convs    = DB.load('convs',[]);
+let grupos   = DB.load('grupos',[]);
+let evangels = DB.load('evangels',[]);
+let eids=null, tempEst=null;
+
+const ESTADOS=['Nuevo','Discipulado','Bautizado','Integrado'];
+const BC={Nuevo:'bb',Discipulado:'by',Bautizado:'bg2',Integrado:'bp'};
+const TIPO_BADGE={
+  'Visita domiciliaria':'bb','Campaña en plaza':'bg2',
+  'Evangelismo en calle':'by','Reunión de célula':'bp','Invitación personal':'br'
+};
+
+function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function tod(){return new Date().toISOString().split('T')[0];}
+function fmt(d){
+  if(!d)return'—';
+  const[y,m,dy]=d.split('-');
+  const ms=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return`${+dy} ${ms[+m-1]} ${y}`;
+}
+
+// Default dates en formularios
+['cf','ef'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=tod();});
+
+// ══ MODALS ══
+function openM(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeM(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
+document.querySelectorAll('.ov').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeM(m.id);}));
+
+// ══ TOAST ══
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  const ic={success:'✅',error:'❌',info:'ℹ️'};
+  t.innerHTML=`<span>${ic[type]}</span> ${msg}`;
+  t.className=`toast show ${type}`;
+  setTimeout(()=>t.classList.remove('show'),3400);
+}
+
+// ══ KPIs ══
+function updateK(){
+  const mo=new Date().toISOString().slice(0,7);
+  document.getElementById('k1').textContent=convs.length;
+  const mes=convs.filter(c=>c.fecha&&c.fecha.startsWith(mo)).length;
+  document.getElementById('k1s').textContent=`este mes: ${mes}`;
+  document.getElementById('k2').textContent=convs.filter(c=>c.estado==='Discipulado').length;
+  document.getElementById('k3').textContent=convs.filter(c=>c.estado==='Bautizado').length;
+  document.getElementById('k4').textContent=convs.filter(c=>c.estado==='Integrado').length;
+  document.getElementById('cnt').textContent=`${convs.length} registro${convs.length!==1?'s':''}`;
+}
+
+// ══ TABLA CONVERSIONES ══
+function renderTbl(){
+  const q=document.getElementById('sq').value.toLowerCase();
+  const se=document.getElementById('se').value;
+  const sz=document.getElementById('sz').value;
+  let data=convs.filter(c=>{
+    const s=`${c.nombre} ${c.apellido} ${c.zona} ${c.lider}`.toLowerCase();
+    return(!q||s.includes(q))&&(!se||c.estado===se)&&(!sz||c.zona===sz);
+  });
+  const c2=document.getElementById('tblc');
+  if(!data.length){
+    c2.innerHTML=convs.length
+      ?'<div class="empty"><div class="eico">🔍</div><div class="etit">Sin resultados</div><div class="esub">Prueba otros filtros</div></div>'
+      :'<div class="empty"><div class="eico">🌱</div><div class="etit">Sin registros aún</div><div class="esub">Presiona "➕ Nueva Conversión" para comenzar</div></div>';
+    return;
+  }
+  c2.innerHTML=`<table class="tbl">
+    <thead><tr><th>#</th><th>Nombre</th><th>Zona</th><th>Fecha</th><th>Líder</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody>${data.map((c,i)=>`<tr>
+      <td style="color:var(--dim)">${i+1}</td>
+      <td><strong>${c.nombre} ${c.apellido}</strong>${c.telefono?`<br><span style="font-size:10px;color:var(--dim)">${c.telefono}</span>`:''}</td>
+      <td>${c.zona||'—'}</td>
+      <td>${fmt(c.fecha)}</td>
+      <td>${c.lider||'—'}</td>
+      <td><span class="badge ${BC[c.estado]||'bb'}">${c.estado}</span></td>
+      <td><div style="display:flex;gap:5px">
+        <button class="btn bh bsm" onclick="verD('${c.id}')">👁 Ver</button>
+        <button class="btn bh bsm" onclick="quickAdv('${c.id}')">⬆ Estado</button>
+      </div></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ══ GUARDAR CONVERSIÓN ══
+function saveConv(){
+  const n=document.getElementById('cn').value.trim();
+  const a=document.getElementById('ca').value.trim();
+  const z=document.getElementById('cz').value;
+  const l=document.getElementById('cl').value.trim();
+  const f=document.getElementById('cf').value;
+  if(!n||!a)return toast('Nombre y apellido son obligatorios','error');
+  if(!z)return toast('Selecciona una zona','error');
+  if(!l)return toast('Indica el líder responsable','error');
+  if(!f)return toast('La fecha es obligatoria','error');
+  convs.unshift({
+    id:gid(),nombre:n,apellido:a,zona:z,lider:l,fecha:f,
+    telefono:document.getElementById('ct2').value.trim(),
+    edad:document.getElementById('ced').value,
+    direccion:document.getElementById('cdir').value.trim(),
+    familia:document.getElementById('cfam').value,
+    estado:document.getElementById('ces').value,
+    notas:document.getElementById('cno').value.trim(),
+    historial:[],creado:new Date().toISOString()
+  });
+  DB.save('convs',convs);
+  updateK();renderTbl();closeM('mc');resetF('mc');
+  toast(`${n} ${a} guardado/a correctamente 🙌`);
+}
+
+function resetF(id){
+  const m=document.getElementById(id);
+  m.querySelectorAll('input:not([type=date]),textarea').forEach(e=>e.value='');
+  m.querySelectorAll('select').forEach(e=>e.selectedIndex=0);
+  m.querySelectorAll('input[type=date]').forEach(e=>e.value=tod());
+}
+
+// ══ DETALLE / SEGUIMIENTO ══
+function verD(id){
+  const c=convs.find(x=>x.id===id);if(!c)return;
+  eids=id;tempEst=null;
+  document.getElementById('dtitle').textContent=`📄 ${c.nombre} ${c.apellido}`;
+  updateSteps(c.estado);
+  document.getElementById('dcont').innerHTML=`
+    <div class="drow"><span class="dlabel">Nombre</span><span class="dval">${c.nombre} ${c.apellido}</span></div>
+    <div class="drow"><span class="dlabel">Teléfono</span><span class="dval">${c.telefono||'No registrado'}</span></div>
+    <div class="drow"><span class="dlabel">Edad</span><span class="dval">${c.edad||'—'}</span></div>
+    <div class="drow"><span class="dlabel">Zona</span><span class="dval">${c.zona}</span></div>
+    <div class="drow"><span class="dlabel">Líder</span><span class="dval">${c.lider}</span></div>
+    <div class="drow"><span class="dlabel">Fecha conversión</span><span class="dval">${fmt(c.fecha)}</span></div>
+    <div class="drow"><span class="dlabel">Familia en ministerio</span><span class="dval">${c.familia||'No'}</span></div>
+    <div class="drow"><span class="dlabel">Estado</span><span class="dval"><span class="badge ${BC[c.estado]}">${c.estado}</span></span></div>
+    ${c.notas?`<div class="drow"><span class="dlabel">Notas</span><span class="dval" style="font-size:12px;color:var(--dim)">${c.notas}</span></div>`:''}`;
+  const hist=document.getElementById('shist');
+  if(c.historial&&c.historial.length){
+    hist.innerHTML=`<div class="fsec" style="margin-top:14px">Historial de Seguimiento</div>
+      ${c.historial.slice().reverse().map(h=>`
+      <div style="padding:7px 10px;background:var(--d5);border-radius:6px;margin-bottom:5px;border-left:2px solid var(--gold)">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:2px">${fmt(h.fecha)} · <span class="badge ${BC[h.estado]||'bb'}" style="font-size:10px">${h.estado}</span></div>
+        <div style="font-size:12px">${h.nota}</div>
+      </div>`).join('')}`;
+  } else hist.innerHTML='';
+  document.getElementById('snota').value='';
+  openM('md');
+}
+
+function updateSteps(est){
+  const idx=ESTADOS.indexOf(est);
+  document.querySelectorAll('#stps .step').forEach((el,i)=>{
+    el.className='step';
+    if(i<idx)el.classList.add('done');
+    if(i===idx)el.classList.add('active');
+  });
+}
+
+function setEst(e){tempEst=e;updateSteps(e);}
+
+function saveSeg(){
+  const c=convs.find(x=>x.id===eids);if(!c)return;
+  const nota=document.getElementById('snota').value.trim();
+  const ne=tempEst||c.estado;
+  if(nota||ne!==c.estado){
+    c.historial.push({fecha:tod(),estado:ne,nota:nota||(ne!==c.estado?`Estado: ${c.estado} → ${ne}`:'Actualización sin nota')});
+  }
+  c.estado=ne;tempEst=null;
+  DB.save('convs',convs);
+  updateK();renderTbl();closeM('md');
+  toast('Seguimiento guardado ✅');
+}
+
+function quickAdv(id){
+  const c=convs.find(x=>x.id===id);if(!c)return;
+  const i=ESTADOS.indexOf(c.estado);
+  if(i<ESTADOS.length-1){
+    const p=c.estado;c.estado=ESTADOS[i+1];
+    c.historial.push({fecha:tod(),estado:c.estado,nota:`Avance rápido: ${p} → ${c.estado}`});
+    DB.save('convs',convs);
+    updateK();renderTbl();toast(`${c.nombre} avanzó a ${c.estado} 🎉`);
+  } else toast(`${c.nombre} ya está Integrado/a ✅`,'info');
+}
+
+// ══ ELIMINAR ══
+function confirmDel(){
+  const c=convs.find(x=>x.id===eids);if(!c)return;
+  document.getElementById('cname').textContent=`${c.nombre} ${c.apellido}`;
+  closeM('md');openM('mconf');
+}
+function delConv(){
+  convs=convs.filter(x=>x.id!==eids);eids=null;
+  DB.save('convs',convs);
+  updateK();renderTbl();closeM('mconf');
+  toast('Registro eliminado','info');
+}
+
+// ══ GRUPOS ══
+function saveGrupo(){
+  const n=document.getElementById('gn').value.trim();
+  const z=document.getElementById('gz').value;
+  const l=document.getElementById('gl').value.trim();
+  if(!n)return toast('El nombre del grupo es obligatorio','error');
+  if(!z)return toast('Selecciona una zona','error');
+  if(!l)return toast('Indica el líder del grupo','error');
+  grupos.push({
+    id:gid(),nombre:n,zona:z,lider:l,
+    dia:document.getElementById('gd').value,
+    hora:document.getElementById('gh').value,
+    capacidad:document.getElementById('gcap').value||'∞',
+    lugar:document.getElementById('glug').value.trim(),
+    miembros:0
+  });
+  DB.save('grupos',grupos);
+  renderGrupos();closeM('mg');resetF('mg');
+  toast(`Grupo "${n}" creado 👥`);
+}
+
+function renderGrupos(){
+  document.getElementById('gcnt').textContent=`${grupos.length} grupo${grupos.length!==1?'s':''}`;
+  const c=document.getElementById('gc');
+  if(!grupos.length){
+    c.innerHTML='<div class="empty" style="padding:28px"><div class="eico" style="font-size:28px">👥</div><div class="etit" style="font-size:13px">Sin grupos aún</div><div class="esub">Crea el primer grupo</div></div>';
+    return;
+  }
+  c.innerHTML=`<div class="ggrid">${grupos.map(g=>`
+    <div class="gcard">
+      <div style="font-weight:800;font-size:14px;margin-bottom:5px">${g.nombre}</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:8px">📍 ${g.zona} &nbsp;·&nbsp; 👤 ${g.lider}</div>
+      <div style="font-size:11px;color:var(--dim)">📅 ${g.dia} ${g.hora}${g.lugar?` · ${g.lugar}`:''}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:3px">👥 ${g.miembros} / ${g.capacidad} miembros</div>
+    </div>`).join('')}</div>`;
+}
+
+// ══ EVANGELISMOS — GUARDAR Y MOSTRAR ══
+function saveEvang(){
+  const f=document.getElementById('ef').value;
+  if(!f)return toast('La fecha es obligatoria','error');
+  const tipo  = document.getElementById('et').value;
+  const zona  = document.getElementById('ez').value;
+  const lider = document.getElementById('el2').value.trim();
+  const contactos   = parseInt(document.getElementById('eco').value)||0;
+  const convsEvang  = parseInt(document.getElementById('ecv').value)||0;
+  const notas = document.getElementById('eno').value.trim();
+  evangels.unshift({
+    id:gid(), fecha:f, tipo, zona, lider,
+    contactos, conversiones:convsEvang, notas,
+    creado:new Date().toISOString()
+  });
+  DB.save('evangels',evangels);
+  renderEvangels();closeM('me');resetF('me');
+  toast(`Evangelismo guardado — ${convsEvang} conversión${convsEvang!==1?'es':''} 📋`);
+}
+
+function renderEvangels(){
+  document.getElementById('ecnt').textContent=`${evangels.length} actividad${evangels.length!==1?'es':''}`;
+  const c=document.getElementById('etblc');
+  if(!evangels.length){
+    c.innerHTML='<div class="empty" style="padding:28px"><div class="eico" style="font-size:28px">📢</div><div class="etit" style="font-size:13px">Sin actividades aún</div><div class="esub">Presiona "📋 Registrar Evangelismo" para comenzar</div></div>';
+    return;
+  }
+  c.innerHTML=`<table class="tbl">
+    <thead><tr><th>#</th><th>Tipo</th><th>Zona</th><th>Fecha</th><th>Líder</th><th>Contactos</th><th>Conversiones</th><th>Notas</th></tr></thead>
+    <tbody>${evangels.map((e,i)=>`<tr>
+      <td style="color:var(--dim)">${i+1}</td>
+      <td><span class="badge ${TIPO_BADGE[e.tipo]||'bb'}">${e.tipo}</span></td>
+      <td>${e.zona||'—'}</td>
+      <td>${fmt(e.fecha)}</td>
+      <td>${e.lider||'—'}</td>
+      <td style="text-align:center;font-weight:700;color:var(--blue)">${e.contactos}</td>
+      <td style="text-align:center;font-weight:700;color:var(--green)">${e.conversiones}</td>
+      <td style="font-size:12px;color:var(--dim);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.notas||'—'}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ══ EXPORT CSV ══
+function exportCSV(){
+  if(!convs.length)return toast('No hay datos para exportar','info');
+  const h=['Nombre','Apellido','Telefono','Edad','Zona','Lider','Fecha','Estado','Notas'];
+  const r=convs.map(c=>[c.nombre,c.apellido,c.telefono||'',c.edad||'',c.zona,c.lider,c.fecha,c.estado,(c.notas||'').replace(/,/g,';')]);
+  const csv=[h,...r].map(x=>x.join(',')).join('\n');
+  const b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const u=URL.createObjectURL(b);
+  const a=document.createElement('a');a.href=u;a.download='lemgil-conversiones.csv';a.click();
+  toast('CSV exportado 📥');
+}
+
+// ══ INIT ══
+updateK();renderTbl();renderGrupos();renderEvangels();
+</script>
+</body>
+</html>
