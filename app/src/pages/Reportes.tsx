@@ -30,6 +30,8 @@ export default function Reportes() {
   const certs = useLiveQuery(() => db.certificados.toArray(), []) ?? [];
   const dadores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
   const aportes = useLiveQuery(() => db.aportes.toArray(), []) ?? [];
+  const colaboradores = useLiveQuery(() => db.colaboradores.toArray(), []) ?? [];
+  const aportesComun = useLiveQuery(() => db.aportesComun.toArray(), []) ?? [];
   const beneficiarios = useLiveQuery(() => db.beneficiarios.toArray(), []) ?? [];
   const campanas = useLiveQuery(() => db.campanas.toArray(), []) ?? [];
   const entregas = useLiveQuery(() => db.entregas.toArray(), []) ?? [];
@@ -102,6 +104,15 @@ export default function Reportes() {
     const apDiezmos = apRango.filter((a) => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
     const apOfrendas = apRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
 
+    const apComunRango = enRango(aportesComun);
+    const apComunTotal = apComunRango.reduce((s, a) => s + (a.monto || 0), 0);
+    const apComunDiezmos = apComunRango.filter((a) => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
+    const apComunOfrendas = apComunRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+
+    const finTotal = apTotal + apComunTotal;
+    const finDiezmos = apDiezmos + apComunDiezmos;
+    const finOfrendas = apOfrendas + apComunOfrendas;
+
     const entrRango = enRango(entregas);
     const benefUnicos = new Set(entrRango.map((e) => e.beneficiarioId)).size;
     const personas = beneficiarios
@@ -119,12 +130,12 @@ export default function Reportes() {
       conv: { total: conv.length, mesActual: convMes, integrados: convIntegrados, grupos: grupos.length },
       evang: { total: evang.length, contactos: evangContactos, conversiones: evangConvs },
       academia: { cursos: cursos.length, cursosActivos, estudiantes: estActivos, certificados: certRango.length },
-      finanzas: { total: apTotal, diezmos: apDiezmos, ofrendas: apOfrendas, dadores: dadores.length, dadoresActivos: dadores.filter((d) => d.estado === 'Activo').length },
+      finanzas: { total: finTotal, diezmos: finDiezmos, ofrendas: finOfrendas, dadores: dadores.length, dadoresActivos: dadores.filter((d) => d.estado === 'Activo').length, colaboradores: colaboradores.length, colaboradoresActivos: colaboradores.filter((c) => c.estado === 'Activo').length },
       manos: { beneficiarios: beneficiarios.length, campanas: campanas.filter((c) => inRange(c.fechaInicio, desde, hasta)).length, entregas: entrRango.length, familias: benefUnicos, personas },
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
     };
-  }, [convs, grupos, evangels, cursos, estudiantes, certs, dadores, aportes, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta, ymNow]);
+  }, [convs, grupos, evangels, cursos, estudiantes, certs, dadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta, ymNow]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -222,10 +233,11 @@ export default function Reportes() {
                 lines.push(`Estudiantes activos: ${datos.academia.estudiantes}`);
                 lines.push(`Certificados emitidos: ${datos.academia.certificados}`);
                 lines.push('');
-                lines.push('FINANZAS');
+                lines.push('FINANZAS (Dadores + Colaboradores)');
                 lines.push(`Total aportes: ${money(datos.finanzas.total)}`);
                 lines.push(`Diezmos: ${money(datos.finanzas.diezmos)} | Ofrendas: ${money(datos.finanzas.ofrendas)}`);
-                lines.push(`Colaboradores: ${datos.finanzas.dadores} (${datos.finanzas.dadoresActivos} activos)`);
+                lines.push(`Dadores (miembros): ${datos.finanzas.dadoresActivos} activos / ${datos.finanzas.dadores} totales`);
+                lines.push(`Colaboradores (externos): ${datos.finanzas.colaboradoresActivos} activos / ${datos.finanzas.colaboradores} totales`);
                 lines.push('');
                 lines.push('MANOS ABIERTAS');
                 lines.push(`Beneficiarios: ${datos.manos.beneficiarios}`);
@@ -271,12 +283,12 @@ export default function Reportes() {
                 ['Certificados emitidos', datos.academia.certificados],
               ]} />
 
-              <ModuleCard color="var(--oro-apostolico)" emoji="💰" title="Finanzas" rows={[
+              <ModuleCard color="var(--oro-apostolico)" emoji="💰" title="Finanzas (Dadores + Colaboradores)" rows={[
                 ['Total aportes', money(datos.finanzas.total)],
                 ['Diezmos', money(datos.finanzas.diezmos)],
                 ['Ofrendas', money(datos.finanzas.ofrendas)],
-                ['Colaboradores totales', datos.finanzas.dadores],
-                ['Colaboradores activos', datos.finanzas.dadoresActivos],
+                ['Dadores (miembros)', `${datos.finanzas.dadoresActivos} / ${datos.finanzas.dadores}`],
+                ['Colaboradores (externos)', `${datos.finanzas.colaboradoresActivos} / ${datos.finanzas.colaboradores}`],
                 ['Meta mensual', money(metasDoc?.sostenimiento || 8000)],
                 ['% de meta', `${Math.round((datos.finanzas.total / (metasDoc?.sostenimiento || 8000)) * 100)}%`],
               ]} />
@@ -400,11 +412,14 @@ export default function Reportes() {
               <div className="detail-row"><span className="detail-label">Estudiantes</span><span className="detail-value">{selResumen.academia.estudiantes}</span></div>
               <div className="detail-row"><span className="detail-label">Certificados</span><span className="detail-value">{selResumen.academia.certificados}</span></div>
 
-              <div className="form-section" style={{ marginTop: 14 }}>💰 Finanzas</div>
+              <div className="form-section" style={{ marginTop: 14 }}>💰 Finanzas (Dadores + Colaboradores)</div>
               <div className="detail-row"><span className="detail-label">Total aportes</span><span className="detail-value">{money(selResumen.finanzas.total)}</span></div>
               <div className="detail-row"><span className="detail-label">Diezmos</span><span className="detail-value">{money(selResumen.finanzas.diezmos)}</span></div>
               <div className="detail-row"><span className="detail-label">Ofrendas</span><span className="detail-value">{money(selResumen.finanzas.ofrendas)}</span></div>
-              <div className="detail-row"><span className="detail-label">Colaboradores</span><span className="detail-value">{selResumen.finanzas.dadores} ({selResumen.finanzas.dadoresActivos} activos)</span></div>
+              <div className="detail-row"><span className="detail-label">Dadores (miembros)</span><span className="detail-value">{selResumen.finanzas.dadoresActivos} activos / {selResumen.finanzas.dadores} totales</span></div>
+              {selResumen.finanzas.colaboradores !== undefined && (
+                <div className="detail-row"><span className="detail-label">Colaboradores (externos)</span><span className="detail-value">{selResumen.finanzas.colaboradoresActivos} activos / {selResumen.finanzas.colaboradores} totales</span></div>
+              )}
 
               <div className="form-section" style={{ marginTop: 14 }}>🤲 Manos Abiertas</div>
               <div className="detail-row"><span className="detail-label">Beneficiarios</span><span className="detail-value">{selResumen.manos.beneficiarios}</span></div>

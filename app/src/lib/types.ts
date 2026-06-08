@@ -236,32 +236,9 @@ export interface MiembroComun {
   email: string;
   fechaIngreso: string;
   estado: 'Activo' | 'Inactivo';
-  notas: string;
-  creado: string;
-}
-
-export interface AporteComun {
-  id: string;
-  miembroId: string | null;
-  grupoId: string | null;
-  fecha: string;
-  monto: number;
-  tipo: 'Diezmo' | 'Ofrenda';
-  metodo: 'Efectivo' | 'Transferencia' | 'Cheque' | 'Tarjeta' | 'Otro';
-  mesCorrespondiente: string;
-  referencia: string;
-  notas: string;
-  creado: string;
-}
-
-export interface MiembroComun {
-  id: string;
-  nombre: string;
-  apellido: string;
-  telefono: string;
-  email: string;
-  fechaIngreso: string;
-  estado: 'Activo' | 'Inactivo';
+  zona: string;
+  grupo: string;
+  base: number;
   notas: string;
   creado: string;
 }

@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
@@ -20,8 +22,55 @@ const money = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigi
 
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Pausado: 'badge-yellow', Inactivo: 'badge-red' };
 const TIPO_BADGE: Record<string, string> = { Persona: 'badge-blue', Empresa: 'badge-purple', Iglesia: 'badge-yellow' };
-const APORTE_BADGE: Record<string, string> = { Diezmo: 'badge-purple', Ofrenda: 'badge-blue', Misión: 'badge-green', Construcción: 'badge-yellow', 'Manos Abiertas': 'badge-red', Otro: 'badge-blue' };
+const APORTE_BADGE: Record<string, string> = { Diezmo: 'badge-purple', Ofrenda: 'badge-blue', 'Misión': 'badge-green', Construcción: 'badge-yellow', 'Manos Abiertas': 'badge-red', Otro: 'badge-blue' };
 const METODO_BADGE: Record<string, string> = { Efectivo: 'badge-green', Transferencia: 'badge-blue', Cheque: 'badge-yellow', Tarjeta: 'badge-purple', Otro: 'badge-blue' };
+
+const exportDadoresPDF = (dadores: Dador[], aportes: Aporte[]) => {
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text('Red de Colaboradores', 14, 20);
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${dadores.length} colaboradores`, 14, 28);
+
+  const rows = dadores.map((d) => {
+    const total = aportes.filter((a) => a.dadorId === d.id).reduce((s, a) => s + (a.monto || 0), 0);
+    const mes = aportes.filter((a) => a.dadorId === d.id && a.fecha?.startsWith(new Date().toISOString().slice(0, 7))).reduce((s, a) => s + (a.monto || 0), 0);
+    return [`${d.nombre} ${d.apellido}`, d.tipo, d.telefono || '—', d.estado, `$${total.toLocaleString()}`, `$${mes.toLocaleString()}`];
+  });
+
+  autoTable(doc, {
+    startY: 34,
+    head: [['Nombre', 'Tipo', 'Teléfono', 'Estado', 'Total Aportado', 'Este Mes']],
+    body: rows,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [212, 168, 67] },
+  });
+
+  const apRows = aportes
+    .filter((a) => a.fecha?.startsWith(new Date().toISOString().slice(0, 7)))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+    .slice(0, 50)
+    .map((a) => {
+      const d = dadores.find((x) => x.id === a.dadorId);
+      return [a.fecha, d ? `${d.nombre} ${d.apellido}` : '—', a.tipo, a.metodo, `$${a.monto.toLocaleString()}`, a.referencia || ''];
+    });
+
+  const lastY = (doc as any).lastAutoTable?.finalY || 34;
+  doc.setFontSize(12);
+  doc.setTextColor(0);
+  doc.text('Aportes del Mes', 14, lastY + 14);
+
+  autoTable(doc, {
+    startY: lastY + 18,
+    head: [['Fecha', 'Colaborador', 'Tipo', 'Método', 'Monto', 'Referencia']],
+    body: apRows,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [212, 168, 67] },
+  });
+
+  doc.save('lemgil-colaboradores.pdf');
+};
 
 type Tab = 'dadores' | 'aportes';
 type ModalType = 'dador' | 'aporte' | 'detail' | 'delDador' | 'delAporte';
@@ -227,6 +276,13 @@ export default function Dadores() {
 
         <div className="actions-row">
           {tab === 'dadores' && <button className="btn btn-gold" onClick={openNewDador}>➕ Nuevo Colaborador</button>}
+          {tab === 'dadores' && (
+            <button className="btn btn-secondary" onClick={() => {
+              if (!dadores.length) return showToast('No hay colaboradores para exportar');
+              exportDadoresPDF(dadores, aportes);
+              showToast('PDF exportado');
+            }}>📄 Exportar PDF</button>
+          )}
           {tab === 'aportes' && <button className="btn btn-gold" onClick={openNewAporte}>💰 Registrar Aporte</button>}
           {tab === 'aportes' && (
             <button

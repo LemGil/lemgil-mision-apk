@@ -147,6 +147,9 @@ export async function desunificarBienComun(): Promise<void> {
           email: m.email,
           fechaIngreso: m.fechaIngreso,
           estado: 'Activo',
+          zona: m.zona || '',
+          grupo: '',
+          base: 0,
           notas: '',
           creado: new Date().toISOString()
         });
