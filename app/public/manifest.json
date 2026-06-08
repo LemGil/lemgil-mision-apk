@@ -1,0 +1,17 @@
+{
+  "name": "LemGil — Ministerio Apostólico",
+  "short_name": "LemGil",
+  "description": "Sistema de gestión eclesial",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#d4a843",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
