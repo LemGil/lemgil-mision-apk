@@ -111,13 +111,18 @@ export default function Reportes() {
 
     const finDiezmos = apDiezmos + apComunDiezmos;
     const finOfrendas = apOfrendas + apComunOfrendas;
-    const bienComunTotal = apTotal;
+
+    const bienComunDiezmos = apComunDiezmos;
+    const bienComunOfrendas = apComunOfrendas;
+    const bienComunTotal = apComunTotal;
     const bienComunPlan = metasDoc?.sostenimiento || 8000;
 
-    const colaboradoresAyuda = apComunRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
-    const colaboradoresMisiones = 0;
-    const colaboradoresManosAbiertas = 0;
-    const colaboradoresTotal = apComunTotal;
+    const colaboradoresAyuda = apRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresMisiones = apRango.filter((a) => a.tipo === 'Misión').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresManosAbiertas = apRango.filter((a) => a.tipo === 'Manos Abiertas').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresConstruccion = apRango.filter((a) => a.tipo === 'Construcción').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresOtro = apRango.filter((a) => !['Diezmo', 'Ofrenda', 'Misión', 'Manos Abiertas', 'Construcción'].includes(a.tipo)).reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresTotal = apTotal;
     const colaboradoresPlan = 0;
 
     const totalFinal = bienComunTotal + colaboradoresTotal;
@@ -139,7 +144,7 @@ export default function Reportes() {
       conv: { total: conv.length, mesActual: convMes, integrados: convIntegrados, grupos: grupos.length },
       evang: { total: evang.length, contactos: evangContactos, conversiones: evangConvs },
       academia: { cursos: cursos.length, cursosActivos, estudiantes: estActivos, certificados: certRango.length },
-      finanzas: { diezmos: finDiezmos, ofrendas: finOfrendas, bienComunDiezmos: apDiezmos, bienComunOfrendas: apOfrendas, bienComunTotal, bienComunPlan, colaboradoresAyuda, colaboradoresMisiones, colaboradoresManosAbiertas, colaboradoresTotal, colaboradoresPlan, totalFinal },
+      finanzas: { diezmos: finDiezmos, ofrendas: finOfrendas, bienComunDiezmos, bienComunOfrendas, bienComunTotal, bienComunPlan, colaboradoresAyuda, colaboradoresMisiones, colaboradoresManosAbiertas, colaboradoresConstruccion, colaboradoresOtro, colaboradoresTotal, colaboradoresPlan, totalFinal },
       manos: { beneficiarios: beneficiarios.length, campanas: campanas.filter((c) => inRange(c.fechaInicio, desde, hasta)).length, entregas: entrRango.length, familias: benefUnicos, personas },
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
@@ -244,16 +249,18 @@ export default function Reportes() {
                 lines.push('');
                 lines.push('FINANZAS');
                 lines.push('');
-                lines.push('BIEN COMÚN (Dadores/Miembros):');
+                lines.push('BIEN COMÚN (Diezmos+Ofrendas):');
                 lines.push(`  Diezmos: ${money(datos.finanzas.bienComunDiezmos)}`);
                 lines.push(`  Ofrendas: ${money(datos.finanzas.bienComunOfrendas)}`);
                 lines.push(`  Total Bien Común: ${money(datos.finanzas.bienComunTotal)}`);
                 lines.push(`  Plan mensual: ${money(datos.finanzas.bienComunPlan)}`);
                 lines.push('');
-                lines.push('COLABORADORES (Externos):');
-                lines.push(`  Ayuda: ${money(datos.finanzas.colaboradoresAyuda)}`);
+                lines.push('COLABORADORES (Red Externa):');
+                lines.push(`  Ayuda / Ofrendas: ${money(datos.finanzas.colaboradoresAyuda)}`);
                 lines.push(`  Misiones: ${money(datos.finanzas.colaboradoresMisiones)}`);
                 lines.push(`  Manos Abiertas: ${money(datos.finanzas.colaboradoresManosAbiertas)}`);
+                lines.push(`  Construcción: ${money(datos.finanzas.colaboradoresConstruccion)}`);
+                lines.push(`  Otros: ${money(datos.finanzas.colaboradoresOtro)}`);
                 lines.push(`  Total Colaboradores: ${money(datos.finanzas.colaboradoresTotal)}`);
                 lines.push(`  Plan mensual: ${money(datos.finanzas.colaboradoresPlan)}`);
                 lines.push('');
@@ -305,15 +312,17 @@ export default function Reportes() {
               ]} />
 
               <ModuleCard color="var(--oro-apostolico)" emoji="💰" title="Finanzas" rows={[
-                ['— BIEN COMÚN (Dadores/Miembros) —', ''],
+                ['— BIEN COMÚN (Diezmos+Ofrendas) —', ''],
                 ['  Diezmos', money(datos.finanzas.bienComunDiezmos)],
                 ['  Ofrendas', money(datos.finanzas.bienComunOfrendas)],
                 ['  Total Bien Común', money(datos.finanzas.bienComunTotal)],
                 ['  Plan mensual', money(datos.finanzas.bienComunPlan)],
-                ['— COLABORADORES (Externos) —', ''],
-                ['  Ayuda', money(datos.finanzas.colaboradoresAyuda)],
+                ['— COLABORADORES (Red Externa) —', ''],
+                ['  Ayuda / Ofrendas', money(datos.finanzas.colaboradoresAyuda)],
                 ['  Misiones', money(datos.finanzas.colaboradoresMisiones)],
                 ['  Manos Abiertas', money(datos.finanzas.colaboradoresManosAbiertas)],
+                ['  Construcción', money(datos.finanzas.colaboradoresConstruccion)],
+                ['  Otros', money(datos.finanzas.colaboradoresOtro)],
                 ['  Total Colaboradores', money(datos.finanzas.colaboradoresTotal)],
                 ['  Plan mensual', money(datos.finanzas.colaboradoresPlan)],
                 ['— TOTAL FINAL —', ''],
