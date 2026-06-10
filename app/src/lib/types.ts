@@ -164,6 +164,7 @@ export interface Campana {
   zona: string;
   tipo: 'Alimentaria' | 'Escolar' | 'Salud' | 'Vivienda' | 'Navidad' | 'Otra';
   metaFamilias: number;
+  metaTipo: 'Familias' | 'Personas';
   responsable: string;
   estado: 'Planificada' | 'En curso' | 'Completada' | 'Cancelada';
   descripcion: string;

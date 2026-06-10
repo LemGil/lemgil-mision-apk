@@ -183,4 +183,10 @@ database.version(16).stores({
   });
 });
 
+database.version(17).stores({}).upgrade(async (tx) => {
+  await tx.table('campanas').toCollection().modify((c: any) => {
+    if (typeof c.metaTipo === 'undefined') c.metaTipo = 'Familias';
+  });
+});
+
 export { database as db };

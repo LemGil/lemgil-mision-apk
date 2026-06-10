@@ -114,6 +114,7 @@ export default function ManosAbiertas() {
   const [cZona, setCZona] = useState('');
   const [cTipo, setCTipo] = useState('Alimentaria');
   const [cMeta, setCMeta] = useState('');
+  const [cMetaTipo, setCMetaTipo] = useState<'Familias' | 'Personas'>('Familias');
   const [cResp, setCResp] = useState('');
   const [cEstado, setCEstado] = useState('Planificada');
   const [cDesc, setCDesc] = useState('');
@@ -160,6 +161,7 @@ export default function ManosAbiertas() {
     setCZona('');
     setCTipo('Alimentaria');
     setCMeta('');
+    setCMetaTipo('Familias');
     setCResp('');
     setCEstado('Planificada');
     setCDesc('');
@@ -233,7 +235,10 @@ export default function ManosAbiertas() {
   const selCamp = campanas.find((c) => c.id === selectedId);
   const selEntregas = selCamp ? entregas.filter((e) => e.campanaId === selCamp.id) : [];
   const selBenefsUnicos = new Set(selEntregas.map((e) => e.beneficiarioId)).size;
-  const selProgress = selCamp && selCamp.metaFamilias > 0 ? Math.min(100, Math.round((selBenefsUnicos / selCamp.metaFamilias) * 100)) : 0;
+  const selAlcanzados = selCamp?.metaTipo === 'Personas'
+    ? selEntregas.reduce((s, e) => { const b = beneficiarios.find(x => x.id === e.beneficiarioId); return s + (b?.familia || 1); }, 0)
+    : selBenefsUnicos;
+  const selProgress = selCamp && selCamp.metaFamilias > 0 ? Math.min(100, Math.round((selAlcanzados / selCamp.metaFamilias) * 100)) : 0;
 
   const openNewBen = (type: 'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable') => {
     resetBen();
@@ -309,6 +314,7 @@ export default function ManosAbiertas() {
     setCZona(c.zona);
     setCTipo(c.tipo);
     setCMeta(String(c.metaFamilias || ''));
+    setCMetaTipo(c.metaTipo || 'Familias');
     setCResp(c.responsable);
     setCEstado(c.estado);
     setCDesc(c.descripcion);
@@ -317,7 +323,7 @@ export default function ManosAbiertas() {
   const saveCamp = async () => {
     if (!cNombre.trim()) return showToast('El nombre de la campaña es obligatorio');
     if (!cInicio) return showToast('La fecha de inicio es obligatoria');
-    const data = { nombre: cNombre.trim(), fechaInicio: cInicio, fechaFin: cFin, zona: cZona, tipo: cTipo as Campana['tipo'], metaFamilias: parseInt(cMeta) || 0, responsable: cResp.trim(), estado: cEstado as Campana['estado'], descripcion: cDesc.trim() };
+    const data = { nombre: cNombre.trim(), fechaInicio: cInicio, fechaFin: cFin, zona: cZona, tipo: cTipo as Campana['tipo'], metaFamilias: parseInt(cMeta) || 0, metaTipo: cMetaTipo, responsable: cResp.trim(), estado: cEstado as Campana['estado'], descripcion: cDesc.trim() };
     if (editCampId) {
       await db.campanas.update(editCampId, data);
       showToast(`Campaña "${cNombre}" actualizada`);
@@ -486,7 +492,8 @@ export default function ManosAbiertas() {
                 doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${campFiltradas.length}`, 14, 28);
                 const rows = campFiltradas.map(c => {
                   const ents = entregas.filter(e => e.campanaId === c.id);
-                  return [c.nombre, c.tipo, c.responsable || '—', c.estado, `${ents.length} entregas`, c.metaFamilias || '—'];
+                  const metaLabel = c.metaTipo === 'Personas' ? 'personas' : 'familias';
+                  return [c.nombre, c.tipo, c.responsable || '—', c.estado, `${ents.length} entregas`, `${c.metaFamilias || '—'} ${metaLabel}`];
                 });
                 autoTable(doc, { startY: 34, head: [['Nombre', 'Tipo', 'Responsable', 'Estado', 'Entregas', 'Meta']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
                 doc.save('lemgil-campanas.pdf');
@@ -494,8 +501,8 @@ export default function ManosAbiertas() {
               }}>📄 Exportar PDF</button>
               <button className="btn btn-secondary" onClick={() => {
                 if (!campFiltradas.length) return showToast('No hay campañas para exportar');
-                const h = ['Nombre', 'Tipo', 'Responsable', 'Estado', 'Fecha Inicio', 'Meta Familias', 'Descripción'];
-                const r = campFiltradas.map(c => [c.nombre, c.tipo, c.responsable || '', c.estado, c.fechaInicio || '', c.metaFamilias || '', (c.descripcion || '').replace(/,/g, ';')]);
+                const h = ['Nombre', 'Tipo', 'Responsable', 'Estado', 'Fecha Inicio', 'Meta', 'Tipo Meta', 'Descripción'];
+                const r = campFiltradas.map(c => [c.nombre, c.tipo, c.responsable || '', c.estado, c.fechaInicio || '', c.metaFamilias || '', c.metaTipo || 'Familias', (c.descripcion || '').replace(/,/g, ';')]);
                 const csv = [h, ...r].map(x => x.join(',')).join('\n');
                 const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
                 const u = URL.createObjectURL(b);
@@ -656,7 +663,11 @@ export default function ManosAbiertas() {
                   {campFiltradas.map((c) => {
                     const ents = entregas.filter((e) => e.campanaId === c.id);
                     const benefUnicos = new Set(ents.map((e) => e.beneficiarioId)).size;
-                    const progress = c.metaFamilias > 0 ? Math.min(100, Math.round((benefUnicos / c.metaFamilias) * 100)) : 0;
+                    const alcanzados = c.metaTipo === 'Personas'
+                      ? ents.reduce((s, e) => { const b = beneficiarios.find(x => x.id === e.beneficiarioId); return s + (b?.familia || 1); }, 0)
+                      : benefUnicos;
+                    const progress = c.metaFamilias > 0 ? Math.min(100, Math.round((alcanzados / c.metaFamilias) * 100)) : 0;
+                    const metaLabel = c.metaTipo === 'Personas' ? 'personas' : 'familias';
                     return (
                       <div key={c.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, borderLeft: `3px solid var(--manos-terracota)` }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -666,7 +677,7 @@ export default function ManosAbiertas() {
                         <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 6 }}><span className={`badge ${TIPO_CAMP[c.tipo]}`} style={{ fontSize: 9 }}>{c.tipo}</span>{c.zona && ` · 📍 ${c.zona}`}</div>
                         <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 4 }}>📅 {fmt(c.fechaInicio)}{c.fechaFin && ` → ${fmt(c.fechaFin)}`}</div>
                         <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>👤 {c.responsable || 'Sin responsable'}</div>
-                        <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 4 }}>👥 {benefUnicos} / {c.metaFamilias || '∞'} familias</div>
+                        <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 4 }}>👥 {alcanzados} / {c.metaFamilias || '∞'} {metaLabel}</div>
                         <div className="progress-bar" style={{ marginBottom: 10 }}>
                           <div className="progress-fill" style={{ width: `${progress}%`, background: 'var(--manos-terracota)' }} />
                         </div>
@@ -819,7 +830,8 @@ export default function ManosAbiertas() {
             <div className="form-group"><label className="form-label">Fecha de Inicio *</label><input className="form-input" type="date" value={cInicio} onChange={(e) => setCInicio(e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Fecha de Cierre</label><input className="form-input" type="date" value={cFin} onChange={(e) => setCFin(e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Zona</label><ZonaSelect value={cZona} onChange={setCZona} /></div>
-            <div className="form-group"><label className="form-label">Meta de Familias</label><input className="form-input" type="number" value={cMeta} onChange={(e) => setCMeta(e.target.value)} min="0" placeholder="50" /></div>
+            <div className="form-group"><label className="form-label">Meta de</label><select className="form-select" value={cMetaTipo} onChange={(e) => setCMetaTipo(e.target.value as any)}><option value="Familias">Familias</option><option value="Personas">Personas</option></select></div>
+            <div className="form-group"><label className="form-label">Meta</label><input className="form-input" type="number" value={cMeta} onChange={(e) => setCMeta(e.target.value)} min="0" placeholder="50" /></div>
             <div className="form-group"><label className="form-label">Responsable</label><input className="form-input" value={cResp} onChange={(e) => setCResp(e.target.value)} placeholder="Nombre del líder" /></div>
           </div>
           <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Descripción / Objetivos</label><textarea className="form-textarea" value={cDesc} onChange={(e) => setCDesc(e.target.value)} placeholder="¿Qué busca lograr esta campaña?" style={{ minHeight: 55 }} /></div>
@@ -865,14 +877,14 @@ export default function ManosAbiertas() {
               <div className="detail-row"><span className="detail-label">Período</span><span className="detail-value">{fmt(selCamp.fechaInicio)}{selCamp.fechaFin && ` → ${fmt(selCamp.fechaFin)}`}</span></div>
               <div className="detail-row"><span className="detail-label">Zona</span><span className="detail-value">{selCamp.zona || '—'}</span></div>
               <div className="detail-row"><span className="detail-label">Responsable</span><span className="detail-value">{selCamp.responsable || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">Meta</span><span className="detail-value">{selCamp.metaFamilias} familias</span></div>
+              <div className="detail-row"><span className="detail-label">Meta</span><span className="detail-value">{selCamp.metaFamilias} {selCamp.metaTipo === 'Personas' ? 'personas' : 'familias'}</span></div>
               {selCamp.descripcion && <div className="detail-row"><span className="detail-label">Descripción</span><span className="detail-value" style={{ fontSize: 12, color: 'var(--dim)' }}>{selCamp.descripcion}</span></div>}
 
               <div className="form-section" style={{ marginTop: 14 }}>Progreso</div>
               <div className="progress-row">
                 <div className="progress-header">
-                  <span style={{ color: 'var(--txt)' }}>👥 Familias alcanzadas</span>
-                  <span style={{ color: 'var(--manos-terracota)', fontWeight: 700 }}>{selBenefsUnicos} / {selCamp.metaFamilias || '∞'} · {selProgress}%</span>
+                  <span style={{ color: 'var(--txt)' }}>👥 {selCamp.metaTipo === 'Personas' ? 'Personas alcanzadas' : 'Familias alcanzadas'}</span>
+                  <span style={{ color: 'var(--manos-terracota)', fontWeight: 700 }}>{selAlcanzados} / {selCamp.metaFamilias || '∞'} · {selProgress}%</span>
                 </div>
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${selProgress}%`, background: 'var(--manos-terracota)' }} />

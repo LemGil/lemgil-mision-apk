@@ -100,16 +100,17 @@ function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
     return;
   }
   const fn = async () => {
+    const supaTable = toSupabase(table);
     try {
       switch (operation) {
         case 'create':
-          await supabase.from(table).insert(data);
+          await supabase.from(supaTable).insert(data);
           break;
         case 'update':
-          await supabase.from(table).update(data.changes).eq('id', data.id);
+          await supabase.from(supaTable).update(data.changes).eq('id', data.id);
           break;
         case 'delete':
-          await supabase.from(table).delete().eq('id', data);
+          await supabase.from(supaTable).delete().eq('id', data);
           break;
       }
     } catch (err: any) {
