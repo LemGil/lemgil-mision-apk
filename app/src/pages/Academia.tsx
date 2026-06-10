@@ -320,6 +320,22 @@ export default function Academia() {
         <div className="actions-row">
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-secondary btn-sm" onClick={() => exportCursosPDF({ cursos, lecciones })}>📄 Exportar PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => {
+              if (!cursos.length) return showToast('No hay cursos para exportar');
+              const h = ['Nombre', 'Instructor', 'Nivel', 'Estado', 'Lecciones', 'Duración'];
+              const r = cursos.map(c => {
+                const count = lecciones.filter(l => l.cursoId === c.id).length;
+                return [c.nombre, c.instructor || '', c.nivel || '', c.estado || '', count, c.duracion || ''];
+              });
+              const csv = [h, ...r].map(x => x.join(',')).join('\n');
+              const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+              const u = URL.createObjectURL(b);
+              const a = document.createElement('a');
+              a.href = u;
+              a.download = 'lemgil-cursos.csv';
+              a.click();
+              showToast('CSV exportado');
+            }}>📥 Exportar CSV</button>
             <button className="btn btn-gold" onClick={openNewCurso}>➕ Nuevo Curso</button>
             <button className="btn btn-secondary" onClick={openNewLeccion}>📝 Agregar Lección</button>
           </div>
@@ -383,10 +399,29 @@ export default function Academia() {
           </select>
         </div>
         <div className="card">
-          <div className="card-header">
-            <div className="card-title">🎓 Registro de Estudiantes</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>{estudiantes.length} estudiantes</div>
-          </div>
+           <div className="card-header">
+             <div className="card-title">🎓 Registro de Estudiantes</div>
+             <div style={{ fontSize: 12, color: 'var(--dim)' }}>{estudiantes.length} estudiantes</div>
+           </div>
+           <div style={{ display: 'flex', gap: 8, padding: '0 16px', marginBottom: 12 }}>
+             <button className="btn btn-secondary btn-sm" onClick={() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } })}>📄 Exportar PDF</button>
+             <button className="btn btn-secondary btn-sm" onClick={() => {
+               if (!filteredEst.length) return showToast('No hay estudiantes para exportar');
+               const h = ['#', 'Nombre', 'Apellido', 'Curso', 'Teléfono', 'Email', 'Estado'];
+               const r = filteredEst.map((e, i) => {
+                 const curso = cursos.find(c => c.id === e.cursoId);
+                 return [i + 1, e.nombre, e.apellido, curso?.nombre || '', e.telefono || '', e.email || '', e.estado || ''];
+               });
+               const csv = [h, ...r].map(x => x.join(',')).join('\n');
+               const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+               const u = URL.createObjectURL(b);
+               const a = document.createElement('a');
+               a.href = u;
+               a.download = 'lemgil-estudiantes.csv';
+               a.click();
+               showToast('CSV exportado');
+             }}>📥 Exportar CSV</button>
+           </div>
           {filteredEst.length === 0 ? (
             <EmptyState icon="🎓" title={estudiantes.length ? 'Sin resultados' : 'Sin estudiantes aún'} sub={estudiantes.length ? 'Prueba otros filtros' : 'Matricula el primer estudiante'} />
           ) : (

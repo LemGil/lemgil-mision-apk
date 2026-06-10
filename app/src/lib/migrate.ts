@@ -149,7 +149,7 @@ export async function desunificarBienComun(): Promise<void> {
           estado: 'Activo',
           zona: m.zona || '',
           grupo: '',
-          base: 0,
+          planDiezmo: 0,
           notas: '',
           creado: new Date().toISOString()
         });

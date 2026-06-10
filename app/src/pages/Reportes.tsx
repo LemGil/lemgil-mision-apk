@@ -115,7 +115,8 @@ export default function Reportes() {
     const bienComunDiezmos = apComunDiezmos;
     const bienComunOfrendas = apComunOfrendas;
     const bienComunTotal = apComunTotal;
-    const bienComunPlan = metasDoc?.sostenimiento || 8000;
+    const bienComunGruposPlan = grupos.reduce((s, g) => s + ((g as any).planOfrendasMensual || 0), 0);
+    const bienComunPlan = colaboradores.reduce((s, c) => s + ((c as any).planDiezmo || 0), 0) + bienComunGruposPlan;
 
     const colaboradoresAyuda = apRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
     const colaboradoresMisiones = apRango.filter((a) => a.tipo === 'Misión').reduce((s, a) => s + (a.monto || 0), 0);
@@ -123,9 +124,10 @@ export default function Reportes() {
     const colaboradoresConstruccion = apRango.filter((a) => a.tipo === 'Construcción').reduce((s, a) => s + (a.monto || 0), 0);
     const colaboradoresOtro = apRango.filter((a) => !['Diezmo', 'Ofrenda', 'Misión', 'Manos Abiertas', 'Construcción'].includes(a.tipo)).reduce((s, a) => s + (a.monto || 0), 0);
     const colaboradoresTotal = apTotal;
-    const colaboradoresPlan = 0;
+    const colaboradoresPlan = dadores.reduce((s, d) => s + (d.planOfrendaMonto || 0), 0);
 
     const totalFinal = bienComunTotal + colaboradoresTotal;
+    const planMensual = bienComunPlan + colaboradoresPlan;
 
     const entrRango = enRango(entregas);
     const benefUnicos = new Set(entrRango.map((e) => e.beneficiarioId)).size;
@@ -144,7 +146,7 @@ export default function Reportes() {
       conv: { total: conv.length, mesActual: convMes, integrados: convIntegrados, grupos: grupos.length },
       evang: { total: evang.length, contactos: evangContactos, conversiones: evangConvs },
       academia: { cursos: cursos.length, cursosActivos, estudiantes: estActivos, certificados: certRango.length },
-      finanzas: { diezmos: finDiezmos, ofrendas: finOfrendas, bienComunDiezmos, bienComunOfrendas, bienComunTotal, bienComunPlan, colaboradoresAyuda, colaboradoresMisiones, colaboradoresManosAbiertas, colaboradoresConstruccion, colaboradoresOtro, colaboradoresTotal, colaboradoresPlan, totalFinal },
+      finanzas: { diezmos: finDiezmos, ofrendas: finOfrendas, bienComunDiezmos, bienComunOfrendas, bienComunTotal, bienComunPlan, colaboradoresAyuda, colaboradoresMisiones, colaboradoresManosAbiertas, colaboradoresConstruccion, colaboradoresOtro, colaboradoresTotal, colaboradoresPlan, totalFinal, planMensual },
       manos: { beneficiarios: beneficiarios.length, campanas: campanas.filter((c) => inRange(c.fechaInicio, desde, hasta)).length, entregas: entrRango.length, familias: benefUnicos, personas },
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
@@ -291,6 +293,37 @@ export default function Reportes() {
                 a.click();
                 showToast('TXT exportado');
               }}>📥 Exportar TXT</button>
+              <button className="btn btn-secondary" onClick={() => {
+                const h = ['Módulo', 'Métrica', 'Valor'];
+                const r = [
+                  ['Misión Bíblica', 'Conversiones', datos.conv.total],
+                  ['Misión Bíblica', 'Mes Actual', datos.conv.mesActual],
+                  ['Misión Bíblica', 'Integrados', datos.conv.integrados],
+                  ['Misión Bíblica', 'Grupos', datos.conv.grupos],
+                  ['Misión Bíblica', 'Evangelismos', datos.evang.total],
+                  ['Misión Bíblica', 'Contactos', datos.evang.contactos],
+                  ['Academia', 'Cursos', datos.academia.cursos],
+                  ['Academia', 'Estudiantes', datos.academia.estudiantes],
+                  ['Academia', 'Certificados', datos.academia.certificados],
+                  ['Finanzas', 'Bien Común', datos.finanzas.bienComunTotal],
+                  ['Finanzas', 'Colaboradores', datos.finanzas.colaboradoresTotal],
+                  ['Finanzas', 'Total', datos.finanzas.totalFinal],
+                  ['Manos Abiertas', 'Beneficiarios', datos.manos.beneficiarios],
+                  ['Manos Abiertas', 'Entregas', datos.manos.entregas],
+                  ['Negocios', 'Activos', datos.negocios.activos],
+                  ['Negocios', 'Ingresos', datos.negocios.ingresos],
+                  ['Comunicación', 'Publicaciones', datos.comunicacion.publicaciones],
+                  ['Comunicación', 'Alcance', datos.comunicacion.alcance],
+                ];
+                const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const u = URL.createObjectURL(b);
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = `reporte-lemgil-${ymNow}.csv`;
+                a.click();
+                showToast('CSV exportado');
+              }}>📥 Exportar CSV</button>
             </div>
 
             <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
@@ -327,8 +360,8 @@ export default function Reportes() {
                 ['  Plan mensual', money(datos.finanzas.colaboradoresPlan)],
                 ['— TOTAL FINAL —', ''],
                 ['  Total Final', money(datos.finanzas.totalFinal)],
-                ['  Plan mensual', money(datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan)],
-                ['  % de meta', `${datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan ? Math.round((datos.finanzas.totalFinal / (datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan)) * 100) : 0}%`],
+                ['  Plan mensual', money(datos.finanzas.planMensual)],
+                ['  % de meta', `${datos.finanzas.planMensual ? Math.round((datos.finanzas.totalFinal / datos.finanzas.planMensual) * 100) : 0}%`],
               ]} />
 
               <ModuleCard color="var(--manos-terracota)" emoji="🤲" title="Manos Abiertas" rows={[

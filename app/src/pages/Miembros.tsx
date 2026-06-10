@@ -26,7 +26,7 @@ const calcAge = (d: string) => {
   return age;
 };
 
-const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Inactivo: 'badge-red', Trasladado: 'badge-yellow', Disciplinado: 'badge-red' };
+const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Inactivo: 'badge-red', Trasladado: 'badge-yellow', Disciplinado: 'badge-red', Fallecido: 'badge-gray' };
 const CIVIL_BADGE: Record<string, string> = { Soltero: 'badge-blue', Casado: 'badge-green', Viudo: 'badge-yellow', Divorciado: 'badge-red', Unión: 'badge-purple' };
 const ROL_BADGE: Record<string, string> = { Líder: 'badge-purple', Coordinador: 'badge-blue', Servidor: 'badge-green', Miembro: 'badge-yellow' };
 const HITO_BADGE: Record<string, string> = { Conversión: 'badge-blue', Bautismo: 'badge-purple', Discipulado: 'badge-green', 'Curso Completado': 'badge-blue', Integración: 'badge-green', Liderazgo: 'badge-purple', Matrimonio: 'badge-yellow', Otro: 'badge-blue' };
@@ -150,10 +150,13 @@ export default function Miembros() {
   }, [zonasDb, miembros]);
 
   const kpis = useMemo(() => {
-    const activos = miembros.filter((m) => m.estado === 'Activo').length;
+    const statusCounts = miembros.reduce((acc, m) => {
+      acc[m.estado] = (acc[m.estado] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
     const ministeriosCount = ministerios.length;
     const cumplesProx = miembros.filter(m => { const d = diasHastaCumple(m.fechaNacimiento); return d !== null && d <= 30; }).length;
-    return { activos, ministeriosCount, cumplesProx };
+    return { statusCounts, ministeriosCount, cumplesProx };
   }, [miembros, ministerios]);
 
   const proximosCumples = useMemo(() => {
@@ -374,7 +377,11 @@ export default function Miembros() {
   return (
     <Layout title="Miembros Integrados">
       <div className="summary-bar">
-        <div className="summary-item"><span className="summary-icon">🧑</span><span className="summary-value">{kpis.activos}</span><span className="summary-label">Miembros activos</span></div>
+        <div className="summary-item"><span className="summary-icon">🧑</span><span className="summary-value">{kpis.statusCounts['Activo'] || 0}</span><span className="summary-label">Miembros activos</span></div>
+        {kpis.statusCounts['Inactivo'] > 0 && <div className="summary-item"><span className="summary-icon">💤</span><span className="summary-value">{kpis.statusCounts['Inactivo']}</span><span className="summary-label">Inactivos</span></div>}
+        {kpis.statusCounts['Trasladado'] > 0 && <div className="summary-item"><span className="summary-icon">🚚</span><span className="summary-value">{kpis.statusCounts['Trasladado']}</span><span className="summary-label">Trasladados</span></div>}
+        {kpis.statusCounts['Disciplinado'] > 0 && <div className="summary-item"><span className="summary-icon">⚠️</span><span className="summary-value">{kpis.statusCounts['Disciplinado']}</span><span className="summary-label">Disciplinados</span></div>}
+        {kpis.statusCounts['Fallecido'] > 0 && <div className="summary-item"><span className="summary-icon">✝️</span><span className="summary-value">{kpis.statusCounts['Fallecido']}</span><span className="summary-label">Fallecidos</span></div>}
         <div className="summary-item"><span className="summary-icon">⛪</span><span className="summary-value">{kpis.ministeriosCount}</span><span className="summary-label">Ministerios</span></div>
         <div className="summary-item"><span className="summary-icon">📍</span><span className="summary-value">{hitos.filter((h) => h.fecha.startsWith(new Date().toISOString().slice(0, 7))).length}</span><span className="summary-label">Hitos este mes</span></div>
         <div className="summary-item"><span className="summary-icon">🎂</span><span className="summary-value">{kpis.cumplesProx}</span><span className="summary-label">Próximos cumpleaños</span></div>
@@ -419,20 +426,33 @@ export default function Miembros() {
       {tab === 'directorio' && (
         <div className="card">
            <div className="card-header">
-             <div>
-               <div className="card-title">DIRECTORIO DE MIEMBROS</div>
-               <div className="card-sub">Datos personales, contacto y ministerios</div>
-             </div>
-             <div style={{ display: 'flex', gap: 8 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => exportMiembrosPDF({ miembros: miembrosFiltrados, filtros: { estado: filterEstado, zona: filterZona, contacto: filterContacto } })}>📄 Exportar PDF</button>
-               <button className="btn btn-gold" onClick={openNewM}>➕ Nuevo miembro</button>
-             </div>
+              <div>
+                <div className="card-title">DIRECTORIO DE MIEMBROS</div>
+                <div className="card-sub">Datos personales, contacto y ministerios</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => exportMiembrosPDF({ miembros: miembrosFiltrados, filtros: { estado: filterEstado, zona: filterZona, contacto: filterContacto } })}>📄 Exportar PDF</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  if (!miembrosFiltrados.length) return showToast('No hay miembros para exportar');
+                  const h = ['#', 'Nombre', 'Apellido', 'Estado Civil', 'Zona', 'Teléfono', 'Email', 'Estado'];
+                  const r = miembrosFiltrados.map((m, i) => [i + 1, m.nombre, m.apellido, m.estadoCivil || '', m.zona || '', m.telefono || '', m.email || '', m.estado]);
+                  const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                  const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const u = URL.createObjectURL(b);
+                  const a = document.createElement('a');
+                  a.href = u;
+                  a.download = 'lemgil-miembros.csv';
+                  a.click();
+                  showToast('CSV exportado');
+                }}>📥 Exportar CSV</button>
+                <button className="btn btn-gold" onClick={openNewM}>➕ Nuevo miembro</button>
+              </div>
            </div>
           <div className="search-bar">
             <input className="search-input" placeholder="🔍 Buscar nombre, teléfono, ministerio..." value={search} onChange={(e) => setSearch(e.target.value)} />
             <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
               <option value="">Todos los estados</option>
-              <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option>
+              <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option><option>Fallecido</option>
             </select>
             <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
               <option value="">Todas las zonas</option>
@@ -493,16 +513,32 @@ export default function Miembros() {
 
       {tab === 'ministerios' && (
         <div className="card">
-           <div className="card-header">
-             <div>
-               <div className="card-title">⛪ MINISTERIOS Y ASIGNACIONES</div>
-               <div className="card-sub">Gestiona tus ministerios y sus integrantes</div>
-             </div>
-             <div style={{ display: 'flex', gap: 8 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => exportMinisteriosPDF({ ministerios, asignaciones, miembros })}>📄 Exportar PDF</button>
-               <button className="btn btn-gold" onClick={openNewMin}>➕ Nuevo ministerio</button>
-             </div>
-           </div>
+            <div className="card-header">
+              <div>
+                <div className="card-title">⛪ MINISTERIOS Y ASIGNACIONES</div>
+                <div className="card-sub">Gestiona tus ministerios y sus integrantes</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => exportMinisteriosPDF({ ministerios, asignaciones, miembros })}>📄 Exportar PDF</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  if (!ministerios.length) return showToast('No hay ministerios para exportar');
+                  const h = ['Ministerio', 'Líder', 'Miembros'];
+                  const r = ministerios.map(m => {
+                    const count = asignaciones.filter(a => a.ministerioId === m.id).length;
+                    return [m.nombre, m.lider || '', count];
+                  });
+                  const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                  const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const u = URL.createObjectURL(b);
+                  const a = document.createElement('a');
+                  a.href = u;
+                  a.download = 'lemgil-ministerios.csv';
+                  a.click();
+                  showToast('CSV exportado');
+                }}>📥 Exportar CSV</button>
+                <button className="btn btn-gold" onClick={openNewMin}>➕ Nuevo ministerio</button>
+              </div>
+            </div>
           {ministeriosConStats.length === 0 ? (
             <EmptyState icon="⛪" title="Sin ministerios" sub="Crea los ministerios de tu iglesia" />
           ) : (
@@ -550,16 +586,32 @@ export default function Miembros() {
 
       {tab === 'hitos' && (
         <div className="card">
-           <div className="card-header">
-             <div>
-               <div className="card-title">CRECIMIENTO ESPIRITUAL</div>
-               <div className="card-sub">Hitos y eventos en la vida de cada miembro</div>
-             </div>
-             <div style={{ display: 'flex', gap: 8 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => exportHitosPDF({ hitos, miembros })}>📄 Exportar PDF</button>
-               <button className="btn btn-gold" onClick={() => openNewH()}>➕ Nuevo hito</button>
-             </div>
-           </div>
+            <div className="card-header">
+              <div>
+                <div className="card-title">CRECIMIENTO ESPIRITUAL</div>
+                <div className="card-sub">Hitos y eventos en la vida de cada miembro</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => exportHitosPDF({ hitos, miembros })}>📄 Exportar PDF</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  if (!hitos.length) return showToast('No hay hitos para exportar');
+                  const h = ['Fecha', 'Miembro', 'Tipo', 'Descripción'];
+                  const r = hitos.map(h => {
+                    const m = miembros.find(x => x.id === h.miembroId);
+                    return [h.fecha, m ? `${m.nombre} ${m.apellido}` : '—', h.tipo, (h.descripcion || '').replace(/,/g, ';')];
+                  });
+                  const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                  const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const u = URL.createObjectURL(b);
+                  const a = document.createElement('a');
+                  a.href = u;
+                  a.download = 'lemgil-hitos.csv';
+                  a.click();
+                  showToast('CSV exportado');
+                }}>📥 Exportar CSV</button>
+                <button className="btn btn-gold" onClick={() => openNewH()}>➕ Nuevo hito</button>
+              </div>
+            </div>
           <div className="search-bar">
             <input className="search-input" placeholder="🔍 Buscar miembro, descripción..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
@@ -635,7 +687,7 @@ export default function Miembros() {
           <div className="form-group"><label className="form-label">Fecha de ingreso</label><input className="form-input" type="date" value={mIngreso} onChange={(e) => setMIngreso(e.target.value)} /></div>
           <div className="form-group"><label className="form-label">Estado</label>
             <select className="form-select" value={mEstado} onChange={(e) => setMEstado(e.target.value)}>
-              <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option>
+              <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option><option>Fallecido</option>
             </select>
           </div>
         </div>
@@ -956,6 +1008,20 @@ export default function Miembros() {
             )}
 
             <div className="modal-footer" style={{ marginTop: 20 }}>
+              {selMiembro.estado !== 'Fallecido' && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6, borderColor: 'var(--red, #ef4444)', color: 'var(--red, #ef4444)' }}
+                  onClick={async () => {
+                    if (window.confirm(`¿Está seguro de registrar el fallecimiento de ${selMiembro.nombre} ${selMiembro.apellido}?`)) {
+                      await db.miembros.update(selMiembro.id, { estado: 'Fallecido', actualizado: new Date().toISOString() });
+                      showToast('Fallecimiento registrado');
+                    }
+                  }}
+                >
+                  ✝️ Registrar Fallecimiento
+                </button>
+              )}
               <button className="btn btn-secondary" onClick={() => { setModal(null); openEditM(selMiembro.id); }}>✏ Editar perfil</button>
               <button className="btn btn-danger" onClick={() => setModal('delM')}>🗑 Eliminar</button>
             </div>

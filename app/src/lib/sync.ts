@@ -8,7 +8,20 @@ const SYNC_TABLES = [
   'campanas', 'entregas', 'metas', 'negocios', 'publicaciones',
   'reportes', 'miembrosComun', 'aportesComun', 'miembros',
   'ministerios', 'miembrosMinisterios', 'hitos', 'zonas', 'colaboradores',
+  'tiposPlanes', 'planesColaborador',
 ] as const;
+
+const DEXIE_TO_SUPABASE: Record<string, string> = {
+  miembrosComun: 'miembroscomun',
+  aportesComun: 'aportescomun',
+  miembrosMinisterios: 'miembrosministerios',
+  tiposPlanes: 'tiposplanes',
+  planesColaborador: 'planescolaborador',
+};
+
+function toSupabase(name: string): string {
+  return DEXIE_TO_SUPABASE[name] || name;
+}
 
 type SyncOp = {
   table: string;
@@ -49,18 +62,18 @@ async function processQueue() {
       switch (op.operation) {
         case 'create':
           if (op.data) {
-            const { error } = await supabase.from(op.table).insert(op.data);
+            const { error } = await supabase.from(toSupabase(op.table)).insert(op.data);
             if (error) throw error;
           }
           break;
         case 'update':
           if (op.changes) {
-            const { error } = await supabase.from(op.table).update(op.changes).eq('id', op.id);
+            const { error } = await supabase.from(toSupabase(op.table)).update(op.changes).eq('id', op.id);
             if (error) throw error;
           }
           break;
         case 'delete':
-          const { error } = await supabase.from(op.table).delete().eq('id', op.id);
+          const { error } = await supabase.from(toSupabase(op.table)).delete().eq('id', op.id);
           if (error) throw error;
           break;
       }
@@ -143,7 +156,8 @@ async function pullFromSupabase() {
   skipSync = true;
   try {
     for (const table of SYNC_TABLES) {
-      const { data, error } = await supabase.from(table).select('*');
+      const supabaseTable = toSupabase(table);
+      const { data, error } = await supabase.from(supabaseTable).select('*');
       if (error) {
         console.warn(`[Sync] Could not pull ${table}:`, error.message);
         continue;

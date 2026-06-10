@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Dador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, MiembroComun, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona } from './types';
+import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Dador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, MiembroComun, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador } from './types';
 
 const database = new Dexie('LemGilDB') as Dexie & {
   conversiones: EntityTable<Conversion, 'id'>;
@@ -26,6 +26,8 @@ const database = new Dexie('LemGilDB') as Dexie & {
   hitos: EntityTable<Hito, 'id'>;
   zonas: EntityTable<Zona, 'id'>;
   colaboradores: EntityTable<MiembroComun, 'id'>;
+  tiposPlanes: EntityTable<TipoPlan, 'id'>;
+  planesColaborador: EntityTable<PlanColaborador, 'id'>;
 };
 
 database.version(1).stores({
@@ -131,5 +133,54 @@ database.version(11).stores({
 database.version(12);
 
 database.version(13);
+
+database.version(14).stores({
+  grupos: 'id, zona, lider',
+}).upgrade(async (tx) => {
+  await tx.table('grupos').toCollection().modify((g: any) => {
+    if (typeof g.metaMensual === 'number' && typeof g.planOfrendasMensual !== 'number') {
+      g.planOfrendasMensual = g.metaMensual;
+    }
+    if (typeof g.planOfrendasMensual !== 'number') g.planOfrendasMensual = 0;
+  });
+});
+
+database.version(15).stores({
+  miembrosComun: 'id, nombre, apellido, estado, creado',
+  colaboradores: 'id, nombre, apellido, estado, creado',
+}).upgrade(async (tx) => {
+  const migrate = async (tableName: string) => {
+    await tx.table(tableName).toCollection().modify((c: any) => {
+      if (typeof c.base === 'number' && typeof c.planDiezmo !== 'number') {
+        c.planDiezmo = c.base;
+      }
+      if (typeof c.planDiezmo !== 'number') c.planDiezmo = 0;
+    });
+  };
+  await migrate('miembrosComun');
+  await migrate('colaboradores');
+});
+
+database.version(16).stores({
+  tiposPlanes: 'id, nombre, activo',
+  planesColaborador: 'id, colaboradorId, tipoPlanId',
+}).upgrade(async (tx) => {
+  const count = await tx.table('tiposPlanes').count();
+  if (count === 0) {
+    const now = new Date().toISOString();
+    const defaults = [
+      { id: 'tp-1', nombre: 'Ofrenda General', color: '#3b82f6', activo: true, creado: now },
+      { id: 'tp-2', nombre: 'Misión', color: '#8b5cf6', activo: true, creado: now },
+      { id: 'tp-3', nombre: 'Manos Abiertas', color: '#f97316', activo: true, creado: now },
+      { id: 'tp-4', nombre: 'Negocios Adonay', color: '#10b981', activo: true, creado: now },
+      { id: 'tp-5', nombre: 'Construcción', color: '#6366f1', activo: true, creado: now },
+    ];
+    await tx.table('tiposPlanes').bulkAdd(defaults);
+  }
+  await tx.table('dadores').toCollection().modify((d: any) => {
+    if (typeof d.planOfrendaTipo === 'undefined') d.planOfrendaTipo = '';
+    if (typeof d.planOfrendaMonto === 'undefined') d.planOfrendaMonto = 0;
+  });
+});
 
 export { database as db };

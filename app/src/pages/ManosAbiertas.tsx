@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
@@ -8,6 +10,8 @@ import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import type { Beneficiario, Campana } from '../lib/types';
+
+const money = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const today = () => new Date().toISOString().split('T')[0];
 const fmt = (d: string) => {
@@ -30,13 +34,19 @@ export default function ManosAbiertas() {
   const campanas = useLiveQuery(() => db.campanas.toArray(), []) ?? [];
   const entregas = useLiveQuery(() => db.entregas.toArray(), []) ?? [];
   const zonas = useLiveQuery(() => db.zonas.toArray(), []) ?? [];
+  const metasDoc = useLiveQuery(() => db.metas.get('default'), []);
 
   const [tab, setTab] = useState<Tab>('ben');
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterZona, setFilterZona] = useState('');
+  const [filterFamilia, setFilterFamilia] = useState('');
   const [filterTipoCamp, setFilterTipoCamp] = useState('');
+  const [filterEstadoCamp, setFilterEstadoCamp] = useState('');
+  const [filterAnio, setFilterAnio] = useState(new Date().getFullYear().toString());
   const [filterCampanaEnt, setFilterCampanaEnt] = useState('');
+  const [filterTipoEnt, setFilterTipoEnt] = useState('');
+  const [filterFechaEnt, setFilterFechaEnt] = useState('');
   const [modal, setModal] = useState<null | ModalType>(null);
   const [editBenId, setEditBenId] = useState<string | null>(null);
   const [editCampId, setEditCampId] = useState<string | null>(null);
@@ -53,6 +63,51 @@ export default function ManosAbiertas() {
   const [bEstado, setBEstado] = useState('Activo');
   const [bNotas, setBNotas] = useState('');
 
+  const [benefSource, setBenefSource] = useState<'Convertido' | 'Miembro' | 'Manual'>('Manual');
+  const [benefSourceId, setBenefSourceId] = useState('');
+  const [benefType, setBenefType] = useState<'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable'>('Persona');
+  const [benefRepresentativeName, setBenefRepresentativeName] = useState('');
+  const [benefName, setBenefName] = useState(''); // Nombre del grupo o grupo de vulnerables
+
+  const conversiones = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+
+  useEffect(() => {
+    if (benefSource === 'Convertido' && benefSourceId) {
+      const conv = conversiones.find(c => c.id === benefSourceId);
+      if (conv) {
+        setBNombre(conv.nombre);
+        setBApellido(conv.apellido);
+        setBTel(conv.telefono);
+        setBDir(conv.direccion || '');
+        setBZona(conv.zona);
+        setBEstado(conv.estado === 'Integrado' ? 'Activo' : conv.estado === 'Bautizado' ? 'Activo' : 'Inactivo');
+        setBenefType('Persona');
+        setBenefRepresentativeName('');
+      }
+    } else if (benefSource === 'Miembro' && benefSourceId) {
+      const member = miembros.find(m => m.id === benefSourceId);
+      if (member) {
+        setBNombre(member.nombre);
+        setBApellido(member.apellido);
+        setBTel(member.telefono);
+        setBDir(member.direccion || '');
+        setBZona(member.zona);
+        setBEstado(member.estado === 'Activo' ? 'Activo' : 'Inactivo');
+        setBenefType('Persona');
+        setBenefRepresentativeName('');
+      }
+    } else if (benefSource === 'Manual') {
+      setBNombre('');
+      setBApellido('');
+      setBTel('');
+      setBDir('');
+      setBZona('');
+      setBEstado('Activo');
+      setBenefRepresentativeName('');
+    }
+  }, [benefSource, benefSourceId, conversiones, miembros]);
+
   const [cNombre, setCNombre] = useState('');
   const [cInicio, setCInicio] = useState(today());
   const [cFin, setCFin] = useState('');
@@ -64,7 +119,9 @@ export default function ManosAbiertas() {
   const [cDesc, setCDesc] = useState('');
 
   const [eCampana, setECampana] = useState('');
-  const [eBenef, setEBenef] = useState('');
+  const [eBenefOrigen, setEBenefOrigen] = useState<'Convertido' | 'Miembro' | 'Manual'>('Manual');
+  const [eBenefId, setEBenefId] = useState('');
+  const [eBenefManual, setEBenefManual] = useState('');
   const [eFecha, setEFecha] = useState(today());
   const [eTipo, setETipo] = useState('Canasta básica');
   const [eCant, setECant] = useState('1');
@@ -76,6 +133,9 @@ export default function ManosAbiertas() {
     setTimeout(() => setToast(''), 3200);
   };
 
+  const typeColors: Record<string, string> = { Persona: 'var(--blue)', 'Casa de Familia': 'var(--gold)', Grupo: 'var(--green)', Vulnerable: 'var(--red)' };
+  const typeAccent = typeColors[benefType] || 'var(--gold)';
+
   const resetBen = () => {
     setEditBenId(null);
     setBNombre('');
@@ -86,6 +146,11 @@ export default function ManosAbiertas() {
     setBFamilia('1');
     setBEstado('Activo');
     setBNotas('');
+    setBenefSource('Manual');
+    setBenefSourceId('');
+    setBenefType('Persona');
+    setBenefRepresentativeName('');
+    setBenefName('');
   };
   const resetCamp = () => {
     setEditCampId(null);
@@ -102,7 +167,9 @@ export default function ManosAbiertas() {
   const resetEnt = () => {
     setEditEntId(null);
     setECampana('');
-    setEBenef('');
+    setEBenefOrigen('Manual');
+    setEBenefId('');
+    setEBenefManual('');
     setEFecha(today());
     setETipo('Canasta básica');
     setECant('1');
@@ -127,14 +194,26 @@ export default function ManosAbiertas() {
     const s = search.toLowerCase();
     return beneficiarios.filter((b) => {
       const full = `${b.nombre} ${b.apellido} ${b.telefono} ${b.direccion}`.toLowerCase();
-      return (!s || full.includes(s)) && (!filterEstado || b.estado === filterEstado) && (!filterZona || b.zona === filterZona);
+      let matchFamilia = true;
+      if (filterFamilia === '1') matchFamilia = b.familia === 1;
+      else if (filterFamilia === '2-4') matchFamilia = b.familia >= 2 && b.familia <= 4;
+      else if (filterFamilia === '5+') matchFamilia = b.familia >= 5;
+      return (!s || full.includes(s))
+        && (!filterEstado || b.estado === filterEstado)
+        && (!filterZona || b.zona === filterZona)
+        && matchFamilia;
     });
-  }, [beneficiarios, search, filterEstado, filterZona]);
+  }, [beneficiarios, search, filterEstado, filterZona, filterFamilia]);
 
   const campFiltradas = useMemo(() => {
     const s = search.toLowerCase();
-    return campanas.filter((c) => (!s || c.nombre.toLowerCase().includes(s) || c.responsable?.toLowerCase().includes(s)) && (!filterTipoCamp || c.tipo === filterTipoCamp));
-  }, [campanas, search, filterTipoCamp]);
+    return campanas.filter((c) => {
+      return (!s || c.nombre.toLowerCase().includes(s) || c.responsable?.toLowerCase().includes(s))
+        && (!filterTipoCamp || c.tipo === filterTipoCamp)
+        && (!filterEstadoCamp || c.estado === filterEstadoCamp)
+        && (!filterAnio || c.fechaInicio?.startsWith(filterAnio));
+    });
+  }, [campanas, search, filterTipoCamp, filterEstadoCamp, filterAnio]);
 
   const entFiltradas = useMemo(() => {
     const s = search.toLowerCase();
@@ -143,18 +222,22 @@ export default function ManosAbiertas() {
         const ben = beneficiarios.find((b) => b.id === e.beneficiarioId);
         const camp = campanas.find((c) => c.id === e.campanaId);
         const text = `${ben?.nombre || ''} ${ben?.apellido || ''} ${camp?.nombre || ''} ${e.tipo} ${e.notas || ''}`.toLowerCase();
-        return (!s || text.includes(s)) && (!filterCampanaEnt || e.campanaId === filterCampanaEnt);
+        return (!s || text.includes(s))
+          && (!filterCampanaEnt || e.campanaId === filterCampanaEnt)
+          && (!filterTipoEnt || e.tipo === filterTipoEnt)
+          && (!filterFechaEnt || e.fecha?.startsWith(filterFechaEnt));
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [entregas, beneficiarios, campanas, search, filterCampanaEnt]);
+  }, [entregas, beneficiarios, campanas, search, filterCampanaEnt, filterTipoEnt, filterFechaEnt]);
 
   const selCamp = campanas.find((c) => c.id === selectedId);
   const selEntregas = selCamp ? entregas.filter((e) => e.campanaId === selCamp.id) : [];
   const selBenefsUnicos = new Set(selEntregas.map((e) => e.beneficiarioId)).size;
   const selProgress = selCamp && selCamp.metaFamilias > 0 ? Math.min(100, Math.round((selBenefsUnicos / selCamp.metaFamilias) * 100)) : 0;
 
-  const openNewBen = () => {
+  const openNewBen = (type: 'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable') => {
     resetBen();
+    setBenefType(type);
     setModal('ben');
   };
   const openEditBen = (id: string) => {
@@ -169,11 +252,31 @@ export default function ManosAbiertas() {
     setBFamilia(String(b.familia || 1));
     setBEstado(b.estado);
     setBNotas(b.notas);
+    setBenefSource(b.source || 'Manual');
+    setBenefSourceId(b.sourceId || '');
+    setBenefType(b.tipo || 'Persona');
+    setBenefRepresentativeName(b.representativeName || '');
+    setBenefName(b.nombre); // Assuming nombre stores the group/vulnerable name
     setModal('ben');
   };
   const saveBen = async () => {
-    if (!bNombre.trim() || !bApellido.trim()) return showToast('Nombre y apellido son obligatorios');
-    const data = { nombre: bNombre.trim(), apellido: bApellido.trim(), telefono: bTel.trim(), direccion: bDir.trim(), zona: bZona, familia: parseInt(bFamilia) || 1, estado: bEstado as Beneficiario['estado'], notas: bNotas.trim() };
+    if (benefType === 'Persona' && (!bNombre.trim() || !bApellido.trim())) return showToast('Nombre y apellido son obligatorios');
+    if ((benefType === 'Grupo' || benefType === 'Vulnerable') && !benefName.trim()) return showToast('El nombre es obligatorio');
+    
+    const data = { 
+      nombre: benefType === 'Persona' ? bNombre.trim() : benefName.trim(), 
+      apellido: benefType === 'Persona' ? bApellido.trim() : '', 
+      telefono: bTel.trim(), 
+      direccion: bDir.trim(), 
+      zona: bZona, 
+      familia: parseInt(bFamilia) || 1, 
+      estado: bEstado as Beneficiario['estado'], 
+      notas: bNotas.trim(), 
+      tipo: benefType, 
+      source: benefSource, 
+      sourceId: benefSource !== 'Manual' ? benefSourceId : undefined,
+      representativeName: (benefType === 'Casa de Familia' || benefType === 'Grupo') ? benefRepresentativeName.trim() : undefined 
+    };
     if (editBenId) {
       await db.beneficiarios.update(editBenId, data);
       showToast(`Beneficiario "${bNombre} ${bApellido}" actualizado`);
@@ -243,7 +346,9 @@ export default function ManosAbiertas() {
     if (!e) return;
     setEditEntId(id);
     setECampana(e.campanaId);
-    setEBenef(e.beneficiarioId);
+    setEBenefOrigen((e as any).beneficiarioTipo || 'Manual');
+    setEBenefId(e.beneficiarioId || '');
+    setEBenefManual((e as any).beneficiarioNombre || '');
     setEFecha(e.fecha);
     setETipo(e.tipo);
     setECant(String(e.cantidad));
@@ -253,8 +358,34 @@ export default function ManosAbiertas() {
   };
   const saveEnt = async () => {
     if (!eCampana) return showToast('Selecciona una campaña');
-    if (!eBenef) return showToast('Selecciona un beneficiario');
-    const data = { campanaId: eCampana, beneficiarioId: eBenef, fecha: eFecha, tipo: eTipo.trim() || 'Canasta básica', cantidad: parseFloat(eCant) || 1, unidad: eUnidad.trim() || 'unidad', notas: eNotas.trim() };
+    
+    let beneficiarioId = '';
+    let nombreBeneficiario = '';
+
+    if (eBenefOrigen === 'Manual') {
+        if (!eBenefManual.trim()) return showToast('Escribe el nombre del beneficiario');
+        nombreBeneficiario = eBenefManual.trim();
+    } else {
+        if (!eBenefId) return showToast('Selecciona un beneficiario de la lista');
+        const lista = eBenefOrigen === 'Convertido' ? conversiones : miembros;
+        const b = lista.find(x => x.id === eBenefId);
+        if (!b) return showToast('Beneficiario no encontrado');
+        beneficiarioId = b.id;
+        nombreBeneficiario = `${b.nombre} ${b.apellido}`;
+    }
+
+    const data = { 
+        campanaId: eCampana, 
+        beneficiarioId: beneficiarioId, 
+        beneficiarioNombre: nombreBeneficiario, 
+        beneficiarioTipo: eBenefOrigen,
+        fecha: eFecha, 
+        tipo: eTipo.trim() || 'Canasta básica', 
+        cantidad: parseFloat(eCant) || 1, 
+        unidad: eUnidad.trim() || 'unidad', 
+        notas: eNotas.trim() 
+    };
+
     if (editEntId) {
       await db.entregas.update(editEntId, data);
       showToast('Entrega actualizada');
@@ -287,26 +418,134 @@ export default function ManosAbiertas() {
         <div className="kpis">
           <KpiCard label="Beneficiarios Activos" value={kpis.activos} icon="🏠" accent="var(--manos-terracota)" sub={`${beneficiarios.length} totales`} />
           <KpiCard label="Campañas Activas" value={kpis.campActivas} icon="📢" accent="var(--oro-apostolico)" sub={`${campanas.length} totales`} />
-          <KpiCard label="Familias Impactadas" value={kpis.familias} icon="👪" accent="var(--green)" sub={`${kpis.personas} personas`} />
-          <KpiCard label="Personas Impactadas" value={kpis.personas} icon="🧑" accent="var(--manos-terracota)" sub={`${kpis.familias} familias`} />
+          <KpiCard label="Familias Impactadas" value={kpis.familias} icon="👪" accent="var(--green)" sub={metasDoc?.familias ? `${money(kpis.familias)} / ${money(metasDoc.familias)} (${Math.round((kpis.familias / metasDoc.familias) * 100)}%)` : `${kpis.personas} personas`} />
+          <KpiCard label="Personas Impactadas" value={kpis.personas} icon="🧑" accent="var(--manos-terracota)" sub={metasDoc?.personas ? `${money(kpis.personas)} / ${money(metasDoc.personas)} (${Math.round((kpis.personas / metasDoc.personas) * 100)}%)` : `${kpis.familias} familias`} />
         </div>
 
         <div className="tabs">
-          <button className={`tab ${tab === 'ben' ? 'active' : ''}`} onClick={() => { setTab('ben'); setSearch(''); setFilterTipoCamp(''); setFilterCampanaEnt(''); }}>
+          <button className={`tab ${tab === 'ben' ? 'active' : ''}`} onClick={() => { setTab('ben'); setSearch(''); setFilterEstado(''); setFilterZona(''); setFilterFamilia(''); }}>
             🏠 Beneficiarios ({beneficiarios.length})
           </button>
-          <button className={`tab ${tab === 'camp' ? 'active' : ''}`} onClick={() => { setTab('camp'); setSearch(''); setFilterEstado(''); setFilterZona(''); setFilterCampanaEnt(''); }}>
+          <button className={`tab ${tab === 'camp' ? 'active' : ''}`} onClick={() => { setTab('camp'); setSearch(''); setFilterTipoCamp(''); setFilterEstadoCamp(''); setFilterAnio(new Date().getFullYear().toString()); }}>
             📢 Campañas ({campanas.length})
           </button>
-          <button className={`tab ${tab === 'ent' ? 'active' : ''}`} onClick={() => { setTab('ent'); setSearch(''); setFilterEstado(''); setFilterZona(''); setFilterTipoCamp(''); }}>
+          <button className={`tab ${tab === 'ent' ? 'active' : ''}`} onClick={() => { setTab('ent'); setSearch(''); setFilterCampanaEnt(''); setFilterTipoEnt(''); setFilterFechaEnt(''); }}>
             📦 Entregas ({entregas.length})
           </button>
         </div>
 
         <div className="actions-row">
-          {tab === 'ben' && <button className="btn btn-gold" onClick={openNewBen}>➕ Nuevo Beneficiario</button>}
+      {tab === 'ben' && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button className="btn" style={{ background: '#fff', border: '2px solid var(--blue)', color: 'var(--blue)', fontWeight: 600 }} onClick={() => openNewBen('Persona')}>➕ Persona</button>
+          <button className="btn" style={{ background: '#fff', border: '2px solid var(--gold)', color: 'var(--gold)', fontWeight: 600 }} onClick={() => openNewBen('Casa de Familia')}>➕ Casa</button>
+          <button className="btn" style={{ background: '#fff', border: '2px solid var(--green)', color: 'var(--green)', fontWeight: 600 }} onClick={() => openNewBen('Grupo')}>➕ Grupo</button>
+          <button className="btn" style={{ background: '#fff', border: '2px solid var(--red)', color: 'var(--red)', fontWeight: 600 }} onClick={() => openNewBen('Vulnerable')}>➕ Vulnerable</button>
+        </div>
+      )}
+          {tab === 'ben' && (
+            <>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!benFiltrados.length) return showToast('No hay beneficiarios para exportar');
+                const doc = new jsPDF();
+                doc.setFontSize(18);
+                doc.text('Beneficiarios Manos Abiertas', 14, 20);
+                doc.setFontSize(10);
+                doc.setTextColor(120);
+                doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${benFiltrados.length}`, 14, 28);
+                const rows = benFiltrados.map(b => [`${b.nombre} ${b.apellido}`, b.telefono || '—', b.zona || '—', b.direccion || '—', b.familia, b.estado]);
+                autoTable(doc, { startY: 34, head: [['Nombre', 'Teléfono', 'Zona', 'Dirección', 'Familia', 'Estado']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
+                doc.save('lemgil-beneficiarios.pdf');
+                showToast('PDF exportado');
+              }}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!benFiltrados.length) return showToast('No hay beneficiarios para exportar');
+                const h = ['Nombre', 'Apellido', 'Teléfono', 'Zona', 'Dirección', 'Familia', 'Estado', 'Notas'];
+                const r = benFiltrados.map(b => [b.nombre, b.apellido, b.telefono || '', b.zona || '', b.direccion || '', b.familia, b.estado, (b.notas || '').replace(/,/g, ';')]);
+                const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const u = URL.createObjectURL(b);
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = 'lemgil-beneficiarios.csv';
+                a.click();
+                showToast('CSV exportado');
+              }}>📥 Exportar CSV</button>
+            </>
+          )}
           {tab === 'camp' && <button className="btn btn-gold" onClick={openNewCamp}>📢 Nueva Campaña</button>}
+          {tab === 'camp' && (
+            <>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!campFiltradas.length) return showToast('No hay campañas para exportar');
+                const doc = new jsPDF();
+                doc.setFontSize(18);
+                doc.text('Campañas Solidarias', 14, 20);
+                doc.setFontSize(10);
+                doc.setTextColor(120);
+                doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${campFiltradas.length}`, 14, 28);
+                const rows = campFiltradas.map(c => {
+                  const ents = entregas.filter(e => e.campanaId === c.id);
+                  return [c.nombre, c.tipo, c.responsable || '—', c.estado, `${ents.length} entregas`, c.metaFamilias || '—'];
+                });
+                autoTable(doc, { startY: 34, head: [['Nombre', 'Tipo', 'Responsable', 'Estado', 'Entregas', 'Meta']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
+                doc.save('lemgil-campanas.pdf');
+                showToast('PDF exportado');
+              }}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!campFiltradas.length) return showToast('No hay campañas para exportar');
+                const h = ['Nombre', 'Tipo', 'Responsable', 'Estado', 'Fecha Inicio', 'Meta Familias', 'Descripción'];
+                const r = campFiltradas.map(c => [c.nombre, c.tipo, c.responsable || '', c.estado, c.fechaInicio || '', c.metaFamilias || '', (c.descripcion || '').replace(/,/g, ';')]);
+                const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const u = URL.createObjectURL(b);
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = 'lemgil-campanas.csv';
+                a.click();
+                showToast('CSV exportado');
+              }}>📥 Exportar CSV</button>
+            </>
+          )}
           {tab === 'ent' && <button className="btn btn-gold" onClick={openNewEnt}>📦 Registrar Entrega</button>}
+          {tab === 'ent' && (
+            <>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!entFiltradas.length) return showToast('No hay entregas para exportar');
+                const doc = new jsPDF();
+                doc.setFontSize(18);
+                doc.text('Historial de Entregas', 14, 20);
+                doc.setFontSize(10);
+                doc.setTextColor(120);
+                doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${entFiltradas.length}`, 14, 28);
+                const rows = entFiltradas.map(e => {
+                  const ben = beneficiarios.find(b => b.id === e.beneficiarioId);
+                  const camp = campanas.find(c => c.id === e.campanaId);
+                  return [e.fecha, ben ? `${ben.nombre} ${ben.apellido}` : '—', camp?.nombre || '—', e.tipo, e.cantidad, (e.notas || '').slice(0, 30)];
+                });
+                autoTable(doc, { startY: 34, head: [['Fecha', 'Beneficiario', 'Campaña', 'Tipo', 'Cantidad', 'Notas']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
+                doc.save('lemgil-entregas.pdf');
+                showToast('PDF exportado');
+              }}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!entFiltradas.length) return showToast('No hay entregas para exportar');
+                const h = ['Fecha', 'Beneficiario', 'Campaña', 'Tipo', 'Cantidad', 'Notas'];
+                const r = entFiltradas.map(e => {
+                  const ben = beneficiarios.find(b => b.id === e.beneficiarioId);
+                  const camp = campanas.find(c => c.id === e.campanaId);
+                  return [e.fecha, ben ? `${ben.nombre} ${ben.apellido}` : '—', camp?.nombre || '—', e.tipo, e.cantidad, (e.notas || '').replace(/,/g, ';')];
+                });
+                const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const u = URL.createObjectURL(b);
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = 'lemgil-entregas.csv';
+                a.click();
+                showToast('CSV exportado');
+              }}>📥 Exportar CSV</button>
+            </>
+          )}
         </div>
 
         {tab === 'ben' && (
@@ -321,6 +560,12 @@ export default function ManosAbiertas() {
               <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
                 <option value="">Todas las zonas</option>
                 {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id}>{z.nombre}</option>)}
+              </select>
+              <select className="filter-select" value={filterFamilia} onChange={(e) => setFilterFamilia(e.target.value)}>
+                <option value="">Todas las familias</option>
+                <option value="1">1 persona</option>
+                <option value="2-4">2-4 personas</option>
+                <option value="5+">5+ personas</option>
               </select>
             </div>
 
@@ -360,7 +605,7 @@ export default function ManosAbiertas() {
                           <td>
                             <div style={{ display: 'flex', gap: 5 }}>
                               <button className="btn btn-secondary btn-sm" onClick={() => openEditBen(b.id)}>✏️</button>
-                              <button className="btn btn-secondary btn-sm" onClick={() => { openNewEnt(); setTimeout(() => setEBenef(b.id), 50); }}>📦</button>
+                              <button className="btn btn-secondary btn-sm" onClick={() => { openNewEnt(); setTimeout(() => { setEBenefOrigen('Manual'); setEBenefManual(`${b.nombre} ${b.apellido}`); }, 50); }}>📦</button>
                               <button className="btn btn-danger btn-sm" onClick={() => { setSelectedId(b.id); setModal('delBen'); }}>🗑️</button>
                             </div>
                           </td>
@@ -378,6 +623,10 @@ export default function ManosAbiertas() {
           <>
             <div className="search-bar">
               <input className="search-input" placeholder="🔍 Buscar nombre, responsable…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <select className="filter-select" value={filterAnio} onChange={(e) => setFilterAnio(e.target.value)}>
+                <option value="">Todos los años</option>
+                {[...new Set(campanas.map(c => c.fechaInicio?.slice(0, 4)).filter(Boolean))].sort().reverse().map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
               <select className="filter-select" value={filterTipoCamp} onChange={(e) => setFilterTipoCamp(e.target.value)}>
                 <option value="">Todos los tipos</option>
                 <option>Alimentaria</option>
@@ -386,6 +635,12 @@ export default function ManosAbiertas() {
                 <option>Vivienda</option>
                 <option>Navidad</option>
                 <option>Otra</option>
+              </select>
+              <select className="filter-select" value={filterEstadoCamp} onChange={(e) => setFilterEstadoCamp(e.target.value)}>
+                <option value="">Todos los estados</option>
+                <option>Planificada</option>
+                <option>En curso</option>
+                <option>Finalizada</option>
               </select>
             </div>
 
@@ -434,9 +689,21 @@ export default function ManosAbiertas() {
           <>
             <div className="search-bar">
               <input className="search-input" placeholder="🔍 Buscar beneficiario, campaña, tipo…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <select className="filter-select" value={filterFechaEnt} onChange={(e) => setFilterFechaEnt(e.target.value)}>
+                <option value="">Todas las fechas</option>
+                {[...new Set(entregas.map(e => e.fecha?.slice(0, 7)).filter(Boolean))].sort().reverse().map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
               <select className="filter-select" value={filterCampanaEnt} onChange={(e) => setFilterCampanaEnt(e.target.value)}>
                 <option value="">Todas las campañas</option>
                 {campanas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+              <select className="filter-select" value={filterTipoEnt} onChange={(e) => setFilterTipoEnt(e.target.value)}>
+                <option value="">Todos los tipos</option>
+                <option>Alimentos</option>
+                <option>Ropa</option>
+                <option>Medicinas</option>
+                <option>Útiles</option>
+                <option>Otro</option>
               </select>
             </div>
 
@@ -489,16 +756,48 @@ export default function ManosAbiertas() {
         <Modal
           open={modal === 'ben'}
           onClose={() => setModal(null)}
-          title={editBenId ? '✏️ Editar Beneficiario' : '🏠 Nuevo Beneficiario'}
-          footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveBen}>💾 {editBenId ? 'Guardar Cambios' : 'Registrar'}</button></>}
+          title={editBenId ? '✏️ Editar Beneficiario' : `🏠 Nuevo Beneficiario (${benefType})`}
+          footer={
+            <>
+              <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
+              <button className="btn" style={{ background: typeAccent, color: 'white' }} onClick={saveBen}>💾 {editBenId ? 'Guardar Cambios' : `Registrar ${benefType}`}</button>
+            </>
+          }
         >
-          <div className="form-section">Datos del Beneficiario</div>
-          <div className="form-row">
-            <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={bNombre} onChange={(e) => setBNombre(e.target.value)} placeholder="Nombre" /></div>
-            <div className="form-group"><label className="form-label">Apellido *</label><input className="form-input" value={bApellido} onChange={(e) => setBApellido(e.target.value)} placeholder="Apellido" /></div>
-            <div className="form-group"><label className="form-label">Teléfono</label><input className="form-input" value={bTel} onChange={(e) => setBTel(e.target.value)} placeholder="+1 555 000 0000" /></div>
-            <div className="form-group"><label className="form-label">Cantidad de Familia</label><input className="form-input" type="number" value={bFamilia} onChange={(e) => setBFamilia(e.target.value)} min="1" /></div>
-            <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Dirección / Barrio</label><input className="form-input" value={bDir} onChange={(e) => setBDir(e.target.value)} placeholder="Sector, calle, número…" /></div>
+          <div className="form-section" style={{ color: typeAccent }}>Datos del Beneficiario ({benefType})</div>
+          <div className="form-row" style={{ border: `2px solid ${typeAccent}`, padding: '16px', borderRadius: '12px' }}>
+            <div className="form-group"><label className="form-label">Origen</label><select className="form-select" value={benefSource} onChange={(e) => { setBenefSource(e.target.value as any); setBenefSourceId(''); }}><option value="Manual">Manual</option><option value="Convertido">Converso (Misión)</option><option value="Miembro">Miembro (Iglesia)</option></select></div>
+            
+            {benefSource === 'Convertido' && (
+              <div className="form-group"><label className="form-label">Converso *</label><select className="form-select" value={benefSourceId} onChange={(e) => setBenefSourceId(e.target.value)}><option value="">Seleccionar converso…</option>{conversiones.map((c) => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select></div>
+            )}
+            {benefSource === 'Miembro' && (
+              <div className="form-group"><label className="form-label">Miembro *</label><select className="form-select" value={benefSourceId} onChange={(e) => setBenefSourceId(e.target.value)}><option value="">Seleccionar miembro…</option>{miembros.map((m) => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}</select></div>
+            )}
+
+            <div className="form-group"><label className="form-label">Tipo</label><select className="form-select" value={benefType} onChange={(e) => setBenefType(e.target.value as any)}><option value="Persona">Persona</option><option value="Casa de Familia">Casa de Familia</option><option value="Grupo">Grupo</option><option value="Vulnerable">Vulnerable</option></select></div>
+            
+            {benefType === 'Persona' ? (
+                <>
+                    <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={bNombre} onChange={(e) => setBNombre(e.target.value)} placeholder="Nombre" /></div>
+                    <div className="form-group"><label className="form-label">Apellido *</label><input className="form-input" value={bApellido} onChange={(e) => setBApellido(e.target.value)} placeholder="Apellido" /></div>
+                </>
+            ) : (
+                <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Nombre {benefType} *</label><input className="form-input" value={benefName} onChange={(e) => setBenefName(e.target.value)} placeholder="Ej: Comedor calle 5, Familia Pérez..." /></div>
+            )}
+
+            {(benefType === 'Casa de Familia' || benefType === 'Grupo') && (
+              <div className="form-group"><label className="form-label">Representante</label><input className="form-input" value={benefRepresentativeName} onChange={(e) => setBenefRepresentativeName(e.target.value)} placeholder="Nombre del representante" /></div>
+            )}
+            
+            {benefType !== 'Vulnerable' && (
+                <>
+                    <div className="form-group"><label className="form-label">Teléfono</label><input className="form-input" value={bTel} onChange={(e) => setBTel(e.target.value)} placeholder="+1 555 000 0000" /></div>
+                    <div className="form-group"><label className="form-label">Dirección / Barrio</label><input className="form-input" value={bDir} onChange={(e) => setBDir(e.target.value)} placeholder="Sector, calle, número…" /></div>
+                </>
+            )}
+
+            <div className="form-group"><label className="form-label">{benefType === 'Vulnerable' ? 'Personas Aprox.' : 'Cantidad de Familia/Miembros'}</label><input className="form-input" type="number" value={bFamilia} onChange={(e) => setBFamilia(e.target.value)} min="1" /></div>
             <div className="form-group"><label className="form-label">Zona</label><ZonaSelect value={bZona} onChange={setBZona} /></div>
             <div className="form-group"><label className="form-label">Estado</label><select className="form-select" value={bEstado} onChange={(e) => setBEstado(e.target.value)}><option>Activo</option><option>Inactivo</option></select></div>
           </div>
@@ -535,7 +834,15 @@ export default function ManosAbiertas() {
           <div className="form-section">Datos de la Entrega</div>
           <div className="form-row">
             <div className="form-group"><label className="form-label">Campaña *</label><select className="form-select" value={eCampana} onChange={(e) => setECampana(e.target.value)}><option value="">Seleccionar campaña…</option>{campanas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Beneficiario *</label><select className="form-select" value={eBenef} onChange={(e) => setEBenef(e.target.value)}><option value="">Seleccionar beneficiario…</option>{beneficiarios.map((b) => <option key={b.id} value={b.id}>{b.nombre} {b.apellido} {b.zona && `· ${b.zona}`}</option>)}</select></div>
+            
+            <div className="form-group"><label className="form-label">Origen *</label><select className="form-select" value={eBenefOrigen} onChange={(e) => setEBenefOrigen(e.target.value as any)}><option value="Manual">Manual</option><option value="Convertido">Converso (Misión)</option><option value="Miembro">Miembro (Iglesia)</option></select></div>
+            
+            {eBenefOrigen === 'Manual' ? (
+                <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={eBenefManual} onChange={(e) => setEBenefManual(e.target.value)} placeholder="Nombre del beneficiario" /></div>
+            ) : (
+                <div className="form-group"><label className="form-label">Beneficiario *</label><select className="form-select" value={eBenefId} onChange={(e) => setEBenefId(e.target.value)}><option value="">Seleccionar…</option>{(eBenefOrigen === 'Convertido' ? conversiones : miembros).map((b) => <option key={b.id} value={b.id}>{b.nombre} {b.apellido}</option>)}</select></div>
+            )}
+
             <div className="form-group"><label className="form-label">Fecha</label><input className="form-input" type="date" value={eFecha} onChange={(e) => setEFecha(e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Tipo de Ayuda</label><input className="form-input" value={eTipo} onChange={(e) => setETipo(e.target.value)} placeholder="Canasta básica" /></div>
             <div className="form-group"><label className="form-label">Cantidad</label><input className="form-input" type="number" value={eCant} onChange={(e) => setECant(e.target.value)} min="0" step="0.5" /></div>

@@ -17,7 +17,7 @@ export interface Conversion {
   fechaBautismo: string;
   conyuge: string;
   hijos: string;
-  estado: 'Nuevo' | 'Discipulado' | 'Bautizado' | 'Integrado';
+  estado: 'Nuevo' | 'Discipulado' | 'Bautizado' | 'Integrado' | 'Apartado' | 'Fallecido';
   notas: string;
   historial: HistorialEntry[];
   creado: string;
@@ -39,7 +39,7 @@ export interface Grupo {
   capacidad: string;
   lugar: string;
   miembros: number;
-  metaMensual?: number;
+  planOfrendasMensual?: number;
 }
 
 export interface Evangelismo {
@@ -121,6 +121,8 @@ export interface Dador {
   email: string;
   estado: 'Activo' | 'Pausado' | 'Inactivo';
   tipo: 'Persona' | 'Empresa' | 'Iglesia';
+  planOfrendaTipo: string;
+  planOfrendaMonto: number;
   notas: string;
   creado: string;
 }
@@ -148,6 +150,10 @@ export interface Beneficiario {
   estado: 'Activo' | 'Inactivo';
   notas: string;
   creado: string;
+  tipo: 'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable';
+  representativeName?: string;
+  source: 'Convertido' | 'Miembro' | 'Manual';
+  sourceId?: string;
 }
 
 export interface Campana {
@@ -238,7 +244,7 @@ export interface MiembroComun {
   estado: 'Activo' | 'Inactivo';
   zona: string;
   grupo: string;
-  base: number;
+  planDiezmo: number;
   notas: string;
   creado: string;
 }
@@ -268,7 +274,7 @@ export interface Miembro {
   grupoId?: string | null;
   fechaNacimiento: string;
   fechaIngreso: string;
-  estado: 'Activo' | 'Inactivo' | 'Trasladado' | 'Disciplinado';
+  estado: 'Activo' | 'Inactivo' | 'Trasladado' | 'Disciplinado' | 'Fallecido';
   contactoPreferido: 'Teléfono' | 'WhatsApp' | 'Email' | 'Visita' | 'Otro';
   profesion: string;
   estadoCivil: 'Soltero' | 'Casado' | 'Viudo' | 'Divorciado' | 'Unión';
@@ -316,5 +322,22 @@ export interface Hito {
 export interface Zona {
   id: string;
   nombre: string;
+  creado: string;
+}
+
+export interface TipoPlan {
+  id: string;
+  nombre: string;
+  color: string;
+  activo: boolean;
+  creado: string;
+}
+
+export interface PlanColaborador {
+  id: string;
+  colaboradorId: string;
+  tipoPlanId: string;
+  montoMensual: number;
+  notas: string;
   creado: string;
 }

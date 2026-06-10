@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
@@ -206,6 +208,36 @@ export default function Comunicacion() {
 
         <div className="actions-row">
           {tab === 'pub' && <button className="btn btn-gold" onClick={openNew}>➕ Nueva Publicación</button>}
+          {tab === 'pub' && (
+            <>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!pubs.length) return showToast('No hay publicaciones para exportar');
+                const doc = new jsPDF();
+                doc.setFontSize(18);
+                doc.text('Publicaciones de Comunicación', 14, 20);
+                doc.setFontSize(10);
+                doc.setTextColor(120);
+                doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${pubs.length}`, 14, 28);
+                const rows = pubs.map(p => [fmt(p.fecha), p.titulo, p.plataforma, p.tipo, p.estado, p.responsable || '—', num(p.alcance || 0)]);
+                autoTable(doc, { startY: 34, head: [['Fecha', 'Título', 'Plataforma', 'Tipo', 'Estado', 'Responsable', 'Alcance']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
+                doc.save('lemgil-publicaciones.pdf');
+                showToast('PDF exportado');
+              }}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!pubs.length) return showToast('No hay publicaciones para exportar');
+                const h = ['Fecha', 'Título', 'Plataforma', 'Tipo', 'Estado', 'Responsable', 'Alcance', 'Engagement', 'Notas'];
+                const r = pubs.map(p => [p.fecha, p.titulo, p.plataforma, p.tipo, p.estado, p.responsable || '', p.alcance || 0, p.engagement || 0, (p.notas || '').replace(/,/g, ';')]);
+                const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const u = URL.createObjectURL(b);
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = 'lemgil-publicaciones.csv';
+                a.click();
+                showToast('CSV exportado');
+              }}>📥 Exportar CSV</button>
+            </>
+          )}
         </div>
 
         {tab === 'pub' && (
@@ -283,7 +315,38 @@ export default function Comunicacion() {
         )}
 
         {tab === 'calendar' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 }}>
+          <>
+            <div className="actions-row">
+              <button className="btn btn-secondary" onClick={() => {
+                const pubsCal = monthGroups.flatMap(([, items]) => items);
+                if (!pubsCal.length) return showToast('No hay publicaciones programadas');
+                const doc = new jsPDF();
+                doc.setFontSize(18);
+                doc.text('Calendario de Publicaciones', 14, 20);
+                doc.setFontSize(10);
+                doc.setTextColor(120);
+                doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${pubsCal.length} programadas`, 14, 28);
+                const rows = pubsCal.map((p: any) => [fmt(p.fecha), p.titulo, p.plataforma, p.tipo, p.responsable || '—']);
+                autoTable(doc, { startY: 34, head: [['Fecha', 'Título', 'Plataforma', 'Tipo', 'Responsable']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
+                doc.save('lemgil-calendario-publicaciones.pdf');
+                showToast('PDF exportado');
+              }}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => {
+                const pubsCal = monthGroups.flatMap(([, items]) => items);
+                if (!pubsCal.length) return showToast('No hay publicaciones programadas');
+                const h = ['Fecha', 'Título', 'Plataforma', 'Tipo', 'Estado', 'Responsable', 'Alcance'];
+                const r = pubsCal.map((p: any) => [p.fecha, p.titulo, p.plataforma, p.tipo, p.estado, p.responsable || '', p.alcance || 0]);
+                const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const u = URL.createObjectURL(b);
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = 'lemgil-calendario-publicaciones.csv';
+                a.click();
+                showToast('CSV exportado');
+              }}>📥 Exportar CSV</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 }}>
             <div className="card">
               <div className="card-header"><div className="card-title">📅 Calendario de Publicaciones Programadas</div></div>
               {monthGroups.length === 0 ? (
@@ -326,10 +389,40 @@ export default function Comunicacion() {
               )}
             </div>
           </div>
+          </>
         )}
 
         {tab === 'resumen' && (
-          <div>
+          <>
+            <div className="actions-row">
+              <button className="btn btn-secondary" onClick={() => {
+                if (!pubs.length) return showToast('No hay publicaciones para exportar');
+                const doc = new jsPDF();
+                doc.setFontSize(18);
+                doc.text('Resumen por Plataforma', 14, 20);
+                doc.setFontSize(10);
+                doc.setTextColor(120);
+                doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, 14, 28);
+                const rows = platDist.map(p => [p.plataforma, p.count, num(p.alcance), num(p.eng), p.alcance > 0 ? `${((p.eng / p.alcance) * 100).toFixed(1)}%` : '0.0%']);
+                autoTable(doc, { startY: 34, head: [['Plataforma', 'Publicaciones', 'Alcance', 'Engagement', 'Eng. Rate']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
+                doc.save('lemgil-resumen-plataformas.pdf');
+                showToast('PDF exportado');
+              }}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => {
+                if (!platDist.length) return showToast('No hay datos para exportar');
+                const h = ['Plataforma', 'Publicaciones', 'Alcance', 'Engagement', 'Eng. Rate'];
+                const r = platDist.map(p => [p.plataforma, p.count, p.alcance, p.eng, p.alcance > 0 ? `${((p.eng / p.alcance) * 100).toFixed(1)}%` : '0.0%']);
+                const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const u = URL.createObjectURL(b);
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = 'lemgil-resumen-plataformas.csv';
+                a.click();
+                showToast('CSV exportado');
+              }}>📥 Exportar CSV</button>
+            </div>
+            <div>
             {platDist.length === 0 ? (
               <div className="card"><EmptyState icon="📊" title="Sin publicaciones publicadas" sub="Publica contenido para ver estadísticas por plataforma" /></div>
             ) : (
@@ -385,6 +478,7 @@ export default function Comunicacion() {
               </>
             )}
           </div>
+          </>
         )}
 
         <Modal

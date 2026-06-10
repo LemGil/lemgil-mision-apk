@@ -134,15 +134,15 @@ export function exportDiezmadoresPDF(opts: { colaboradores: any[]; aportes: any[
   const rows = colaboradores.map(d => {
     const regs = aportes.filter(a => a.miembroId === d.id && a.fecha.startsWith(anio));
     const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-    const base = d.base || 0;
-    const metaAnual = base * 12;
+    const planDiezmo = d.planDiezmo || 0;
+    const metaAnual = planDiezmo * 12;
     const pct = metaAnual > 0 ? (total / metaAnual) * 100 : null;
     return [
       `${d.nombre} ${d.apellido}`,
       d.zona || '—',
       d.estado,
-      base > 0 ? money(base) : '—',
-      base > 0 ? money(metaAnual) : '—',
+      planDiezmo > 0 ? money(planDiezmo) : '—',
+      planDiezmo > 0 ? money(metaAnual) : '—',
       money(total),
       regs.length.toString(),
       pct !== null ? `${pct.toFixed(0)}%` : '—',
@@ -151,7 +151,7 @@ export function exportDiezmadoresPDF(opts: { colaboradores: any[]; aportes: any[
 
   autoTable(doc, {
     startY: 34,
-    head: [['Nombre', 'Zona', 'Estado', 'Base/Mes', 'Meta/Año', 'Recaudado', 'Reg.', '% Cump.']],
+    head: [['Nombre', 'Zona', 'Estado', 'Plan Diezmo', 'Meta/Año', 'Recaudado', 'Reg.', '% Cump.']],
     body: rows,
     theme: 'striped',
     headStyles: { fillColor: COLORS.gold, textColor: 255, fontStyle: 'bold', fontSize: 8 },
@@ -190,7 +190,7 @@ export function exportGruposPDF(opts: { grupos: any[]; aportes: any[]; anio: str
   const rows = grupos.map(g => {
     const regs = aportes.filter(a => a.grupoId === g.id && a.tipo === 'Ofrenda' && a.fecha.startsWith(anio));
     const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-    const metaMes = g.metaMensual || 0;
+    const metaMes = g.planOfrendasMensual || 0;
     const metaAnual = metaMes * 12;
     const pct = metaAnual > 0 ? (total / metaAnual) * 100 : null;
     return [
@@ -437,12 +437,12 @@ export function exportMetasPDF(opts: { cumplimiento: any; anio: string; colabora
 
   autoTable(doc, {
     startY: 68,
-    head: [['Dador', 'Zona', 'Base/Mes', 'Meta/Año', 'Recaudado', '%']],
+    head: [['Dador', 'Zona', 'Plan Diezmo', 'Meta/Año', 'Recaudado', '%']],
     body: cumplimiento.cumplimientoDadores.map((d: any) => [
       `${d.nombre} ${d.apellido}`,
       d.zona,
-      d.base > 0 ? money(d.base) : '—',
-      d.base > 0 ? money(d.metaAnual) : '—',
+      d.planDiezmo > 0 ? money(d.planDiezmo) : '—',
+      d.planDiezmo > 0 ? money(d.metaAnual) : '—',
       money(d.total),
       d.pct !== null ? `${d.pct.toFixed(0)}%` : '—',
     ]),
@@ -480,8 +480,8 @@ export function exportMetasPDF(opts: { cumplimiento: any; anio: string; colabora
     body: cumplimiento.cumplimientoGrupos.map((g: any) => [
       g.nombre,
       g.zona,
-      g.metaMensual > 0 ? money(g.metaMensual) : '—',
-      g.metaMensual > 0 ? money(g.metaAnual) : '—',
+      g.planOfrendasMensual > 0 ? money(g.planOfrendasMensual) : '—',
+      g.planOfrendasMensual > 0 ? money(g.metaAnual) : '—',
       money(g.total),
       g.pct !== null ? `${g.pct.toFixed(0)}%` : '—',
     ]),

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS conversiones (
   fechaBautismo TEXT NOT NULL DEFAULT '',
   conyuge TEXT NOT NULL DEFAULT '',
   hijos TEXT NOT NULL DEFAULT '',
-  estado TEXT NOT NULL DEFAULT 'Nuevo' CHECK (estado IN ('Nuevo','Discipulado','Bautizado','Integrado')),
+  estado TEXT NOT NULL DEFAULT 'Nuevo' CHECK (estado IN ('Nuevo','Discipulado','Bautizado','Integrado','Apartado','Fallecido')),
   notas TEXT NOT NULL DEFAULT '',
   historial JSONB NOT NULL DEFAULT '[]'::jsonb,
   creado TEXT NOT NULL DEFAULT ''
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS grupos (
   capacidad TEXT NOT NULL DEFAULT '',
   lugar TEXT NOT NULL DEFAULT '',
   miembros INTEGER NOT NULL DEFAULT 0,
-  metaMensual REAL NOT NULL DEFAULT 0
+  planOfrendasMensual REAL NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS evangelismos (
@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS dadores (
   email TEXT NOT NULL DEFAULT '',
   estado TEXT NOT NULL DEFAULT 'Activo' CHECK (estado IN ('Activo','Pausado','Inactivo')),
   tipo TEXT NOT NULL DEFAULT 'Persona' CHECK (tipo IN ('Persona','Empresa','Iglesia')),
+  planOfrendaTipo TEXT NOT NULL DEFAULT '',
+  planOfrendaMonto REAL NOT NULL DEFAULT 0,
   notas TEXT NOT NULL DEFAULT '',
   creado TEXT NOT NULL DEFAULT ''
 );
@@ -234,6 +236,7 @@ CREATE TABLE IF NOT EXISTS miembrosComun (
   email TEXT NOT NULL DEFAULT '',
   fechaIngreso TEXT NOT NULL DEFAULT '',
   estado TEXT NOT NULL DEFAULT 'Activo' CHECK (estado IN ('Activo','Inactivo')),
+  planDiezmo REAL NOT NULL DEFAULT 0,
   notas TEXT NOT NULL DEFAULT '',
   creado TEXT NOT NULL DEFAULT ''
 );
@@ -246,6 +249,7 @@ CREATE TABLE IF NOT EXISTS colaboradores (
   email TEXT NOT NULL DEFAULT '',
   fechaIngreso TEXT NOT NULL DEFAULT '',
   estado TEXT NOT NULL DEFAULT 'Activo' CHECK (estado IN ('Activo','Inactivo')),
+  planDiezmo REAL NOT NULL DEFAULT 0,
   notas TEXT NOT NULL DEFAULT '',
   creado TEXT NOT NULL DEFAULT ''
 );
@@ -275,7 +279,7 @@ CREATE TABLE IF NOT EXISTS miembros (
   grupoId TEXT DEFAULT NULL,
   fechaNacimiento TEXT NOT NULL DEFAULT '',
   fechaIngreso TEXT NOT NULL DEFAULT '',
-  estado TEXT NOT NULL DEFAULT 'Activo' CHECK (estado IN ('Activo','Inactivo','Trasladado','Disciplinado')),
+  estado TEXT NOT NULL DEFAULT 'Activo' CHECK (estado IN ('Activo','Inactivo','Trasladado','Disciplinado','Fallecido')),
   contactoPreferido TEXT NOT NULL DEFAULT 'Teléfono' CHECK (contactoPreferido IN ('Teléfono','WhatsApp','Email','Visita','Otro')),
   profesion TEXT NOT NULL DEFAULT '',
   estadoCivil TEXT NOT NULL DEFAULT 'Soltero' CHECK (estadoCivil IN ('Soltero','Casado','Viudo','Divorciado','Unión')),
@@ -323,5 +327,22 @@ CREATE TABLE IF NOT EXISTS hitos (
 CREATE TABLE IF NOT EXISTS zonas (
   id TEXT PRIMARY KEY,
   nombre TEXT NOT NULL DEFAULT '',
+  creado TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS tiposPlanes (
+  id TEXT PRIMARY KEY,
+  nombre TEXT NOT NULL DEFAULT '',
+  color TEXT NOT NULL DEFAULT '#3b82f6',
+  activo BOOLEAN NOT NULL DEFAULT true,
+  creado TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS planesColaborador (
+  id TEXT PRIMARY KEY,
+  colaboradorId TEXT NOT NULL DEFAULT '',
+  tipoPlanId TEXT NOT NULL DEFAULT '',
+  montoMensual REAL NOT NULL DEFAULT 0,
+  notas TEXT NOT NULL DEFAULT '',
   creado TEXT NOT NULL DEFAULT ''
 );

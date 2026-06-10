@@ -64,11 +64,11 @@ const fmt = (d: string) => {
   return `${+dy} ${ms[+m - 1]} ${y}`;
 };
 
-const ESTADOS = ['Nuevo', 'Discipulado', 'Bautizado', 'Integrado'] as const;
-const EST_BADGE: Record<string, string> = { Nuevo: 'badge-blue', Discipulado: 'badge-yellow', Bautizado: 'badge-green', Integrado: 'badge-purple' };
-const ESTADOS_COLOR: Record<number, string> = { 0: 'var(--blue)', 1: 'var(--yellow)', 2: 'var(--green)', 3: 'var(--purple)' };
+const ESTADOS = ['Nuevo', 'Discipulado', 'Bautizado', 'Integrado', 'Apartado', 'Fallecido'] as const;
+const EST_BADGE: Record<string, string> = { Nuevo: 'badge-blue', Discipulado: 'badge-yellow', Bautizado: 'badge-green', Integrado: 'badge-purple', Apartado: 'badge-red', Fallecido: 'badge-gray' };
+const ESTADOS_COLOR: Record<number, string> = { 0: 'var(--blue)', 1: 'var(--yellow)', 2: 'var(--green)', 3: 'var(--purple)', 4: 'var(--red)', 5: 'var(--dim)' };
 const ESTADOS_TIPO_HITO: Record<string, 'Conversión' | 'Discipulado' | 'Bautismo' | 'Integración'> = { Nuevo: 'Conversión', Discipulado: 'Discipulado', Bautizado: 'Bautismo', Integrado: 'Integración' };
-const ESTADOS_EMOJI: Record<string, string> = { Nuevo: '🌱', Discipulado: '📖', Bautizado: '💧', Integrado: '🏘️' };
+const ESTADOS_EMOJI: Record<string, string> = { Nuevo: '🌱', Discipulado: '📖', Bautizado: '💧', Integrado: '🏘️', Apartado: '🚪', Fallecido: '✝️' };
 const TIPO_BADGE: Record<string, string> = { 'Visita domiciliaria': 'badge-blue', 'Campaña en plaza': 'badge-green', 'Evangelismo en calle': 'badge-yellow', 'Reunión de célula': 'badge-purple', 'Invitación personal': 'badge-red' };
 
 type DataTab = 'conv' | 'grupo' | 'evang';
@@ -131,6 +131,7 @@ const [fHijos, setFHijos] = useState('');
   const [gHora, setGHora] = useState('19:00');
   const [gCap, setGCap] = useState('15');
   const [gLugar, setGLugar] = useState('');
+  const [gMeta, setGMeta] = useState('');
   const [eTipo, setETipo] = useState('Visita domiciliaria');
   const [eFecha, setEFecha] = useState(today());
   const [eZona, setEZona] = useState('Norte');
@@ -147,7 +148,7 @@ const [fHijos, setFHijos] = useState('');
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
   const resetForm = () => { setEditConvId(null); setFNombre(''); setFApellido(''); setFTelefono(''); setFEdad(''); setFDireccion(''); setFFamilia('No'); setFFecha(today()); setFZona(''); setFLider(''); setFLiderCustom(false); setFEstado('Nuevo'); setFGrupoId(''); setFNotas(''); setFEmail(''); setFProfesion(''); setFBautizado(false); setFFechaBautismo(''); setFConyuge(''); setFHijos(''); };
-  const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); };
+  const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); setGMeta(''); };
   const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELider(''); setELiderCustom(false); setEParticipantes([]); setEPartCustom(''); setEContactos('0'); setEConvs('0'); setENotas(''); };
 
   const mo = new Date().toISOString().slice(0, 7);
@@ -156,6 +157,8 @@ const [fHijos, setFHijos] = useState('');
   const discCount = convs.filter((c) => c.estado === 'Discipulado').length;
   const bautCount = convs.filter((c) => c.estado === 'Bautizado').length;
   const intCount = convs.filter((c) => c.estado === 'Integrado').length;
+  const apaCount = convs.filter((c) => c.estado === 'Apartado').length;
+  const falCount = convs.filter((c) => c.estado === 'Fallecido').length;
 
   const filtered = convs.filter((c) => {
     if (!showIntegrados && c.estado === 'Integrado') return false;
@@ -238,8 +241,9 @@ const [fHijos, setFHijos] = useState('');
   };
   const quickAdv = async (id: string) => {
     const c = convs.find((x) => x.id === id); if (!c) return;
+    if (c.estado === 'Apartado' || c.estado === 'Fallecido') return;
     const i = ESTADOS.indexOf(c.estado);
-    if (i < ESTADOS.length - 1) {
+    if (i >= 0 && i < ESTADOS.length - 1) {
       const next = ESTADOS[i + 1];
       await db.conversiones.update(id, { estado: next, historial: [...c.historial, { fecha: today(), estado: next, nota: 'Avance rápido' }] });
       const synced = await syncMemberFromConversion({ ...c, estado: next });
@@ -275,6 +279,9 @@ const [fHijos, setFHijos] = useState('');
     setModal(null);
   };
   const updateSteps = (est: string) => {
+    if (est === 'Apartado' || est === 'Fallecido') {
+      return ESTADOS.map((e, i) => ({ estado: e, emoji: ['🌱', '📖', '💧', '🏘️'][i], cls: 'step' }));
+    }
     const idx = ESTADOS.indexOf(est as typeof ESTADOS[number]);
     return ESTADOS.map((e, i) => ({ estado: e, emoji: ['🌱', '📖', '💧', '🏘️'][i], cls: i < idx ? 'step done' : i === idx ? 'step active' : 'step' }));
   };
@@ -285,13 +292,14 @@ const [fHijos, setFHijos] = useState('');
     const g = grupos.find((x) => x.id === id); if (!g) return;
     setEditGrupoId(id); setGNombre(g.nombre); setGZona(g.zona); setGLider(g.lider);
     setGDia(g.dia); setGHora(g.hora); setGCap(g.capacidad); setGLugar(g.lugar);
+    setGMeta(String(g.planOfrendasMensual || ''));
     setModal('grupo');
   };
   const saveGrupo = async () => {
     if (!gNombre.trim()) return showToast('El nombre del grupo es obligatorio');
     if (!gZona) return showToast('Selecciona una zona');
     if (!gLider.trim()) return showToast('Indica el líder del grupo');
-    const data = { nombre: gNombre.trim(), zona: gZona, lider: gLider.trim(), dia: gDia, hora: gHora, capacidad: gCap, lugar: gLugar.trim() };
+    const data = { nombre: gNombre.trim(), zona: gZona, lider: gLider.trim(), dia: gDia, hora: gHora, capacidad: gCap, lugar: gLugar.trim(), planOfrendasMensual: parseInt(gMeta) || 0 };
     if (editGrupoId) {
       await db.grupos.update(editGrupoId, data);
       showToast(`Grupo "${gNombre}" actualizado`);
@@ -352,6 +360,8 @@ const [fHijos, setFHijos] = useState('');
         <KpiCard label="En Discipulado" value={discCount} icon="📖" accent="var(--oro-apostolico)" sub="seguimiento activo" />
         <KpiCard label="Bautizados" value={bautCount} icon="💧" accent="var(--mision-blue)" sub="confirmados" />
         <KpiCard label="Integrados" value={intCount} icon="🏘️" accent="var(--oro-luz)" sub="al ministerio" />
+        {apaCount > 0 && <KpiCard label="Apartados" value={apaCount} icon="🚪" accent="var(--red, #ef4444)" sub="se apartaron" />}
+        {falCount > 0 && <KpiCard label="Fallecidos" value={falCount} icon="✝️" accent="var(--dim)" sub="en memoria" />}
       </div>
 
       <div className="tabs">
@@ -393,6 +403,8 @@ const [fHijos, setFHijos] = useState('');
             <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
               <option value="">Todos los estados</option>
               {ESTADOS.map((e) => <option key={e}>{e}</option>)}
+              <option>Apartado</option>
+              <option>Fallecido</option>
             </select>
             <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
               <option value="">Todas las zonas</option>
@@ -448,7 +460,22 @@ const [fHijos, setFHijos] = useState('');
                <div className="card-title">🏘️ Grupos de Discipulado</div>
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{gruposFiltrados.length} de {grupos.length} grupos</div>
              </div>
-             <button className="btn btn-secondary btn-sm" onClick={() => exportGruposMisionPDF({ grupos, miembros })}>📄 Exportar PDF</button>
+             <div style={{ display: 'flex', gap: 5 }}>
+               <button className="btn btn-secondary btn-sm" onClick={() => exportGruposMisionPDF({ grupos, miembros })}>📄 Exportar PDF</button>
+               <button className="btn btn-secondary btn-sm" onClick={() => {
+                 if (!grupos.length) return showToast('No hay grupos para exportar');
+                 const h = ['Nombre', 'Zona', 'Líder', 'Día', 'Hora', 'Capacidad', 'Lugar'];
+                 const r = grupos.map(g => [g.nombre, g.zona || '', g.lider || '', g.dia || '', g.hora || '', g.capacidad || '', g.lugar || '']);
+                 const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                 const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                 const u = URL.createObjectURL(b);
+                 const a = document.createElement('a');
+                 a.href = u;
+                 a.download = 'lemgil-grupos-mision.csv';
+                 a.click();
+                 showToast('CSV exportado');
+               }}>📥 Exportar CSV</button>
+             </div>
            </div>
           {grupos.length === 0 ? (
             <EmptyState icon="👥" title="Sin grupos aún" sub="Crea el primer grupo" />
@@ -480,7 +507,7 @@ const [fHijos, setFHijos] = useState('');
             ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
               {gruposFiltrados.map((g) => {
-                const convsEnProceso = convs.filter(c => c.grupoId === g.id && c.estado !== 'Integrado');
+      const convsEnProceso = convs.filter(c => c.grupoId === g.id && c.estado !== 'Integrado' && c.estado !== 'Apartado' && c.estado !== 'Fallecido');
                 const cantNuevo = convsEnProceso.filter(c => c.estado === 'Nuevo').length;
                 const cantDiscip = convsEnProceso.filter(c => c.estado === 'Discipulado').length;
                 const cantBaut = convsEnProceso.filter(c => c.estado === 'Bautizado').length;
@@ -554,7 +581,22 @@ const [fHijos, setFHijos] = useState('');
                <div className="card-title">📋 Actividades de Evangelismo</div>
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{evangelsFiltrados.length} de {evangels.length} actividades</div>
              </div>
-             <button className="btn btn-secondary btn-sm" onClick={() => exportEvangelismoPDF({ evangelismos: evangels })}>📄 Exportar PDF</button>
+             <div style={{ display: 'flex', gap: 5 }}>
+               <button className="btn btn-secondary btn-sm" onClick={() => exportEvangelismoPDF({ evangelismos: evangels })}>📄 Exportar PDF</button>
+               <button className="btn btn-secondary btn-sm" onClick={() => {
+                 if (!evangels.length) return showToast('No hay actividades para exportar');
+                 const h = ['Fecha', 'Tipo', 'Zona', 'Líder', 'Contactos', 'Conversiones', 'Notas'];
+                 const r = evangels.map(e => [e.fecha, e.tipo, e.zona || '', e.lider || '', e.contactos || 0, e.conversiones || 0, (e.notas || '').replace(/,/g, ';')]);
+                 const csv = [h, ...r].map(x => x.join(',')).join('\n');
+                 const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                 const u = URL.createObjectURL(b);
+                 const a = document.createElement('a');
+                 a.href = u;
+                 a.download = 'lemgil-evangelismo.csv';
+                 a.click();
+                 showToast('CSV exportado');
+               }}>📥 Exportar CSV</button>
+             </div>
            </div>
           {evangels.length === 0 ? (
             <EmptyState icon="📢" title="Sin actividades aún" sub='Presiona "📋 Registrar Evangelismo" para comenzar' />
@@ -686,6 +728,7 @@ const [fHijos, setFHijos] = useState('');
           <div className="form-group"><label className="form-label">Capacidad Máx.</label><input className="form-input" type="number" value={gCap} onChange={(e) => setGCap(e.target.value)} min="1" /></div>
         </div>
         <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Lugar</label><input className="form-input" value={gLugar} onChange={(e) => setGLugar(e.target.value)} placeholder="Casa, iglesia, salón…" /></div>
+        <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Plan de Ofrendas Mensual ($)</label><input className="form-input" type="number" value={gMeta} onChange={(e) => setGMeta(e.target.value)} placeholder="Ej: 500" min="0" /></div>
       </Modal>
 
       {/* MODAL: Evangelismo (Nuevo / Editar) */}
@@ -739,8 +782,8 @@ const [fHijos, setFHijos] = useState('');
           const diasEnProceso = isNaN(fechaCreado.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - fechaCreado.getTime()) / 86400000));
           const lastHistDate = selConv.historial.length > 0 ? new Date(selConv.historial[selConv.historial.length - 1].fecha) : fechaCreado;
           const diasEnEstado = isNaN(lastHistDate.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - lastHistDate.getTime()) / 86400000));
-          const idxActual = ESTADOS.indexOf(selConv.estado);
-          const proxEstado = idxActual < ESTADOS.length - 1 ? ESTADOS[idxActual + 1] : null;
+          const idxActual = selConv.estado === 'Apartado' || selConv.estado === 'Fallecido' ? -1 : ESTADOS.indexOf(selConv.estado);
+          const proxEstado = idxActual >= 0 && idxActual < ESTADOS.length - 1 ? ESTADOS[idxActual + 1] : null;
           const progreso = Math.round(((idxActual + 1) / ESTADOS.length) * 100);
           const grupoAsignado = selConv.grupoId ? grupos.find((g) => g.id === selConv.grupoId) : null;
           const telLimpio = (selConv.telefono || '').replace(/\D/g, '');
@@ -870,10 +913,10 @@ const [fHijos, setFHijos] = useState('');
               <div className="form-section" style={{ marginTop: 20 }}>Historial de Seguimiento</div>
               <div className="timeline">
                 {selConv.historial.slice().reverse().map((h, i) => {
-                  const idxH = ESTADOS.indexOf(h.estado as typeof ESTADOS[number]);
+                  const idxH = h.estado === 'Apartado' || h.estado === 'Fallecido' ? -1 : ESTADOS.indexOf(h.estado as typeof ESTADOS[number]);
                   return (
                     <div key={i} className="timeline-item">
-                      <div className="timeline-dot" style={{ background: ESTADOS_COLOR[idxH] || 'var(--gold)' }} />
+                      <div className="timeline-dot" style={{ background: idxH >= 0 ? ESTADOS_COLOR[idxH] : h.estado === 'Fallecido' ? 'var(--dim)' : 'var(--red, #ef4444)' }} />
                       <div className="timeline-date">{fmt(h.fecha)}</div>
                       <div className="timeline-content">
                         <span className={`badge ${EST_BADGE[h.estado] || 'badge-blue'}`} style={{ fontSize: 10 }}>{h.estado}</span>
