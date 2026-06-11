@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { ToastContainer } from './Toast';
+import { SyncIndicator } from './SyncIndicator';
 
 interface LayoutProps {
   title: string;
@@ -18,6 +19,7 @@ export function Layout({ title, breadcrumb, right, children }: LayoutProps) {
         <Topbar title={title} breadcrumb={breadcrumb} right={right} />
         <div className="page-content">{children}</div>
       </div>
+      <SyncIndicator />
       <ToastContainer />
     </div>
   );

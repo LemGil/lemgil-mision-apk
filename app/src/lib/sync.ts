@@ -34,6 +34,27 @@ type SyncOp = {
 
 let skipSync = false;
 
+export type SyncStatus = {
+  connected: boolean;
+  lastSync: string;
+  pendingOps: number;
+  error: string;
+};
+
+let _statusListeners: ((s: SyncStatus) => void)[] = [];
+let _currentStatus: SyncStatus = { connected: false, lastSync: 'Nunca', pendingOps: 0, error: '' };
+
+export function onSyncStatus(fn: (s: SyncStatus) => void) {
+  _statusListeners.push(fn);
+  fn(_currentStatus);
+  return () => { _statusListeners = _statusListeners.filter(l => l !== fn); };
+}
+
+function emitStatus(update: Partial<SyncStatus>) {
+  _currentStatus = { ..._currentStatus, ...update };
+  _statusListeners.forEach(l => l(_currentStatus));
+}
+
 function getQueue(): SyncOp[] {
   try {
     return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
@@ -50,12 +71,14 @@ function enqueue(op: SyncOp) {
   const queue = getQueue();
   queue.push(op);
   saveQueue(queue);
+  emitStatus({ pendingOps: queue.length });
 }
 
 async function processQueue() {
   const queue = getQueue();
   if (queue.length === 0) return;
 
+  let processed = 0;
   for (let i = 0; i < queue.length; i++) {
     const op = queue[i];
     try {
@@ -79,17 +102,24 @@ async function processQueue() {
       }
       queue.splice(i, 1);
       i--;
-    } catch (err) {
-      console.warn(`[Sync] Error processing ${op.operation} on ${op.table}:`, err);
+      processed++;
+    } catch (err: any) {
+      const msg = err?.message || err?.error?.message || String(err);
+      console.warn(`[Sync] ✗ Cola falló ${op.operation} en ${op.table} (id: ${op.id}):`, msg, err);
       break;
     }
   }
   saveQueue(queue);
+  emitStatus({ pendingOps: queue.length });
+  if (processed > 0) {
+    console.log(`[Sync] ✓ Cola: ${processed} operaciones enviadas`);
+  }
 }
 
 function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
   if (skipSync) return;
   if (!navigator.onLine) {
+    console.log(`[Sync] ⏳ Offline — encolando ${operation} en ${table}`);
     enqueue({
       table, operation,
       id: data?.id || '',
@@ -104,17 +134,28 @@ function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
     try {
       switch (operation) {
         case 'create':
-          await supabase.from(supaTable).insert(data);
+          const { error: cErr } = await supabase.from(supaTable).insert(data);
+          if (cErr) throw cErr;
+          console.log(`[Sync] ✓ ${table} → ${supaTable}: registro creado`);
           break;
         case 'update':
-          await supabase.from(supaTable).update(data.changes).eq('id', data.id);
+          const { error: uErr } = await supabase.from(supaTable).update(data.changes).eq('id', data.id);
+          if (uErr) throw uErr;
+          console.log(`[Sync] ✓ ${table} → ${supaTable}: registro actualizado`);
           break;
         case 'delete':
-          await supabase.from(supaTable).delete().eq('id', data);
+          const { error: dErr } = await supabase.from(supaTable).delete().eq('id', data);
+          if (dErr) throw dErr;
+          console.log(`[Sync] ✓ ${table} → ${supaTable}: registro eliminado`);
           break;
       }
+      emitStatus({ connected: true, lastSync: new Date().toLocaleTimeString('es-ES'), error: '' });
     } catch (err: any) {
-      if (err?.code === 'PGRST301' || err?.message?.includes('Failed to fetch') || !navigator.onLine) {
+      const msg = err?.message || err?.error?.message || String(err);
+      const code = err?.code || '';
+      console.warn(`[Sync] ✗ ${table} → ${supaTable} (${operation}):`, code, msg);
+      emitStatus({ error: `${table}: ${msg}` });
+      if (code === 'PGRST301' || msg.includes('Failed to fetch') || !navigator.onLine) {
         enqueue({
           table, operation,
           id: data?.id || data || '',
@@ -153,25 +194,96 @@ function setupHooks() {
   }
 }
 
+async function pushAllLocal() {
+  skipSync = true;
+  try {
+    let totalPushed = 0;
+    for (const table of SYNC_TABLES) {
+      const supaTable = toSupabase(table);
+      try {
+        const { count, error: countErr } = await supabase.from(supaTable).select('*', { count: 'exact', head: true });
+        if (countErr) {
+          console.warn(`[Sync] ✗ No se pudo verificar ${supaTable}:`, countErr.message);
+          continue;
+        }
+        if (count && count > 0) {
+          console.log(`[Sync] ⏭ ${supaTable}: ya tiene ${count} registros remotos, saltando push`);
+          continue;
+        }
+        const localData = await (db as any)[table].toArray();
+        if (localData.length === 0) continue;
+        const cleaned = localData.map((r: any) => {
+          const { _primKey, ...rest } = r;
+          return rest;
+        });
+        console.log(`[Sync] ⬆ ${table} → ${supaTable}: subiendo ${cleaned.length} registros locales...`);
+        const { error } = await supabase.from(supaTable).insert(cleaned);
+        if (error) {
+          console.warn(`[Sync] ✗ ${supaTable}: error al subir:`, error.message, error.code);
+          if (error.details) console.warn(`  Detalle:`, error.details);
+          if (error.hint) console.warn(`  Hint:`, error.hint);
+          continue;
+        }
+        totalPushed += cleaned.length;
+        console.log(`[Sync] ✓ ${table} → ${supaTable}: ${cleaned.length} registros subidos`);
+      } catch (err: any) {
+        console.warn(`[Sync] ✗ Excepción en ${table}:`, err.message);
+      }
+    }
+    if (totalPushed > 0) {
+      console.log(`[Sync] 🎉 Push completo: ${totalPushed} registros totales subidos`);
+      emitStatus({ lastSync: new Date().toLocaleTimeString('es-ES'), error: '' });
+    } else {
+      console.log(`[Sync] No hay datos nuevos para subir`);
+    }
+  } finally {
+    skipSync = false;
+  }
+}
+
 async function pullFromSupabase() {
   skipSync = true;
   try {
+    let totalPulled = 0;
     for (const table of SYNC_TABLES) {
-      const supabaseTable = toSupabase(table);
-      const { data, error } = await supabase.from(supabaseTable).select('*');
+      const supaTable = toSupabase(table);
+      const { data, error } = await supabase.from(supaTable).select('*');
       if (error) {
-        console.warn(`[Sync] Could not pull ${table}:`, error.message);
+        console.warn(`[Sync] ✗ Pull ${supaTable}:`, error.message);
         continue;
       }
       if (data && data.length > 0) {
         const count = await (db as any)[table].count();
         if (count === 0) {
           await (db as any)[table].bulkAdd(data as any[]);
+          totalPulled += data.length;
+          console.log(`[Sync] ✓ Pull ${supaTable}: ${data.length} registros importados`);
         }
       }
     }
+    if (totalPulled > 0) {
+      console.log(`[Sync] 🎉 Pull completo: ${totalPulled} registros totales importados`);
+    }
   } finally {
     skipSync = false;
+  }
+}
+
+async function testConnection(): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('conversiones').select('id', { count: 'exact', head: true });
+    if (error) {
+      console.warn('[Sync] Test conexión falló:', error.message);
+      emitStatus({ connected: false, error: error.message });
+      return false;
+    }
+    emitStatus({ connected: true, error: '' });
+    console.log('[Sync] ✓ Conexión con Supabase OK');
+    return true;
+  } catch (err: any) {
+    console.warn('[Sync] ✗ No se pudo conectar a Supabase:', err.message);
+    emitStatus({ connected: false, error: err.message });
+    return false;
   }
 }
 
@@ -180,13 +292,34 @@ export async function initSync(): Promise<void> {
     await db.open();
   } catch { /* already open */ }
 
-  setupHooks();
-  await processQueue();
-  await pullFromSupabase();
+  console.log('[Sync] Iniciando sincronización...');
+  const connected = await testConnection();
 
-  window.addEventListener('online', () => {
-    processQueue();
+  setupHooks();
+
+  if (connected) {
+    await pushAllLocal();
+    await processQueue();
+    await pullFromSupabase();
+  }
+
+  window.addEventListener('online', async () => {
+    console.log('[Sync] 🌐 Conexión restaurada');
+    const ok = await testConnection();
+    if (ok) {
+      await processQueue();
+    }
   });
 
-  setInterval(processQueue, 30000);
+  window.addEventListener('offline', () => {
+    console.log('[Sync] 📴 Sin conexión');
+    emitStatus({ connected: false, error: 'Sin conexión' });
+  });
+
+  setInterval(async () => {
+    if (navigator.onLine) {
+      const ok = await testConnection();
+      if (ok) await processQueue();
+    }
+  }, 30000);
 }
