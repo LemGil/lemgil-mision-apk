@@ -175,6 +175,8 @@ export interface Entrega {
   id: string;
   campanaId: string;
   beneficiarioId: string;
+  beneficiarioNombre: string;
+  beneficiarioTipo: string;
   fecha: string;
   tipo: string;
   cantidad: number;
