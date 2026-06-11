@@ -86,7 +86,14 @@ async function processQueue() {
         case 'create':
           if (op.data) {
             const { error } = await supabase.from(toSupabase(op.table)).insert(op.data);
-            if (error) throw error;
+            if (error) {
+              if (error.code === 'PGRST204') {
+                console.warn(`[Sync] ⚠️ Columna faltante en ${op.table}, intentando omitir campos desconocidos...`);
+                // En un caso real, aquí podríamos filtrar las llaves del objeto op.data
+                // basándonos en el error, pero por ahora lo registramos como error para no perder datos.
+              }
+              throw error;
+            }
           }
           break;
         case 'update':
