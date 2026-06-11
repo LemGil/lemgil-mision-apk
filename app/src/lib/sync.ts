@@ -241,6 +241,41 @@ async function pushAllLocal() {
   }
 }
 
+export async function forcePushAllLocal() {
+  skipSync = true;
+  try {
+    let totalUpserted = 0;
+    console.log('[Sync] 🚀 Iniciando FORCE PUSH (Sincronización Total)...');
+    for (const table of SYNC_TABLES) {
+      const supaTable = toSupabase(table);
+      try {
+        const localData = await (db as any)[table].toArray();
+        if (localData.length === 0) continue;
+        const cleaned = localData.map((r: any) => {
+          const { _primKey, ...rest } = r;
+          return rest;
+        });
+        console.log(`[Sync] ⬆ Forzando ${table} → ${supaTable}: ${cleaned.length} registros...`);
+        const { error } = await supabase.from(supaTable).upsert(cleaned);
+        if (error) {
+          console.warn(`[Sync] ✗ ${supaTable} Force: error:`, error.message);
+          continue;
+        }
+        totalUpserted += cleaned.length;
+        console.log(`[Sync] ✓ ${table} → ${supaTable}: ${cleaned.length} registros actualizados/subidos`);
+      } catch (err: any) {
+        console.warn(`[Sync] ✗ Excepción Force ${table}:`, err.message);
+      }
+    }
+    if (totalUpserted > 0) {
+      console.log(`[Sync] 🎉 FORCE PUSH completado: ${totalUpserted} registros sincronizados`);
+      emitStatus({ lastSync: new Date().toLocaleTimeString('es-ES'), error: '' });
+    }
+  } finally {
+    skipSync = false;
+  }
+}
+
 async function pullFromSupabase() {
   skipSync = true;
   try {
