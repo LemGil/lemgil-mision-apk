@@ -23,6 +23,17 @@ function toSupabase(name: string): string {
   return DEXIE_TO_SUPABASE[name] || name;
 }
 
+function toLowerCaseKeys(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(toLowerCaseKeys);
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+    return Object.keys(obj).reduce((acc, key) => {
+      acc[key.toLowerCase()] = toLowerCaseKeys(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+}
+
 type SyncOp = {
   table: string;
   operation: 'create' | 'update' | 'delete';
@@ -85,20 +96,13 @@ async function processQueue() {
       switch (op.operation) {
         case 'create':
           if (op.data) {
-            const { error } = await supabase.from(toSupabase(op.table)).insert(op.data);
-            if (error) {
-              if (error.code === 'PGRST204') {
-                console.warn(`[Sync] ⚠️ Columna faltante en ${op.table}, intentando omitir campos desconocidos...`);
-                // En un caso real, aquí podríamos filtrar las llaves del objeto op.data
-                // basándonos en el error, pero por ahora lo registramos como error para no perder datos.
-              }
-              throw error;
-            }
+            const { error } = await supabase.from(toSupabase(op.table)).insert(toLowerCaseKeys(op.data));
+            if (error) throw error;
           }
           break;
         case 'update':
           if (op.changes) {
-            const { error } = await supabase.from(toSupabase(op.table)).update(op.changes).eq('id', op.id);
+            const { error } = await supabase.from(toSupabase(op.table)).update(toLowerCaseKeys(op.changes)).eq('id', op.id);
             if (error) throw error;
           }
           break;
@@ -141,12 +145,12 @@ function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
     try {
       switch (operation) {
         case 'create':
-          const { error: cErr } = await supabase.from(supaTable).insert(data);
+          const { error: cErr } = await supabase.from(supaTable).insert(toLowerCaseKeys(data));
           if (cErr) throw cErr;
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro creado`);
           break;
         case 'update':
-          const { error: uErr } = await supabase.from(supaTable).update(data.changes).eq('id', data.id);
+          const { error: uErr } = await supabase.from(supaTable).update(toLowerCaseKeys(data.changes)).eq('id', data.id);
           if (uErr) throw uErr;
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro actualizado`);
           break;
@@ -224,7 +228,7 @@ async function pushAllLocal() {
           return rest;
         });
         console.log(`[Sync] ⬆ ${table} → ${supaTable}: subiendo ${cleaned.length} registros locales...`);
-        const { error } = await supabase.from(supaTable).insert(cleaned);
+        const { error } = await supabase.from(supaTable).insert(toLowerCaseKeys(cleaned));
         if (error) {
           console.warn(`[Sync] ✗ ${supaTable}: error al subir:`, error.message, error.code);
           if (error.details) console.warn(`  Detalle:`, error.details);
@@ -263,7 +267,7 @@ export async function forcePushAllLocal() {
           return rest;
         });
         console.log(`[Sync] ⬆ Forzando ${table} → ${supaTable}: ${cleaned.length} registros...`);
-        const { error } = await supabase.from(supaTable).upsert(cleaned);
+        const { error } = await supabase.from(supaTable).upsert(toLowerCaseKeys(cleaned));
         if (error) {
           console.warn(`[Sync] ✗ ${supaTable} Force: error:`, error.message);
           continue;
