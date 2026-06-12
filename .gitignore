@@ -8,3 +8,10 @@ app/.env
 !.vscode/extensions.json
 .idea
 *.sw?
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
