@@ -22,10 +22,10 @@ const money = (n: number) => `$${n.toLocaleString('es-ES', { minimumFractionDigi
 const MS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 type Tab = 'registros' | 'diezmadores' | 'resumen' | 'ofrendasGrupos' | 'planes';
-type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoPlan' | 'delTipoPlan' | 'planDador' | 'delPlanDador';
+type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoPlan' | 'delTipoPlan' | 'planDiezmador' | 'delPlanDiezmador';
 
 export default function BienComun() {
-  const colaboradores = useLiveQuery(() => db.colaboradores.toArray(), []) ?? [];
+  const colaboradores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
   const aportes = useLiveQuery(() => db.aportesComun.toArray(), []) ?? [];
@@ -39,14 +39,14 @@ export default function BienComun() {
   const [editAId, setEditAId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
-  const [viewDador, setViewDador] = useState<any>(null);
+  const [viewDiezmador, setViewDiezmador] = useState<any>(null);
   const [viewGrupo, setViewGrupo] = useState<any>(null);
   const [anioResumen, setAnioResumen] = useState(new Date().getFullYear().toString());
   const [subTab, setSubTab] = useState<'general' | 'mensual' | 'top' | 'metas' | 'cumplimiento'>('general');
 
   const [filterTipo, setFilterTipo] = useState('');
   const [filterMes, setFilterMes] = useState('');
-  const [filterDador, setFilterDador] = useState('');
+  const [filterDiezmador, setFilterDiezmador] = useState('');
   const [filterAnio, setFilterAnio] = useState(new Date().getFullYear().toString());
   const [filterMetodo, setFilterMetodo] = useState('');
   const [searchReg, setSearchReg] = useState('');
@@ -74,7 +74,7 @@ export default function BienComun() {
   const [editTpId, setEditTpId] = useState<string | null>(null);
   const [delTpId, setDelTpId] = useState<string | null>(null);
 
-  const [planDadorId, setPlanDadorId] = useState<string | null>(null);
+  const [planDiezmadorId, setPlanDiezmadorId] = useState<string | null>(null);
   const [planTipoId, setPlanTipoId] = useState('');
   const [planMonto, setPlanMonto] = useState('');
   const [planNotas, setPlanNotas] = useState('');
@@ -99,15 +99,15 @@ export default function BienComun() {
     if (!dNombre.trim() || !dApellido.trim()) return showToast('Nombre y apellido obligatorios');
     const data = { nombre: dNombre.trim(), apellido: dApellido.trim(), telefono: dTel.trim(), email: dEmail.trim(), zona: dZona, grupo: dGrupo, estado: dEstado as any, planDiezmo: parseFloat(dPlanDiezmo) || 0, notas: dNotas.trim(), creado: new Date().toISOString(), fechaIngreso: today() };
     if (editDId) {
-      await db.colaboradores.update(editDId, data);
-      showToast('Dador actualizado');
+      await db.dadores.update(editDId, data);
+      showToast('Diezmador actualizado');
     } else {
       const newId = uuid();
-      await db.colaboradores.add({ id: newId, ...data });
+      await db.dadores.add({ id: newId, ...data });
       if (planTipoId && parseFloat(planMonto) > 0) {
-        await db.planesColaborador.add({ id: uuid(), colaboradorId: newId, tipoPlanId: planTipoId, montoMensual: parseFloat(planMonto) || 0, notas: '', creado: new Date().toISOString() });
+        await db.planesColaborador.add({ id: uuid(), diezmadorId: newId, tipoPlanId: planTipoId, montoMensual: parseFloat(planMonto) || 0, notas: '', creado: new Date().toISOString() });
       }
-      showToast('Dador registrado');
+      showToast('Diezmador registrado');
     }
     resetD(); setModal(null);
   };
@@ -126,10 +126,10 @@ export default function BienComun() {
 
   const saveA = async () => {
     const monto = parseFloat(aMonto) || 0;
-    if (aTipo === 'Diezmo' && !aMiembro) return showToast('Selecciona un dador para el diezmo');
-    if (aTipo === 'Ofrenda' && !aMiembro && !aGrupo) return showToast('Selecciona un dador o grupo para la ofrenda');
+    if (aTipo === 'Diezmo' && !aMiembro) return showToast('Selecciona un diezmador para el diezmo');
+    if (aTipo === 'Ofrenda' && !aMiembro && !aGrupo) return showToast('Selecciona un diezmador o grupo para la ofrenda');
     if (monto <= 0) return showToast('Monto inválido');
-    const data = { miembroId: aMiembro || null, grupoId: aGrupo || null, fecha: aFecha, monto, tipo: aTipo, metodo: aMetodo as any, referencia: aRecibo.trim(), notas: `${aServicio} | ${aNotas.trim()}`, mesCorrespondiente: monthKey(aFecha), creado: new Date().toISOString() };
+    const data = { diezmadorId: aMiembro || null, grupoId: aGrupo || null, fecha: aFecha, monto, tipo: aTipo, metodo: aMetodo as any, referencia: aRecibo.trim(), notas: `${aServicio} | ${aNotas.trim()}`, mesCorrespondiente: monthKey(aFecha), creado: new Date().toISOString() };
     if (editAId) {
       await db.aportesComun.update(editAId, data as any);
       showToast('Aporte actualizado');
@@ -140,7 +140,7 @@ export default function BienComun() {
     resetA(); setModal(null);
   };
 
-  const handleEditDador = (d: any) => {
+  const handleEditDiezmador = (d: any) => {
     setEditDId(d.id);
     setDNombre(d.nombre);
     setDApellido(d.apellido);
@@ -156,7 +156,7 @@ export default function BienComun() {
 
   const handleEditAporte = (a: any) => {
     setEditAId(a.id);
-    setAMiembro(a.miembroId || '');
+    setAMiembro(a.diezmadorId || '');
     setAGrupo(a.grupoId || '');
     setAFecha(a.fecha);
     setAMonto(a.monto.toString());
@@ -169,7 +169,7 @@ export default function BienComun() {
     setModal('aporte');
   };
 
-  const delD = async () => { if (!selectedId) return; await db.colaboradores.delete(selectedId); await db.aportesComun.where('miembroId').equals(selectedId).modify({ miembroId: null }); await db.planesColaborador.where('colaboradorId').equals(selectedId).delete(); setModal(null); };
+  const delD = async () => { if (!selectedId) return; await db.dadores.delete(selectedId); await db.aportesComun.where('diezmadorId').equals(selectedId).modify({ diezmadorId: null }); await db.planesColaborador.where('diezmadorId').equals(selectedId).delete(); setModal(null); };
   const delA = async () => { if (!selectedId) return; await db.aportesComun.delete(selectedId); setModal(null); };
 
   const resetTp = () => { setEditTpId(null); setTpNombre(''); setTpColor('#3b82f6'); };
@@ -187,13 +187,13 @@ export default function BienComun() {
   const delTp = async () => { if (!delTpId) return; await db.tiposPlanes.update(delTpId, { activo: false }); setModal(null); showToast('Tipo de plan desactivado'); };
   const openEditTp = (tp: any) => { setEditTpId(tp.id); setTpNombre(tp.nombre); setTpColor(tp.color); setModal('tipoPlan'); };
 
-  const resetPlan = () => { setEditPlanId(null); setPlanDadorId(null); setPlanTipoId(''); setPlanMonto(''); setPlanNotas(''); };
+  const resetPlan = () => { setEditPlanId(null); setPlanDiezmadorId(null); setPlanTipoId(''); setPlanMonto(''); setPlanNotas(''); };
   const savePlan = async () => {
-    if (!planDadorId) return showToast('Selecciona un dador');
+    if (!planDiezmadorId) return showToast('Selecciona un diezmador');
     if (!planTipoId) return showToast('Selecciona un tipo de plan');
     const monto = parseFloat(planMonto) || 0;
     if (monto <= 0) return showToast('El monto debe ser mayor a 0');
-    const data = { colaboradorId: planDadorId, tipoPlanId: planTipoId, montoMensual: monto, notas: planNotas.trim(), creado: new Date().toISOString() };
+    const data = { diezmadorId: planDiezmadorId, tipoPlanId: planTipoId, montoMensual: monto, notas: planNotas.trim(), creado: new Date().toISOString() };
     if (editPlanId) {
       await db.planesColaborador.update(editPlanId, data);
       showToast('Plan actualizado');
@@ -204,19 +204,19 @@ export default function BienComun() {
     resetPlan(); setModal(null);
   };
   const delPlan = async () => { if (!delPlanId) return; await db.planesColaborador.delete(delPlanId); setModal(null); showToast('Plan eliminado'); };
-  const openEditPlan = (p: any) => { setEditPlanId(p.id); setPlanDadorId(p.colaboradorId); setPlanTipoId(p.tipoPlanId); setPlanMonto(p.montoMensual.toString()); setPlanNotas(p.notas || ''); setModal('planDador'); };
+  const openEditPlan = (p: any) => { setEditPlanId(p.id); setPlanDiezmadorId(p.diezmadorId); setPlanTipoId(p.tipoPlanId); setPlanMonto(p.montoMensual.toString()); setPlanNotas(p.notas || ''); setModal('planDiezmador'); };
 
   const registrosFiltrados = useMemo(() => {
     return aportes.filter(a => {
-      const full = `${a.miembroId} ${a.tipo} ${a.notas}`.toLowerCase();
+      const full = `${a.diezmadorId} ${a.tipo} ${a.notas}`.toLowerCase();
       return (!searchReg || full.includes(searchReg.toLowerCase())) &&
              (!filterTipo || a.tipo === filterTipo) &&
              (!filterMes || monthKey(a.fecha) === filterMes) &&
-             (!filterDador || a.miembroId === filterDador) &&
+             (!filterDiezmador || a.diezmadorId === filterDiezmador) &&
              (!filterAnio || a.fecha?.startsWith(filterAnio)) &&
              (!filterMetodo || a.metodo === filterMetodo);
     });
-  }, [aportes, searchReg, filterTipo, filterMes, filterDador, filterAnio, filterMetodo]);
+  }, [aportes, searchReg, filterTipo, filterMes, filterDiezmador, filterAnio, filterMetodo]);
 
   const totalesReg = useMemo(() => {
     const total = registrosFiltrados.reduce((s, a) => s + (a.monto || 0), 0);
@@ -270,10 +270,10 @@ export default function BienComun() {
     const mejorMes = mesesConData.length > 0 ? mesesConData.reduce((max, m) => m.total > max.total ? m : max, mesesConData[0]) : null;
     const peorMes = mesesConData.length > 1 ? mesesConData.reduce((min, m) => m.total < min.total ? m : min, mesesConData[0]) : null;
     const promedioMensual = mesesConData.length > 0 ? mesesConData.reduce((s, m) => s + m.total, 0) / mesesConData.length : 0;
-    const idsActivos = new Set(regsAnio.map(a => a.miembroId).filter(Boolean));
-    const dadoresActivosAnio = colaboradores.filter(c => idsActivos.has(c.id)).length;
-    const topDadores = colaboradores.map(c => {
-      const regs = regsAnio.filter(a => a.miembroId === c.id);
+    const idsActivos = new Set(regsAnio.map(a => a.diezmadorId).filter(Boolean));
+    const diezmadoresActivosAnio = colaboradores.filter(c => idsActivos.has(c.id)).length;
+    const topDiezmadores = colaboradores.map(c => {
+      const regs = regsAnio.filter(a => a.diezmadorId === c.id);
       const tot = regs.reduce((s, a) => s + (a.monto || 0), 0);
       return { id: c.id, nombre: c.nombre, apellido: c.apellido, zona: (c as any).zona, total: tot, regs: regs.length };
     }).filter(c => c.total > 0).sort((a, b) => b.total - a.total).slice(0, 5);
@@ -286,7 +286,7 @@ export default function BienComun() {
     const variacionTotal = totalPrev > 0 ? ((resumenAnual.total - totalPrev) / totalPrev) * 100 : null;
     const variacionDiezmos = diezmosPrev > 0 ? ((resumenAnual.diezmos - diezmosPrev) / diezmosPrev) * 100 : null;
     const variacionOfrendas = ofrendasPrev > 0 ? ((resumenAnual.ofrendas - ofrendasPrev) / ofrendasPrev) * 100 : null;
-    return { mesesData, mejorMes, peorMes, promedioMensual, dadoresActivosAnio, topDadores, topGrupos, maxMes, totalAportes: regsAnio.length, gruposConOfrenda: topGrupos.length, variacionTotal, variacionDiezmos, variacionOfrendas };
+    return { mesesData, mejorMes, peorMes, promedioMensual, diezmadoresActivosAnio, topDiezmadores, topGrupos, maxMes, totalAportes: regsAnio.length, gruposConOfrenda: topGrupos.length, variacionTotal, variacionDiezmos, variacionOfrendas };
   }, [aportes, anioResumen, colaboradores, grupos, resumenAnual]);
 
   const cumplimiento = useMemo(() => {
@@ -299,8 +299,8 @@ export default function BienComun() {
     const pctGlobal = metaGlobalAnual > 0 ? (totalRecAnio / metaGlobalAnual) * 100 : 0;
     const mesActualNum = new Date().getMonth() + 1;
     const metaAcumuladaEsperada = metaGlobalAnual > 0 ? (metaGlobalMes * mesActualNum) : 0;
-    const cumplimientoDadores = colaboradores.map(c => {
-      const regs = regsAnio.filter(a => a.miembroId === c.id);
+    const cumplimientoDiezmadores = colaboradores.map(c => {
+      const regs = regsAnio.filter(a => a.diezmadorId === c.id);
       const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
       const planDiezmo = (c as any).planDiezmo || 0;
       const metaAnual = planDiezmo * 12;
@@ -354,7 +354,7 @@ export default function BienComun() {
     }
     const anual = { etiqueta: `${anio}`, tipo: 'año' as const, total: totalRecAnio, metaEsperada: metaGlobalAnual, pct: metaGlobalAnual > 0 ? (totalRecAnio / metaGlobalAnual) * 100 : null };
     const metaGruposMes = cumplimientoGrupos.reduce((s, g) => s + g.planOfrendasMensual, 0);
-    return { metaGlobalAnual, metaGlobalMes, metaGruposMes, totalRecAnio, totalRecMesActual, pctGlobal, metaAcumuladaEsperada, cumplimientoDadores, cumplimientoGrupos, mensuales: acumulados, trimestres, semestres, anual };
+    return { metaGlobalAnual, metaGlobalMes, metaGruposMes, totalRecAnio, totalRecMesActual, pctGlobal, metaAcumuladaEsperada, cumplimientoDiezmadores, cumplimientoGrupos, mensuales: acumulados, trimestres, semestres, anual };
   }, [aportes, anioResumen, colaboradores, grupos]);
 
   return (
@@ -379,7 +379,7 @@ export default function BienComun() {
                 <div className="kpi-icon">🎁</div>
             </div>
             <div className="kpi" style={{'--accent': 'var(--blue)'} as any}>
-                <div className="kpi-label">Dadores Activos</div>
+                <div className="kpi-label">Diezmadores Activos</div>
                 <div className="kpi-value">{kpisGlobales.activos}</div>
                 <div className="kpi-icon">🙏</div>
             </div>
@@ -393,12 +393,12 @@ export default function BienComun() {
             <div className="page-content">
                 <div className="actions-row">
                     <button className="btn btn-gold" onClick={() => { resetA(); setModal('aporte'); }}>➕ Registrar Aporte</button>
-                    <button className="btn btn-secondary" onClick={() => exportRegistrosPDF({ aportes: registrosFiltrados, colaboradores, grupos, filters: { tipo: filterTipo, mes: filterMes, dador: filterDador } })}>📄 Exportar PDF</button>
+                    <button className="btn btn-secondary" onClick={() => exportRegistrosPDF({ aportes: registrosFiltrados, colaboradores, grupos, filters: { tipo: filterTipo, mes: filterMes, dador: filterDiezmador } })}>📄 Exportar PDF</button>
                     <button className="btn btn-secondary" onClick={() => {
                         if (!registrosFiltrados.length) return showToast('No hay registros para exportar');
                         const h = ['Fecha', 'Colaborador', 'Tipo', 'Monto', 'Método', 'Referencia', 'Notas'];
                         const r = registrosFiltrados.map(a => {
-                            const c = colaboradores.find(x => x.id === a.miembroId);
+                            const c = colaboradores.find(x => x.id === a.diezmadorId);
                             return [a.fecha, c ? `${c.nombre} ${c.apellido}` : '—', a.tipo, a.monto, a.metodo, a.referencia || '', (a.notas || '').replace(/,/g, ';')];
                         });
                         const csv = [h, ...r].map(x => x.join(',')).join('\n');
@@ -430,7 +430,7 @@ export default function BienComun() {
                         <option>Tarjeta</option>
                         <option>Otro</option>
                     </select>
-                    <select className="filter-select" value={filterDador} onChange={e => setFilterDador(e.target.value)}><option value="">Todos los dadores</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select>
+                    <select className="filter-select" value={filterDiezmador} onChange={e => setFilterDiezmador(e.target.value)}><option value="">Todos los diezmadores</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select>
                 </div>
                 <div className="card">
                     <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
@@ -452,12 +452,12 @@ export default function BienComun() {
                         </div>
                     </div>
                     <table className="data-table">
-                        <thead><tr><th>#</th><th>Dador</th><th>Tipo</th><th>Monto</th><th>Fecha</th><th>Servicio</th><th>Método</th><th>Recibo</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>#</th><th>Diezmador</th><th>Tipo</th><th>Monto</th><th>Fecha</th><th>Servicio</th><th>Método</th><th>Recibo</th><th>Acciones</th></tr></thead>
                         <tbody>
                                  {registrosFiltrados.map((a) => (
                                      <tr key={a.id}>
                                          <td style={{color: 'var(--dim)'}}>{aportes.indexOf(a) + 1}</td>
-                                         <td style={{fontWeight: 600}}>{colaboradores.find(c => c.id === a.miembroId)?.nombre || grupos.find(g => g.id === a.grupoId)?.nombre || 'Anónimo'}</td>
+                                         <td style={{fontWeight: 600}}>{colaboradores.find(c => c.id === a.diezmadorId)?.nombre || grupos.find(g => g.id === a.grupoId)?.nombre || 'Anónimo'}</td>
                                          <td><span className={`badge ${a.tipo === 'Diezmo' ? 'badge-purple' : 'badge-blue'}`}>{a.tipo}</span></td>
                                          <td style={{fontWeight: 700, color: 'var(--gold)'}}>{money(a.monto)}</td>
                                          <td>{a.fecha}</td>
@@ -482,13 +482,13 @@ export default function BienComun() {
         {tab === 'diezmadores' && (
             <div className="page-content">
                 <div className="actions-row" style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
-                    <button className="btn btn-gold" onClick={() => { resetD(); setModal('dador'); }}>➕ Nuevo Dador</button>
+                    <button className="btn btn-gold" onClick={() => { resetD(); setModal('dador'); }}>➕ Nuevo Diezmador</button>
                     <button className="btn btn-secondary" onClick={() => exportDiezmadoresPDF({ colaboradores, aportes, anio: new Date().getFullYear().toString() })}>📄 Exportar PDF</button>
                     <button className="btn btn-secondary" onClick={() => {
-                        if (!colaboradores.length) return showToast('No hay dadores para exportar');
+                        if (!colaboradores.length) return showToast('No hay diezmadores para exportar');
                         const h = ['#', 'Nombre', 'Apellido', 'Zona', 'Estado', 'Plan Diezmo', 'Total Aportado'];
                         const r = colaboradores.map((c, i) => {
-                            const regs = aportes.filter(a => a.miembroId === c.id);
+                            const regs = aportes.filter(a => a.diezmadorId === c.id);
                             const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
                             return [i + 1, c.nombre, c.apellido, (c as any).zona || '', c.estado, (c as any).planDiezmo || 0, total];
                         });
@@ -503,7 +503,7 @@ export default function BienComun() {
                     }}>📥 Exportar CSV</button>
                 </div>
                 <div className="search-bar">
-                    <input className="search-input" placeholder="🔍 Buscar dador..." value={searchDz} onChange={e => setSearchDz(e.target.value)} />
+                    <input className="search-input" placeholder="🔍 Buscar diezmador..." value={searchDz} onChange={e => setSearchDz(e.target.value)} />
                     <select className="filter-select" value={filterZona} onChange={e => setFilterZona(e.target.value)}><option value="">Todas las zonas</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Centro</option></select>
                     <select className="filter-select" value={filterEstado} onChange={e => setFilterEstado(e.target.value)}><option value="">Todos</option><option>Activo</option><option>Irregular</option><option>Inactivo</option></select>
                     <select className="filter-select" value={filterPlanDz} onChange={e => setFilterPlanDz(e.target.value)}>
@@ -521,12 +521,12 @@ export default function BienComun() {
                         if (filterPlanDz === 'sin' && (d.planDiezmo > 0)) return false;
                         return true;
                     }).map(d => {
-                        const regs = aportes.filter(a => a.miembroId === d.id);
+                        const regs = aportes.filter(a => a.diezmadorId === d.id);
                         const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
                         const mesK = new Date().toISOString().slice(0, 7);
                         const alDia = regs.some(a => monthKey(a.fecha) === mesK);
                         return (
-                                 <div key={d.id} className="card" onClick={() => { setViewDador(d); setModal('verD'); }} style={{cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--bg)', padding: '16px', borderRadius: '16px', position: 'relative', overflow: 'hidden'}}>
+                                 <div key={d.id} className="card" onClick={() => { setViewDiezmador(d); setModal('verD'); }} style={{cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--bg)', padding: '16px', borderRadius: '16px', position: 'relative', overflow: 'hidden'}}>
                                      <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px'}}>
                                          <div style={{width: '50px', height: '50px', borderRadius: '50%', background: 'var(--gold-glow)', border: '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: '16px'}}>{d.nombre[0]}{d.apellido[0]}</div>
                                          <div style={{flex: 1}}>
@@ -596,7 +596,7 @@ export default function BienComun() {
                         <button className="btn btn-secondary" onClick={() => {
                             if (subTab === 'general') exportResumenGeneralPDF({ resumenAnual, resumenCompleto, anio: anioResumen });
                             else if (subTab === 'mensual') exportResumenMensualPDF({ mesesData: resumenCompleto.mesesData, resumenAnual, anio: anioResumen });
-                            else if (subTab === 'top') exportTopPDF({ topDadores: resumenCompleto.topDadores, topGrupos: resumenCompleto.topGrupos, anio: anioResumen });
+                            else if (subTab === 'top') exportTopPDF({ topDadores: resumenCompleto.topDiezmadores, topGrupos: resumenCompleto.topGrupos, anio: anioResumen });
                             else if (subTab === 'metas') exportMetasPDF({ cumplimiento, anio: anioResumen, colaboradores, grupos });
                             else if (subTab === 'cumplimiento') exportCumplimientoPDF({ cumplimiento, anio: anioResumen });
                         }}>📄 Exportar PDF</button>
@@ -609,7 +609,7 @@ export default function BienComun() {
                                     ['Total Recaudado', resumenAnual.total],
                                     ['Diezmos', resumenAnual.diezmos],
                                     ['Ofrendas', resumenAnual.ofrendas],
-                                    ['Dadores Activos', resumenCompleto.dadoresActivosAnio],
+                                    ['Diezmadores Activos', resumenCompleto.diezmadoresActivosAnio],
                                     ['Grupos con Ofrendas', resumenCompleto.gruposConOfrenda],
                                     ['Promedio Mensual', Math.round(resumenCompleto.promedioMensual)],
                                 ];
@@ -617,11 +617,11 @@ export default function BienComun() {
                                 r = resumenCompleto.mesesData.map(m => [m.mes, `Diezmos: ${m.diezmos} | Ofrendas: ${m.ofrendas} | Total: ${m.total}`]);
                             } else if (subTab === 'top') {
                                 r = [
-                                    ...resumenCompleto.topDadores.map((d, i) => [`Top ${i+1} Dador`, `${d.nombre} ${d.apellido}: ${money(d.total)}`]),
+                                    ...resumenCompleto.topDiezmadores.map((d, i) => [`Top ${i+1} Diezmador`, `${d.nombre} ${d.apellido}: ${money(d.total)}`]),
                                     ...resumenCompleto.topGrupos.map((g, i) => [`Top ${i+1} Grupo`, `${g.nombre}: ${money(g.total)}`]),
                                 ];
                             } else if (subTab === 'metas') {
-                                r = cumplimiento.cumplimientoDadores.map(c => [`${c.nombre} ${c.apellido}`, `Plan: ${money(c.metaAnual)} | Real: ${money(c.total)} | ${c.pct !== null ? `${Math.round(c.pct)}%` : '—'}`]);
+                                r = cumplimiento.cumplimientoDiezmadores.map(c => [`${c.nombre} ${c.apellido}`, `Plan: ${money(c.metaAnual)} | Real: ${money(c.total)} | ${c.pct !== null ? `${Math.round(c.pct)}%` : '—'}`]);
                             } else if (subTab === 'cumplimiento') {
                                 r = cumplimiento.mensuales.map(m => [m.etiqueta, `${money(m.total)} / ${money(m.metaEsperada)} | ${m.pct !== null ? `${Math.round(m.pct)}%` : '—'}`]);
                             }
@@ -680,8 +680,8 @@ export default function BienComun() {
                                 <div className="kpi-icon">🎁</div>
                             </div>
                             <div className="kpi" style={{'--accent': 'var(--blue)'} as any}>
-                                <div className="kpi-label">Dadores Activos</div>
-                                <div className="kpi-value">{resumenCompleto.dadoresActivosAnio}</div>
+                                <div className="kpi-label">Diezmadores Activos</div>
+                                <div className="kpi-value">{resumenCompleto.diezmadoresActivosAnio}</div>
                                 <div style={{fontSize: '12px', fontWeight: 600, marginTop: '4px', color: 'var(--dim)'}}>de {colaboradores.length} registrados</div>
                                 <div className="kpi-icon">👥</div>
                             </div>
@@ -814,14 +814,14 @@ export default function BienComun() {
                     <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px'}}>
                         <div className="card">
                             <div className="card-header">
-                                <h3 className="card-title">🏅 Top 5 Dadores del Año</h3>
+                                <h3 className="card-title">🏅 Top 5 Diezmadores del Año</h3>
                             </div>
-                            {resumenCompleto.topDadores.length > 0 ? (
+                            {resumenCompleto.topDiezmadores.length > 0 ? (
                                 <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-                                    {resumenCompleto.topDadores.map((d, i) => {
+                                    {resumenCompleto.topDiezmadores.map((d, i) => {
                                         const medals = ['🥇', '🥈', '🥉'];
                                         const color = ['var(--gold)', 'var(--blue)', 'var(--purple)'];
-                                        const pct = resumenCompleto.topDadores[0].total > 0 ? (d.total / resumenCompleto.topDadores[0].total) * 100 : 0;
+                                        const pct = resumenCompleto.topDiezmadores[0].total > 0 ? (d.total / resumenCompleto.topDiezmadores[0].total) * 100 : 0;
                                         return (
                                             <div key={d.id} style={{display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--border)'}}>
                                                 <div style={{width: '36px', height: '36px', borderRadius: '50%', background: i < 3 ? 'var(--gold-glow)' : 'var(--bg)', border: `2px solid ${i < 3 ? color[i] : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: i < 3 ? color[i] : 'var(--dim)'}}>
@@ -888,7 +888,7 @@ export default function BienComun() {
                                 <div style={{padding: '16px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
                                     <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 600}}>Meta Mensual Global</div>
                                     <div style={{fontSize: '20px', fontWeight: 800, color: 'var(--blue)'}}>{money(cumplimiento.metaGlobalMes)}</div>
-                                    <div style={{fontSize: '11px', color: 'var(--dim)', marginTop: '4px'}}>{colaboradores.filter(c => (c as any).planDiezmo > 0).length} dadores + {grupos.filter(g => (g as any).planOfrendasMensual > 0).length} grupos</div>
+                                    <div style={{fontSize: '11px', color: 'var(--dim)', marginTop: '4px'}}>{colaboradores.filter(c => (c as any).planDiezmo > 0).length} diezmadores + {grupos.filter(g => (g as any).planOfrendasMensual > 0).length} grupos</div>
                                 </div>
                                 <div style={{padding: '16px', background: 'var(--gold-glow)', borderRadius: '12px', border: '1px solid var(--gold)', textAlign: 'center'}}>
                                     <div style={{fontSize: '12px', color: 'var(--gold)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700}}>Meta Anual Global</div>
@@ -910,7 +910,7 @@ export default function BienComun() {
 
                         <div className="card" style={{marginBottom: '24px'}}>
                             <div className="card-header">
-                                <h3 className="card-title">👥 Plan de Diezmos por Dador</h3>
+                                <h3 className="card-title">👥 Plan de Diezmos por Diezmador</h3>
                             </div>
                             <table className="data-table">
                                 <thead>
@@ -924,7 +924,7 @@ export default function BienComun() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {cumplimiento.cumplimientoDadores.map(d => {
+                                    {cumplimiento.cumplimientoDiezmadores.map(d => {
                                         const semaforo = d.pct === null ? 'none' : d.pct >= 100 ? 'green' : d.pct >= 70 ? 'yellow' : 'red';
                                         const colorSem = semaforo === 'green' ? 'var(--green)' : semaforo === 'yellow' ? 'var(--yellow)' : semaforo === 'red' ? 'var(--red)' : 'var(--dim)';
                                         return (
@@ -946,9 +946,9 @@ export default function BienComun() {
                                 <tfoot>
                                     <tr style={{background: 'var(--bg-input)', fontWeight: 800}}>
                                         <td colSpan={2}>TOTAL DADORES</td>
-                                        <td style={{textAlign: 'right'}}>{money(cumplimiento.cumplimientoDadores.reduce((s, d) => s + d.planDiezmo, 0))}</td>
-                                        <td style={{textAlign: 'right'}}>{money(cumplimiento.cumplimientoDadores.reduce((s, d) => s + d.metaAnual, 0))}</td>
-                                        <td style={{textAlign: 'right', color: 'var(--gold)'}}>{money(cumplimiento.cumplimientoDadores.reduce((s, d) => s + d.total, 0))}</td>
+                                        <td style={{textAlign: 'right'}}>{money(cumplimiento.cumplimientoDiezmadores.reduce((s, d) => s + d.planDiezmo, 0))}</td>
+                                        <td style={{textAlign: 'right'}}>{money(cumplimiento.cumplimientoDiezmadores.reduce((s, d) => s + d.metaAnual, 0))}</td>
+                                        <td style={{textAlign: 'right', color: 'var(--gold)'}}>{money(cumplimiento.cumplimientoDiezmadores.reduce((s, d) => s + d.total, 0))}</td>
                                         <td style={{textAlign: 'center'}}>—</td>
                                     </tr>
                                 </tfoot>
@@ -1165,10 +1165,10 @@ export default function BienComun() {
 
                         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px'}}>
                             <div className="card">
-                                <div className="card-header"><h3 className="card-title">👥 Cumplimiento por Dador</h3></div>
-                                {cumplimiento.cumplimientoDadores.length > 0 ? (
+                                <div className="card-header"><h3 className="card-title">👥 Cumplimiento por Diezmador</h3></div>
+                                {cumplimiento.cumplimientoDiezmadores.length > 0 ? (
                                     <div style={{display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto'}}>
-                                        {cumplimiento.cumplimientoDadores.map(d => {
+                                        {cumplimiento.cumplimientoDiezmadores.map(d => {
                                             const semaforo = d.pct === null ? 'none' : d.pct >= 100 ? 'green' : d.pct >= 70 ? 'yellow' : 'red';
                                             const color = semaforo === 'green' ? 'var(--green)' : semaforo === 'yellow' ? 'var(--yellow)' : semaforo === 'red' ? 'var(--red)' : 'var(--dim)';
                                             return (
@@ -1188,7 +1188,7 @@ export default function BienComun() {
                                             );
                                         })}
                                     </div>
-                                ) : <div style={{textAlign: 'center', padding: '30px', color: 'var(--dim)'}}>Sin dadores</div>}
+                                ) : <div style={{textAlign: 'center', padding: '30px', color: 'var(--dim)'}}>Sin diezmadores</div>}
                             </div>
                             <div className="card">
                                 <div className="card-header"><h3 className="card-title">⛪ Cumplimiento por Grupo</h3></div>
@@ -1378,12 +1378,12 @@ export default function BienComun() {
                     </div>
                     <div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
-                            <h3 style={{margin: 0, fontSize: '16px', fontWeight: 700}}>🤝 Planes por Dador</h3>
-                            <button className="btn btn-gold" onClick={() => { resetPlan(); setModal('planDador'); }}>➕ Nuevo Plan</button>
+                            <h3 style={{margin: 0, fontSize: '16px', fontWeight: 700}}>🤝 Planes por Diezmador</h3>
+                            <button className="btn btn-gold" onClick={() => { resetPlan(); setModal('planDiezmador'); }}>➕ Nuevo Plan</button>
                         </div>
                         <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                             {planesColaborador.map(p => {
-                                const colab = colaboradores.find(c => c.id === p.colaboradorId);
+                                const colab = colaboradores.find(c => c.id === p.diezmadorId);
                                 const tipo = todosTiposPlanes.find(t => t.id === p.tipoPlanId);
                                 return (
                                     <div key={p.id} style={{display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px'}}>
@@ -1394,7 +1394,7 @@ export default function BienComun() {
                                         </div>
                                         <div style={{display: 'flex', gap: '6px'}}>
                                             <button className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '12px'}} onClick={() => openEditPlan(p)}>✏️</button>
-                                            <button className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '12px', color: 'var(--red)'}} onClick={() => { setDelPlanId(p.id); setModal('delPlanDador'); }}>🗑️</button>
+                                            <button className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '12px', color: 'var(--red)'}} onClick={() => { setDelPlanId(p.id); setModal('delPlanDiezmador'); }}>🗑️</button>
                                         </div>
                                     </div>
                                 );
@@ -1407,7 +1407,7 @@ export default function BienComun() {
         )}
 
 
-        <Modal open={modal === 'dador'} onClose={() => setModal(null)} title={editDId ? '✏️ Editar Dador' : '🤝 Nuevo Dador'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveD}>💾 Registrar Dador</button></>}>
+        <Modal open={modal === 'dador'} onClose={() => setModal(null)} title={editDId ? '✏️ Editar Diezmador' : '🤝 Nuevo Diezmador'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveD}>💾 Registrar Diezmador</button></>}>
             <div className="form-grid">
                 {!editDId && (
                     <div className="form-group" style={{marginBottom: '15px', padding: '10px', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border)'}}>
@@ -1451,13 +1451,13 @@ export default function BienComun() {
                     <div style={{marginTop: '16px', padding: '14px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--border)'}}>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
                             <label className="form-label" style={{margin: 0, fontSize: '13px', fontWeight: 700}}>📋 Planes de Ofrenda</label>
-                            <button className="btn btn-gold" style={{padding: '4px 10px', fontSize: '12px'}} onClick={() => { setPlanDadorId(editDId); setPlanTipoId(''); setPlanMonto(''); setPlanNotas(''); setEditPlanId(null); setModal('planDador'); }}>➕ Agregar Plan</button>
+                            <button className="btn btn-gold" style={{padding: '4px 10px', fontSize: '12px'}} onClick={() => { setPlanDiezmadorId(editDId); setPlanTipoId(''); setPlanMonto(''); setPlanNotas(''); setEditPlanId(null); setModal('planDiezmador'); }}>➕ Agregar Plan</button>
                         </div>
-                        {planesColaborador.filter(p => p.colaboradorId === editDId).length === 0 ? (
+                        {planesColaborador.filter(p => p.diezmadorId === editDId).length === 0 ? (
                             <div style={{fontSize: '12px', color: 'var(--dim)', textAlign: 'center', padding: '10px'}}>Sin planes asignados</div>
                         ) : (
                             <div style={{display: 'flex', flexDirection: 'column', gap: '6px'}}>
-                                {planesColaborador.filter(p => p.colaboradorId === editDId).map(p => {
+                                {planesColaborador.filter(p => p.diezmadorId === editDId).map(p => {
                                     const tipo = todosTiposPlanes.find(t => t.id === p.tipoPlanId);
                                     return (
                                         <div key={p.id} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)'}}>
@@ -1465,7 +1465,7 @@ export default function BienComun() {
                                             <span style={{flex: 1, fontSize: '13px', fontWeight: 600}}>{tipo?.nombre || '—'}</span>
                                             <span style={{fontSize: '13px', color: 'var(--gold)', fontWeight: 700}}>{money(p.montoMensual)}/mes</span>
                                             <button className="btn btn-secondary" style={{padding: '2px 6px', fontSize: '11px'}} onClick={() => openEditPlan(p)}>✏️</button>
-                                            <button className="btn btn-secondary" style={{padding: '2px 6px', fontSize: '11px', color: 'var(--red)'}} onClick={() => { setDelPlanId(p.id); setModal('delPlanDador'); }}>🗑️</button>
+                                            <button className="btn btn-secondary" style={{padding: '2px 6px', fontSize: '11px', color: 'var(--red)'}} onClick={() => { setDelPlanId(p.id); setModal('delPlanDiezmador'); }}>🗑️</button>
                                         </div>
                                     );
                                 })}
@@ -1479,16 +1479,16 @@ export default function BienComun() {
         <Modal open={modal === 'aporte'} onClose={() => setModal(null)} title={aTipo === 'Diezmo' ? '💰 Registrar Diezmo' : '🎁 Registrar Ofrenda'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveA}>💾 Registrar</button></>}>
             <div className="form-grid">
                 <div className="form-group">
-                    <label className="form-label">Dador {aTipo === 'Diezmo' && '*'}</label>
+                    <label className="form-label">Diezmador {aTipo === 'Diezmo' && '*'}</label>
                     {aTipo === 'Diezmo' ? (
                         <select className="form-select" value={aMiembro} onChange={e => { setAMiembro(e.target.value); setAGrupo(''); }}>
-                            <option value="">Seleccionar Dador *</option>
+                            <option value="">Seleccionar Diezmador *</option>
                             {colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
                         </select>
                     ) : (
                         <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                             <select className="form-select" value={aMiembro} onChange={e => { setAMiembro(e.target.value); setAGrupo(''); }}>
-                                <option value="">Seleccionar Dador (Opcional)</option>
+                                <option value="">Seleccionar Diezmador (Opcional)</option>
                                 {colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
                             </select>
                             <div style={{textAlign: 'center', fontSize: '12px', color: 'var(--dim)'}}>O</div>
@@ -1515,9 +1515,9 @@ export default function BienComun() {
             </div>
         </Modal>
 
-        <Modal open={modal === 'verD'} onClose={() => setModal(null)} title={`🙏 Detalle del Dador`} footer={<><button className="btn btn-secondary" onClick={() => { setModal(null); }}>Cerrar</button><button className="btn btn-gold" onClick={() => handleEditDador(viewDador)}>✏️ Editar Dador</button></>}>
-            {viewDador && (() => {
-                const regs = aportes.filter(a => a.miembroId === viewDador.id);
+        <Modal open={modal === 'verD'} onClose={() => setModal(null)} title={`🙏 Detalle del Diezmador`} footer={<><button className="btn btn-secondary" onClick={() => { setModal(null); }}>Cerrar</button><button className="btn btn-gold" onClick={() => handleEditDiezmador(viewDiezmador)}>✏️ Editar Diezmador</button></>}>
+            {viewDiezmador && (() => {
+                const regs = aportes.filter(a => a.diezmadorId === viewDiezmador.id);
                 const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
                 const diezmos = regs.filter(a => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
                 const ofrendas = total - diezmos;
@@ -1527,11 +1527,11 @@ export default function BienComun() {
                     <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '20px', borderBottom: '1px solid var(--border)'}}>
                             <div style={{width: '60px', height: '60px', borderRadius: '50%', background: 'var(--gold-glow)', border: '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: '20px'}}>
-                                {viewDador.nombre[0]}{viewDador.apellido[0]}
+                                {viewDiezmador.nombre[0]}{viewDiezmador.apellido[0]}
                             </div>
                             <div>
-                                <div style={{fontSize: '22px', fontWeight: 800}}>{viewDador.nombre} {viewDador.apellido}</div>
-                                <span className={`badge ${viewDador.estado === 'Activo' ? 'badge-green' : 'badge-red'}`} style={{fontSize: '12px'}}>{viewDador.estado}</span>
+                                <div style={{fontSize: '22px', fontWeight: 800}}>{viewDiezmador.nombre} {viewDiezmador.apellido}</div>
+                                <span className={`badge ${viewDiezmador.estado === 'Activo' ? 'badge-green' : 'badge-red'}`} style={{fontSize: '12px'}}>{viewDiezmador.estado}</span>
                             </div>
                         </div>
 
@@ -1561,19 +1561,19 @@ export default function BienComun() {
                             <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', background: 'var(--bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)'}}>
                                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                                     <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Zona</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{(viewDador as any).zona || '—'}</span>
+                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{(viewDiezmador as any).zona || '—'}</span>
                                 </div>
                                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                                     <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Grupo</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{(viewDador as any).grupo || '—'}</span>
+                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{(viewDiezmador as any).grupo || '—'}</span>
                                 </div>
                                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                                     <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Estado</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewDador.estado || '—'}</span>
+                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewDiezmador.estado || '—'}</span>
                                 </div>
                                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                                     <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Plan de Diezmo</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px', color: 'var(--gold)'}}>{money((viewDador as any).planDiezmo || 0)}</span>
+                                    <span style={{fontWeight: 600, fontSize: '13px', color: 'var(--gold)'}}>{money((viewDiezmador as any).planDiezmo || 0)}</span>
                                 </div>
                             </div>
                         </div>
@@ -1598,7 +1598,7 @@ export default function BienComun() {
             })()}
         </Modal>
 
-        <Modal open={modal === 'delD'} onClose={() => setModal(null)} title="Eliminar Dador" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delD}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este dador?</Modal>
+        <Modal open={modal === 'delD'} onClose={() => setModal(null)} title="Eliminar Diezmador" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delD}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este diezmador?</Modal>
         <Modal open={modal === 'delA'} onClose={() => setModal(null)} title="Eliminar Aporte" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delA}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este aporte?</Modal>
 
         <Modal open={modal === 'verG'} onClose={() => setModal(null)} title={`🎁 Detalle del Grupo`} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button><button className="btn btn-gold" onClick={() => { setModal(null); resetA(); setATipo('Ofrenda'); setAGrupo(viewGrupo.id); setModal('aporte'); }}>➕ Nueva Ofrenda</button></>}>
@@ -1719,14 +1719,14 @@ export default function BienComun() {
 
         <Modal open={modal === 'delTipoPlan'} onClose={() => setModal(null)} title="Desactivar Tipo" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delTp}>🗑️ Desactivar</button></>}>¿Desactivar este tipo de plan? Los planes existentes con este tipo se mantendrán.</Modal>
 
-        <Modal open={modal === 'planDador'} onClose={() => setModal(null)} title={editPlanId ? '✏️ Editar Plan' : '➕ Nuevo Plan de Dador'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={savePlan}>💾 {editPlanId ? 'Guardar' : 'Crear'}</button></>}>
-            <div className="form-group"><label className="form-label">Dador *</label><select className="form-select" value={planDadorId || ''} onChange={e => setPlanDadorId(e.target.value)} disabled={!!editPlanId}><option value="">Seleccionar dador...</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select></div>
+        <Modal open={modal === 'planDiezmador'} onClose={() => setModal(null)} title={editPlanId ? '✏️ Editar Plan' : '➕ Nuevo Plan de Diezmador'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={savePlan}>💾 {editPlanId ? 'Guardar' : 'Crear'}</button></>}>
+            <div className="form-group"><label className="form-label">Diezmador *</label><select className="form-select" value={planDiezmadorId || ''} onChange={e => setPlanDiezmadorId(e.target.value)} disabled={!!editPlanId}><option value="">Seleccionar diezmador...</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select></div>
             <div className="form-group" style={{marginTop: 12}}><label className="form-label">Tipo de Plan *</label><select className="form-select" value={planTipoId} onChange={e => setPlanTipoId(e.target.value)}><option value="">Seleccionar tipo...</option>{tiposPlanes.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select></div>
             <div className="form-group" style={{marginTop: 12}}><label className="form-label">Monto Mensual ($) *</label><input className="form-input" type="number" value={planMonto} onChange={e => setPlanMonto(e.target.value)} min="0" placeholder="Ej: 100" /></div>
             <div className="form-group" style={{marginTop: 12}}><label className="form-label">Notas</label><input className="form-input" value={planNotas} onChange={e => setPlanNotas(e.target.value)} placeholder="Opcional" /></div>
         </Modal>
 
-        <Modal open={modal === 'delPlanDador'} onClose={() => setModal(null)} title="Eliminar Plan" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delPlan}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este plan?</Modal>
+        <Modal open={modal === 'delPlanDiezmador'} onClose={() => setModal(null)} title="Eliminar Plan" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delPlan}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este plan?</Modal>
 
         {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
     </Layout>

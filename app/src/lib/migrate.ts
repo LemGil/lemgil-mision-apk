@@ -132,14 +132,14 @@ export async function desunificarBienComun(): Promise<void> {
 
   const todosLosAportes = await db.aportesComun.toArray();
   const todosLosMiembros = await db.miembros.toArray();
-  const idsDadores = new Set(todosLosAportes.map(a => a.miembroId).filter(Boolean));
+  const idsDadores = new Set(todosLosAportes.map(a => a.diezmadorId).filter(Boolean));
 
-  await db.transaction('rw', [db.colaboradores, db.aportesComun], async () => {
+  await db.transaction('rw', [db.dadores, db.aportesComun], async () => {
     for (const id of idsDadores) {
       const m = todosLosMiembros.find(x => x.id === id);
       if (m) {
         const colabId = uuid();
-        await db.colaboradores.add({
+        await db.dadores.add({
           id: colabId,
           nombre: m.nombre,
           apellido: m.apellido,
@@ -153,7 +153,7 @@ export async function desunificarBienComun(): Promise<void> {
           notas: '',
           creado: new Date().toISOString()
         });
-        await db.aportesComun.where('miembroId').equals(id || '').modify({ miembroId: colabId });
+        await db.aportesComun.where('diezmadorId').equals(id || '').modify({ diezmadorId: colabId });
       }
     }
   });

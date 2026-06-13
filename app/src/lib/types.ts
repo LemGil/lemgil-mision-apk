@@ -113,23 +113,24 @@ export interface Certificado {
   emitido: string;
 }
 
-export interface Dador {
+export interface Diezmador {
   id: string;
   nombre: string;
   apellido: string;
   telefono: string;
   email: string;
-  estado: 'Activo' | 'Pausado' | 'Inactivo';
-  tipo: 'Persona' | 'Empresa' | 'Iglesia';
-  planOfrendaTipo: string;
-  planOfrendaMonto: number;
+  fechaIngreso: string;
+  estado: 'Activo' | 'Inactivo';
+  zona: string;
+  grupo: string;
+  planDiezmo: number;
   notas: string;
   creado: string;
 }
 
 export interface Aporte {
   id: string;
-  dadorId: string;
+  colaboradorId: string;
   fecha: string;
   monto: number;
   tipo: 'Diezmo' | 'Ofrenda' | 'Misión' | 'Construcción' | 'Manos Abiertas' | 'Otro';
@@ -235,24 +236,23 @@ export interface Reporte {
   generadoPor: string;
 }
 
-export interface MiembroComun {
+export interface Colaborador {
   id: string;
   nombre: string;
   apellido: string;
   telefono: string;
   email: string;
-  fechaIngreso: string;
-  estado: 'Activo' | 'Inactivo';
-  zona: string;
-  grupo: string;
-  planDiezmo: number;
+  estado: 'Activo' | 'Pausado' | 'Inactivo';
+  tipo: 'Persona' | 'Empresa' | 'Iglesia';
+  planOfrendaTipo: string;
+  planOfrendaMonto: number;
   notas: string;
   creado: string;
 }
 
 export interface AporteComun {
   id: string;
-  miembroId: string | null;
+  diezmadorId: string | null;
   grupoId: string | null;
   fecha: string;
   monto: number;
@@ -336,7 +336,7 @@ export interface TipoPlan {
 
 export interface PlanColaborador {
   id: string;
-  colaboradorId: string;
+  diezmadorId: string;
   tipoPlanId: string;
   montoMensual: number;
   notas: string;

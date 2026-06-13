@@ -28,7 +28,7 @@ export default function Reportes() {
   const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
   const estudiantes = useLiveQuery(() => db.estudiantes.toArray(), []) ?? [];
   const certs = useLiveQuery(() => db.certificados.toArray(), []) ?? [];
-  const dadores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
+  const diezmadores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
   const aportes = useLiveQuery(() => db.aportes.toArray(), []) ?? [];
   const colaboradores = useLiveQuery(() => db.colaboradores.toArray(), []) ?? [];
   const aportesComun = useLiveQuery(() => db.aportesComun.toArray(), []) ?? [];
@@ -116,7 +116,7 @@ export default function Reportes() {
     const bienComunOfrendas = apComunOfrendas;
     const bienComunTotal = apComunTotal;
     const bienComunGruposPlan = grupos.reduce((s, g) => s + ((g as any).planOfrendasMensual || 0), 0);
-    const bienComunPlan = colaboradores.reduce((s, c) => s + ((c as any).planDiezmo || 0), 0) + bienComunGruposPlan;
+    const bienComunPlan = diezmadores.reduce((s, c) => s + ((c as any).planDiezmo || 0), 0) + bienComunGruposPlan;
 
     const colaboradoresAyuda = apRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
     const colaboradoresMisiones = apRango.filter((a) => a.tipo === 'Misión').reduce((s, a) => s + (a.monto || 0), 0);
@@ -124,7 +124,7 @@ export default function Reportes() {
     const colaboradoresConstruccion = apRango.filter((a) => a.tipo === 'Construcción').reduce((s, a) => s + (a.monto || 0), 0);
     const colaboradoresOtro = apRango.filter((a) => !['Diezmo', 'Ofrenda', 'Misión', 'Manos Abiertas', 'Construcción'].includes(a.tipo)).reduce((s, a) => s + (a.monto || 0), 0);
     const colaboradoresTotal = apTotal;
-    const colaboradoresPlan = dadores.reduce((s, d) => s + (d.planOfrendaMonto || 0), 0);
+    const colaboradoresPlan = colaboradores.reduce((s, d) => s + (d.planOfrendaMonto || 0), 0);
 
     const totalFinal = bienComunTotal + colaboradoresTotal;
     const planMensual = bienComunPlan + colaboradoresPlan;
@@ -151,7 +151,7 @@ export default function Reportes() {
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
     };
-  }, [convs, grupos, evangels, cursos, estudiantes, certs, dadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta, ymNow]);
+  }, [convs, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta, ymNow]);
 
   const showToast = (msg: string) => {
     setToast(msg);

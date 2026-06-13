@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Dador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, MiembroComun, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador } from './types';
+import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Diezmador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, Colaborador, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador } from './types';
 
 const database = new Dexie('LemGilDB') as Dexie & {
   conversiones: EntityTable<Conversion, 'id'>;
@@ -9,7 +9,7 @@ const database = new Dexie('LemGilDB') as Dexie & {
   lecciones: EntityTable<Leccion, 'id'>;
   estudiantes: EntityTable<Estudiante, 'id'>;
   certificados: EntityTable<Certificado, 'id'>;
-  dadores: EntityTable<Dador, 'id'>;
+  dadores: EntityTable<Diezmador, 'id'>;
   aportes: EntityTable<Aporte, 'id'>;
   beneficiarios: EntityTable<Beneficiario, 'id'>;
   campanas: EntityTable<Campana, 'id'>;
@@ -18,14 +18,14 @@ const database = new Dexie('LemGilDB') as Dexie & {
   negocios: EntityTable<Negocio, 'id'>;
   publicaciones: EntityTable<Publicacion, 'id'>;
   reportes: EntityTable<Reporte, 'id'>;
-  miembrosComun: EntityTable<MiembroComun, 'id'>;
+  miembrosComun: EntityTable<Colaborador, 'id'>;
   aportesComun: EntityTable<AporteComun, 'id'>;
   miembros: EntityTable<Miembro, 'id'>;
   ministerios: EntityTable<Ministerio, 'id'>;
   miembrosMinisterios: EntityTable<MiembroMinisterio, 'id'>;
   hitos: EntityTable<Hito, 'id'>;
   zonas: EntityTable<Zona, 'id'>;
-  colaboradores: EntityTable<MiembroComun, 'id'>;
+  colaboradores: EntityTable<Colaborador, 'id'>;
   tiposPlanes: EntityTable<TipoPlan, 'id'>;
   planesColaborador: EntityTable<PlanColaborador, 'id'>;
 };
@@ -39,7 +39,7 @@ database.version(1).stores({
   estudiantes: 'id, cursoId, estado, creado',
   certificados: 'id, estId, cursoId, emitido',
   dadores: 'id, nombre, apellido, estado, tipo, creado',
-  aportes: 'id, dadorId, fecha, tipo, metodo, creado',
+  aportes: 'id, colaboradorId, fecha, tipo, metodo, creado',
   beneficiarios: 'id, nombre, apellido, zona, estado, creado',
   campanas: 'id, nombre, zona, tipo, estado, fechaInicio, creado',
   entregas: 'id, campanaId, beneficiarioId, fecha, creado',
@@ -48,7 +48,7 @@ database.version(1).stores({
   publicaciones: 'id, plataforma, estado, fecha, creado',
   reportes: 'id, generado',
   miembrosComun: 'id, nombre, apellido, estado, creado',
-  aportesComun: 'id, miembroId, fecha, tipo, mesCorrespondiente, creado',
+  aportesComun: 'id, diezmadorId, fecha, tipo, mesCorrespondiente, creado',
   miembros: 'id, nombre, apellido, zona, estado, fechaIngreso, creado',
   ministerios: 'id, nombre, creado',
   miembrosMinisterios: 'id, miembroId, ministerioId, rol, desde, creado',
@@ -62,7 +62,7 @@ database.version(2).stores({
 database.version(4).stores({
   zonas: 'id, nombre, creado',
   colaboradores: 'id, nombre, apellido, estado, creado',
-  aportesComun: 'id, miembroId, grupoId, fecha, tipo, mesCorrespondiente, creado',
+  aportesComun: 'id, diezmadorId, grupoId, fecha, tipo, mesCorrespondiente, creado',
 });
 
 database.version(5).stores({
@@ -163,7 +163,7 @@ database.version(15).stores({
 
 database.version(16).stores({
   tiposPlanes: 'id, nombre, activo',
-  planesColaborador: 'id, colaboradorId, tipoPlanId',
+  planesColaborador: 'id, diezmadorId, tipoPlanId',
 }).upgrade(async (tx) => {
   const count = await tx.table('tiposPlanes').count();
   if (count === 0) {
@@ -178,14 +178,43 @@ database.version(16).stores({
     await tx.table('tiposPlanes').bulkAdd(defaults);
   }
   await tx.table('dadores').toCollection().modify((d: any) => {
-    if (typeof d.planOfrendaTipo === 'undefined') d.planOfrendaTipo = '';
-    if (typeof d.planOfrendaMonto === 'undefined') d.planOfrendaMonto = 0;
+    if (typeof d.planDiezmo === 'undefined') d.planDiezmo = 0;
   });
 });
 
 database.version(17).stores({}).upgrade(async (tx) => {
   await tx.table('campanas').toCollection().modify((c: any) => {
     if (typeof c.metaTipo === 'undefined') c.metaTipo = 'Familias';
+  });
+});
+
+database.version(18).stores({
+  dadores: 'id, nombre, apellido, estado, tipo, creado',
+  colaboradores: 'id, nombre, apellido, estado, creado',
+  aportes: 'id, colaboradorId, fecha, tipo, metodo, creado',
+  aportesComun: 'id, diezmadorId, grupoId, fecha, tipo, mesCorrespondiente, creado',
+  planesColaborador: 'id, diezmadorId, tipoPlanId',
+}).upgrade(async (tx) => {
+  // Rename FK fields in aportes: dadorId → colaboradorId
+  await tx.table('aportes').toCollection().modify((a: any) => {
+    if (typeof a.dadorId !== 'undefined' && typeof a.colaboradorId === 'undefined') {
+      a.colaboradorId = a.dadorId;
+      delete a.dadorId;
+    }
+  });
+  // Rename FK fields in aportesComun: miembroId → diezmadorId
+  await tx.table('aportesComun').toCollection().modify((a: any) => {
+    if (typeof a.miembroId !== 'undefined' && typeof a.diezmadorId === 'undefined') {
+      a.diezmadorId = a.miembroId;
+      delete a.miembroId;
+    }
+  });
+  // Rename FK fields in planesColaborador: colaboradorId → diezmadorId
+  await tx.table('planesColaborador').toCollection().modify((p: any) => {
+    if (typeof p.colaboradorId !== 'undefined' && typeof p.diezmadorId === 'undefined') {
+      p.diezmadorId = p.colaboradorId;
+      delete p.colaboradorId;
+    }
   });
 });
 

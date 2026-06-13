@@ -35,9 +35,8 @@ function toLowerCaseKeys(obj: any): any {
 }
 
 const SUPABASE_TO_DEXIE: Record<string, string> = {
-  miembroid: 'miembroId',
   grupoid: 'grupoId',
-  dadorid: 'dadorId',
+  diezmadorid: 'diezmadorId',
   campanaid: 'campanaId',
   beneficiarioid: 'beneficiarioId',
   cursoid: 'cursoId',

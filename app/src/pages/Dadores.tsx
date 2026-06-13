@@ -8,7 +8,7 @@ import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
-import type { Dador, Aporte } from '../lib/types';
+import type { Colaborador, Aporte } from '../lib/types';
 
 const today = () => new Date().toISOString().split('T')[0];
 const fmt = (d: string) => {
@@ -25,7 +25,7 @@ const TIPO_BADGE: Record<string, string> = { Persona: 'badge-blue', Empresa: 'ba
 const APORTE_BADGE: Record<string, string> = { Diezmo: 'badge-purple', Ofrenda: 'badge-blue', 'Misión': 'badge-green', Construcción: 'badge-yellow', 'Manos Abiertas': 'badge-red', Otro: 'badge-blue' };
 const METODO_BADGE: Record<string, string> = { Efectivo: 'badge-green', Transferencia: 'badge-blue', Cheque: 'badge-yellow', Tarjeta: 'badge-purple', Otro: 'badge-blue' };
 
-const exportDadoresPDF = (dadores: Dador[], aportes: Aporte[]) => {
+const exportDadoresPDF = (dadores: Colaborador[], aportes: Aporte[]) => {
   const doc = new jsPDF();
   doc.setFontSize(18);
   doc.text('Red de Colaboradores', 14, 20);
@@ -34,8 +34,8 @@ const exportDadoresPDF = (dadores: Dador[], aportes: Aporte[]) => {
   doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${dadores.length} colaboradores`, 14, 28);
 
   const rows = dadores.map((d) => {
-    const total = aportes.filter((a) => a.dadorId === d.id).reduce((s, a) => s + (a.monto || 0), 0);
-    const mes = aportes.filter((a) => a.dadorId === d.id && a.fecha?.startsWith(new Date().toISOString().slice(0, 7))).reduce((s, a) => s + (a.monto || 0), 0);
+    const total = aportes.filter((a) => a.colaboradorId === d.id).reduce((s, a) => s + (a.monto || 0), 0);
+    const mes = aportes.filter((a) => a.colaboradorId === d.id && a.fecha?.startsWith(new Date().toISOString().slice(0, 7))).reduce((s, a) => s + (a.monto || 0), 0);
     const plan = d.planOfrendaMonto > 0 ? `$${d.planOfrendaMonto}/mes` : '—';
     return [`${d.nombre} ${d.apellido}`, d.tipo, d.telefono || '—', d.estado, plan, `$${total.toLocaleString()}`, `$${mes.toLocaleString()}`];
   });
@@ -53,7 +53,7 @@ const exportDadoresPDF = (dadores: Dador[], aportes: Aporte[]) => {
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
     .slice(0, 50)
     .map((a) => {
-      const d = dadores.find((x) => x.id === a.dadorId);
+      const d = dadores.find((x) => x.id === a.colaboradorId);
       return [a.fecha, d ? `${d.nombre} ${d.apellido}` : '—', a.tipo, a.metodo, `$${a.monto.toLocaleString()}`, a.referencia || ''];
     });
 
@@ -73,16 +73,16 @@ const exportDadoresPDF = (dadores: Dador[], aportes: Aporte[]) => {
   doc.save('lemgil-colaboradores.pdf');
 };
 
-type Tab = 'dadores' | 'aportes' | 'resumen';
+type Tab = 'diezmadores' | 'aportes' | 'resumen';
 type SubTab = 'general' | 'mensual' | 'top' | 'metas' | 'cumplimiento';
 type ModalType = 'dador' | 'aporte' | 'detail' | 'delDador' | 'delAporte';
 
 export default function Dadores() {
-  const dadores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
+  const dadores = useLiveQuery(() => db.colaboradores.toArray(), []) ?? [];
   const aportes = useLiveQuery(() => db.aportes.toArray(), []) ?? [];
   const tiposPlanes = useLiveQuery(() => db.tiposPlanes.filter(t => t.activo).toArray(), []) ?? [];
 
-  const [tab, setTab] = useState<Tab>('dadores');
+  const [tab, setTab] = useState<Tab>('diezmadores');
   const [subTab, setSubTab] = useState<SubTab>('general');
   const [anioResumen, setAnioResumen] = useState(new Date().getFullYear().toString());
   const [search, setSearch] = useState('');
@@ -177,7 +177,7 @@ export default function Dadores() {
     const s = search.toLowerCase();
     return aportes
       .filter((a) => {
-        const dador = dadores.find((d) => d.id === a.dadorId);
+        const dador = dadores.find((d) => d.id === a.colaboradorId);
         const dadorName = dador ? `${dador.nombre} ${dador.apellido}`.toLowerCase() : '';
         return (!s || dadorName.includes(s) || a.referencia?.toLowerCase().includes(s) || a.notas?.toLowerCase().includes(s))
           && (!filterTipoAporte || a.tipo === filterTipoAporte)
@@ -189,7 +189,7 @@ export default function Dadores() {
   }, [aportes, dadores, search, filterTipoAporte, filterMetodo, filterMes, filterAnio]);
 
   const selDador = dadores.find((d) => d.id === selectedId);
-  const selAportes = selDador ? aportes.filter((a) => a.dadorId === selDador.id).sort((a, b) => b.fecha.localeCompare(a.fecha)) : [];
+  const selAportes = selDador ? aportes.filter((a) => a.colaboradorId === selDador.id).sort((a, b) => b.fecha.localeCompare(a.fecha)) : [];
   const selTotal = selAportes.reduce((s, a) => s + (a.monto || 0), 0);
 
   const resumenAnual = useMemo(() => {
@@ -218,9 +218,9 @@ export default function Dadores() {
     const mejorMes = mesesConActividad.length ? mesesConActividad.reduce((a, b) => b.total > a.total ? b : a) : null;
     const promedioMensual = mesesConActividad.length > 0 ? mesesConActividad.reduce((s, m) => s + m.total, 0) / mesesConActividad.length : 0;
     const totalAportes = regsAnio.length;
-    const activosAnio = [...new Set(regsAnio.map(a => a.dadorId).filter(Boolean))].length;
+    const activosAnio = [...new Set(regsAnio.map(a => a.colaboradorId).filter(Boolean))].length;
     const topDadores = dadores.map(d => {
-      const regs = regsAnio.filter(a => a.dadorId === d.id);
+      const regs = regsAnio.filter(a => a.colaboradorId === d.id);
       const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
       return { id: d.id, nombre: d.nombre, apellido: d.apellido, total, regs: regs.length };
     }).filter(d => d.total > 0).sort((a, b) => b.total - a.total).slice(0, 5);
@@ -242,7 +242,7 @@ export default function Dadores() {
     const mesActualNum = new Date().getMonth() + 1;
     const metaAcumuladaEsperada = metaGlobalAnual > 0 ? (metaGlobalMes * mesActualNum) : 0;
     const cumplimientoDadores = dadores.map(d => {
-      const regs = regsAnio.filter(a => a.dadorId === d.id);
+      const regs = regsAnio.filter(a => a.colaboradorId === d.id);
       const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
       const plan = d.planOfrendaMonto || 0;
       const metaAnual = plan * 12;
@@ -281,13 +281,13 @@ export default function Dadores() {
   };
   const saveDador = async () => {
     if (!dNombre.trim() || !dApellido.trim()) return showToast('Nombre y apellido son obligatorios');
-    const data = { nombre: dNombre.trim(), apellido: dApellido.trim(), telefono: dTel.trim(), email: dEmail.trim(), tipo: dTipo as Dador['tipo'], estado: dEstado as Dador['estado'], planOfrendaTipo: planTipoId, planOfrendaMonto: parseFloat(planMonto) || 0, notas: dNotas.trim() };
+    const data = { nombre: dNombre.trim(), apellido: dApellido.trim(), telefono: dTel.trim(), email: dEmail.trim(), tipo: dTipo as Colaborador['tipo'], estado: dEstado as Colaborador['estado'], planOfrendaTipo: planTipoId, planOfrendaMonto: parseFloat(planMonto) || 0, notas: dNotas.trim() };
     if (editDadorId) {
-      await db.dadores.update(editDadorId, data);
+      await db.colaboradores.update(editDadorId, data);
       showToast(`Colaborador "${dNombre} ${dApellido}" actualizado`);
     } else {
       const newId = uuid();
-      await db.dadores.add({ id: newId, creado: new Date().toISOString(), ...data });
+      await db.colaboradores.add({ id: newId, creado: new Date().toISOString(), ...data });
       showToast(`Colaborador "${dNombre} ${dApellido}" registrado`);
     }
     resetDador();
@@ -296,7 +296,7 @@ export default function Dadores() {
   const delDador = async () => {
     if (!selectedId) return;
     const d = dadores.find((x) => x.id === selectedId);
-    await db.dadores.delete(selectedId);
+    await db.colaboradores.delete(selectedId);
     showToast(`Colaborador "${d?.nombre} ${d?.apellido}" eliminado`);
     setModal(null);
   };
@@ -309,7 +309,7 @@ export default function Dadores() {
     const a = aportes.find((x) => x.id === id);
     if (!a) return;
     setEditAporteId(id);
-    setADador(a.dadorId);
+    setADador(a.colaboradorId);
     setAFecha(a.fecha);
     setAMonto(String(a.monto));
     setATipo(a.tipo);
@@ -323,7 +323,7 @@ export default function Dadores() {
     if (!aFecha) return showToast('La fecha es obligatoria');
     const monto = parseFloat(aMonto) || 0;
     if (monto <= 0) return showToast('El monto debe ser mayor a 0');
-    const data = { dadorId: aDador, fecha: aFecha, monto, tipo: aTipo as Aporte['tipo'], metodo: aMetodo as Aporte['metodo'], referencia: aRef.trim(), notas: aNotas.trim() };
+    const data = { colaboradorId: aDador, fecha: aFecha, monto, tipo: aTipo as Aporte['tipo'], metodo: aMetodo as Aporte['metodo'], referencia: aRef.trim(), notas: aNotas.trim() };
     if (editAporteId) {
       await db.aportes.update(editAporteId, data);
       showToast('Aporte actualizado');
@@ -347,7 +347,7 @@ export default function Dadores() {
   };
 
   return (
-    <Layout title="Red de Colaboradores">
+    <Layout title="Diezmadores (Bien Común)">
       <div className="page-dadores">
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--oro-luz)', letterSpacing: 1 }}>
@@ -367,8 +367,8 @@ export default function Dadores() {
         </div>
 
         <div className="tabs">
-          <button className={`tab ${tab === 'dadores' ? 'active' : ''}`} onClick={() => { setTab('dadores'); setSearch(''); setFilterEstado(''); setFilterTipo(''); setFilterPlan(''); }}>
-            🙏 Colaboradores ({dadores.length})
+          <button className={`tab ${tab === 'diezmadores' ? 'active' : ''}`} onClick={() => { setTab('diezmadores'); setSearch(''); setFilterEstado(''); setFilterTipo(''); setFilterPlan(''); }}>
+            🙏 Diezmadores ({dadores.length})
           </button>
           <button className={`tab ${tab === 'aportes' ? 'active' : ''}`} onClick={() => { setTab('aportes'); setSearch(''); setFilterTipoAporte(''); setFilterMetodo(''); setFilterMes(''); setFilterAnio(new Date().getFullYear().toString()); }}>
             💰 Aportes ({aportes.length})
@@ -379,21 +379,21 @@ export default function Dadores() {
         </div>
 
         <div className="actions-row">
-          {tab === 'dadores' && <button className="btn btn-gold" onClick={openNewDador}>➕ Nuevo Colaborador</button>}
-          {tab === 'dadores' && (
+          {tab === 'diezmadores' && <button className="btn btn-gold" onClick={openNewDador}>➕ Nuevo Colaborador</button>}
+          {tab === 'diezmadores' && (
             <button className="btn btn-secondary" onClick={() => {
               if (!dadores.length) return showToast('No hay colaboradores para exportar');
               exportDadoresPDF(dadores, aportes);
               showToast('PDF exportado');
             }}>📄 Exportar PDF</button>
           )}
-          {tab === 'dadores' && (
+          {tab === 'diezmadores' && (
             <button className="btn btn-secondary" onClick={() => {
               if (!dadores.length) return showToast('No hay colaboradores para exportar');
               const h = ['#', 'Nombre', 'Apellido', 'Tipo', 'Teléfono', 'Email', 'Estado', 'Plan', 'Compromiso', 'Total Aportado', 'Aportes Mes'];
               const r = dadores.map((d, i) => {
-                const total = aportes.filter((a) => a.dadorId === d.id).reduce((s, a) => s + (a.monto || 0), 0);
-                const mes = aportes.filter((a) => a.dadorId === d.id && a.fecha?.startsWith(mo)).reduce((s, a) => s + (a.monto || 0), 0);
+                const total = aportes.filter((a) => a.colaboradorId === d.id).reduce((s, a) => s + (a.monto || 0), 0);
+                const mes = aportes.filter((a) => a.colaboradorId === d.id && a.fecha?.startsWith(mo)).reduce((s, a) => s + (a.monto || 0), 0);
                 const planNombre = tiposPlanes.find(t => t.id === d.planOfrendaTipo)?.nombre || '';
                 return [i + 1, d.nombre, d.apellido, d.tipo, d.telefono || '', d.email || '', d.estado, planNombre, d.planOfrendaMonto || 0, total, mes];
               });
@@ -421,7 +421,7 @@ export default function Dadores() {
                   doc.setTextColor(120);
                   doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} · Total: ${aportes.length} aportes · ${money(aportes.reduce((s, a) => s + a.monto, 0))}`, 14, 28);
                   const rows = aportes.map((a) => {
-                    const d = dadores.find((x) => x.id === a.dadorId);
+                    const d = dadores.find((x) => x.id === a.colaboradorId);
                     return [a.fecha, d ? `${d.nombre} ${d.apellido}` : '—', a.tipo, a.metodo, `$${a.monto.toLocaleString()}`, a.referencia || ''];
                   });
                   autoTable(doc, { startY: 34, head: [['Fecha', 'Colaborador', 'Tipo', 'Método', 'Monto', 'Referencia']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
@@ -437,7 +437,7 @@ export default function Dadores() {
                   if (!aportes.length) return showToast('No hay aportes para exportar');
                   const h = ['Fecha', 'Colaborador', 'Tipo', 'Método', 'Monto', 'Referencia', 'Notas'];
                   const r = aportes.map((a) => {
-                    const d = dadores.find((x) => x.id === a.dadorId);
+                    const d = dadores.find((x) => x.id === a.colaboradorId);
                     return [a.fecha, d ? `${d.nombre} ${d.apellido}` : '—', a.tipo, a.metodo, a.monto, a.referencia || '', (a.notas || '').replace(/,/g, ';')];
                   });
                   const csv = [h, ...r].map((x) => x.join(',')).join('\n');
@@ -456,7 +456,7 @@ export default function Dadores() {
           )}
         </div>
 
-        {tab === 'dadores' && (
+        {tab === 'diezmadores' && (
           <>
             <div className="search-bar">
               <input className="search-input" placeholder="🔍 Buscar nombre, teléfono, email…" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -503,7 +503,7 @@ export default function Dadores() {
                   </thead>
                   <tbody>
                     {dadoresFiltrados.map((d, i) => {
-                      const dAportes = aportes.filter((a) => a.dadorId === d.id);
+                      const dAportes = aportes.filter((a) => a.colaboradorId === d.id);
                       const total = dAportes.reduce((s, a) => s + (a.monto || 0), 0);
                       return (
                         <tr key={d.id}>
@@ -585,7 +585,7 @@ export default function Dadores() {
                   </thead>
                   <tbody>
                     {aportesFiltrados.map((a) => {
-                      const d = dadores.find((x) => x.id === a.dadorId);
+                      const d = dadores.find((x) => x.id === a.colaboradorId);
                       return (
                         <tr key={a.id}>
                           <td>{fmt(a.fecha)}</td>
