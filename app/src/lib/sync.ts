@@ -262,15 +262,6 @@ async function pushAllLocal() {
     for (const table of SYNC_TABLES) {
       const supaTable = toSupabase(table);
       try {
-        const { count, error: countErr } = await supabase.from(supaTable).select('*', { count: 'exact', head: true });
-        if (countErr) {
-          console.warn(`[Sync] ✗ No se pudo verificar ${supaTable}:`, countErr.message);
-          continue;
-        }
-        if (count && count > 0) {
-          console.log(`[Sync] ⏭ ${supaTable}: ya tiene ${count} registros remotos, saltando push`);
-          continue;
-        }
         const localData = await (db as any)[table].toArray();
         if (localData.length === 0) continue;
         const cleaned = localData.map((r: any) => {
@@ -278,7 +269,7 @@ async function pushAllLocal() {
           return rest;
         });
         console.log(`[Sync] ⬆ ${table} → ${supaTable}: subiendo ${cleaned.length} registros locales...`);
-        const { error } = await supabase.from(supaTable).insert(toLowerCaseKeys(cleaned));
+        const { error } = await supabase.from(supaTable).upsert(toLowerCaseKeys(cleaned));
         if (error) {
           console.warn(`[Sync] ✗ ${supaTable}: error al subir:`, error.message, error.code);
           if (error.details) console.warn(`  Detalle:`, error.details);
@@ -286,13 +277,13 @@ async function pushAllLocal() {
           continue;
         }
         totalPushed += cleaned.length;
-        console.log(`[Sync] ✓ ${table} → ${supaTable}: ${cleaned.length} registros subidos`);
+        console.log(`[Sync] ✓ ${table} → ${supaTable}: ${cleaned.length} registros sincronizados`);
       } catch (err: any) {
         console.warn(`[Sync] ✗ Excepción en ${table}:`, err.message);
       }
     }
     if (totalPushed > 0) {
-      console.log(`[Sync] 🎉 Push completo: ${totalPushed} registros totales subidos`);
+      console.log(`[Sync] 🎉 Push completo: ${totalPushed} registros totales sincronizados`);
       emitStatus({ lastSync: new Date().toLocaleTimeString('es-ES'), error: '' });
     } else {
       console.log(`[Sync] No hay datos nuevos para subir`);
