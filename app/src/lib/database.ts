@@ -216,6 +216,13 @@ database.version(18).stores({
       delete p.colaboradorId;
     }
   });
+    // ====== Swap datos entre tablas ======
+  const tempDadores = await tx.table('dadores').toArray();
+  const tempColabs = await tx.table('colaboradores').toArray();
+  await tx.table('dadores').clear();
+  await tx.table('colaboradores').clear();
+  if (tempColabs.length) await tx.table('dadores').bulkAdd(tempColabs);
+  if (tempDadores.length) await tx.table('colaboradores').bulkAdd(tempDadores);
 });
 
 export { database as db };
