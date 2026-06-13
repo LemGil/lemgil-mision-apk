@@ -34,6 +34,56 @@ function toLowerCaseKeys(obj: any): any {
   return obj;
 }
 
+const SUPABASE_TO_DEXIE: Record<string, string> = {
+  miembroid: 'miembroId',
+  grupoid: 'grupoId',
+  dadorid: 'dadorId',
+  campanaid: 'campanaId',
+  beneficiarioid: 'beneficiarioId',
+  cursoid: 'cursoId',
+  leccionid: 'leccionId',
+  estid: 'estId',
+  estudianteid: 'estudianteId',
+  certificadoid: 'certificadoId',
+  ministerioid: 'ministerioId',
+  miembroministerioid: 'miembroMinisterioId',
+  hermanomayorid: 'hermanoMayorId',
+  conversionid: 'conversionId',
+  origenid: 'origenId',
+  mescorrespondiente: 'mesCorrespondiente',
+  planofrendasmensual: 'planOfrendasMensual',
+  planofrendatipo: 'planOfrendaTipo',
+  planofrendamonto: 'planOfrendaMonto',
+  planediezmo: 'planDiezmo',
+  tipoplanid: 'tipoPlanId',
+  colaboradorid: 'colaboradorId',
+  montomensual: 'montoMensual',
+  contactopreferido: 'contactoPreferido',
+  estadocivil: 'estadoCivil',
+  fechanacimiento: 'fechaNacimiento',
+  fechaingreso: 'fechaIngreso',
+  fechabautismo: 'fechaBautismo',
+  beneficiarionombre: 'beneficiarioNombre',
+  beneficiariotipo: 'beneficiarioTipo',
+  metatipo: 'metaTipo',
+  metafamilias: 'metaFamilias',
+  ingresosmensuales: 'ingresosMensuales',
+  generadopor: 'generadoPor',
+  generated: 'generado',
+};
+
+function toCamelCaseKeys(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(toCamelCaseKeys);
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+    return Object.keys(obj).reduce((acc, key) => {
+      const camelKey = SUPABASE_TO_DEXIE[key] || key;
+      acc[camelKey] = toCamelCaseKeys(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+}
+
 type SyncOp = {
   table: string;
   operation: 'create' | 'update' | 'delete';
@@ -298,17 +348,35 @@ async function pullFromSupabase() {
         console.warn(`[Sync] ✗ Pull ${supaTable}:`, error.message);
         continue;
       }
-      if (data && data.length > 0) {
-        const count = await (db as any)[table].count();
-        if (count === 0) {
-          await (db as any)[table].bulkAdd(data as any[]);
-          totalPulled += data.length;
-          console.log(`[Sync] ✓ Pull ${supaTable}: ${data.length} registros importados`);
-        }
+      if (!data || data.length === 0) continue;
+
+      const normalized = toCamelCaseKeys(data);
+
+      const existingIds = new Set(
+        (await (db as any)[table].toArray()).map((r: any) => r.id)
+      );
+
+      const toAdd = normalized.filter((r: any) => r.id && !existingIds.has(r.id));
+      const toUpdate = normalized.filter((r: any) => r.id && existingIds.has(r.id));
+
+      if (toAdd.length > 0) {
+        await (db as any)[table].bulkAdd(toAdd as any[]);
+        totalPulled += toAdd.length;
+        console.log(`[Sync] ✓ Pull ${supaTable}: +${toAdd.length} nuevos`);
+      }
+
+      for (const record of toUpdate) {
+        try {
+          await (db as any)[table].update(record.id, record);
+        } catch { /* skip if version conflict */ }
+      }
+
+      if (toUpdate.length > 0) {
+        console.log(`[Sync] ✓ Pull ${supaTable}: ~${toUpdate.length} actualizados`);
       }
     }
     if (totalPulled > 0) {
-      console.log(`[Sync] 🎉 Pull completo: ${totalPulled} registros totales importados`);
+      console.log(`[Sync] 🎉 Pull completo: ${totalPulled} registros nuevos importados`);
     }
   } finally {
     skipSync = false;
@@ -354,6 +422,7 @@ export async function initSync(): Promise<void> {
     const ok = await testConnection();
     if (ok) {
       await processQueue();
+      await pullFromSupabase();
     }
   });
 
@@ -362,10 +431,23 @@ export async function initSync(): Promise<void> {
     emitStatus({ connected: false, error: 'Sin conexión' });
   });
 
+  window.addEventListener('visibilitychange', async () => {
+    if (!document.hidden && navigator.onLine) {
+      const ok = await testConnection();
+      if (ok) {
+        await processQueue();
+        await pullFromSupabase();
+      }
+    }
+  });
+
   setInterval(async () => {
     if (navigator.onLine) {
       const ok = await testConnection();
-      if (ok) await processQueue();
+      if (ok) {
+        await processQueue();
+        await pullFromSupabase();
+      }
     }
   }, 30000);
 }
