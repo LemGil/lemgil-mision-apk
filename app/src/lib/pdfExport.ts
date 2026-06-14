@@ -90,7 +90,7 @@ export function exportRegistrosPDF(opts: {
   kpiBox(doc, 138, 34, 58, 18, 'Ofrendas', money(ofrendas), COLORS.yellow);
 
   const rows = aportes.map((a, i) => {
-    const d = colaboradores.find(c => c.id === a.miembroId);
+    const d = colaboradores.find(c => c.id === a.diezmadorId);
     const g = grupos.find(g => g.id === a.grupoId);
     const nombre = d ? `${d.nombre} ${d.apellido}` : g ? g.nombre : 'Anónimo';
     const servicio = (a.notas || '').split('|')[0]?.trim() || 'General';
@@ -132,7 +132,7 @@ export function exportDiezmadoresPDF(opts: { colaboradores: any[]; aportes: any[
   header(doc, 'Listado de Dadores', `Año ${anio} · ${colaboradores.length} dadores`);
 
   const rows = colaboradores.map(d => {
-    const regs = aportes.filter(a => a.miembroId === d.id && a.fecha.startsWith(anio));
+    const regs = aportes.filter(a => a.diezmadorId === d.id && a.fecha.startsWith(anio));
     const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
     const planDiezmo = d.planDiezmo || 0;
     const metaAnual = planDiezmo * 12;
