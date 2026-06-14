@@ -8,6 +8,7 @@ import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import type { Miembro, MiembroMinisterio, Hito } from '../lib/types';
 import { exportMiembrosPDF, exportMinisteriosPDF, exportHitosPDF } from '../lib/pdfExport';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const today = () => new Date().toISOString().split('T')[0];
 const fmt = (d: string) => {
@@ -445,6 +446,31 @@ export default function Miembros() {
                   a.click();
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
+                <CsvImportButton<Miembro>
+                  table="miembros"
+                  fieldMapping={{
+                    'Nombre': 'nombre',
+                    'Apellido': 'apellido',
+                    'Teléfono': 'telefono',
+                    'Email': 'email',
+                    'Dirección': 'direccion',
+                    'Zona': 'zona',
+                    'Estado Civil': 'estadoCivil',
+                    'Estado': 'estado',
+                    'Contacto Preferido': 'contactoPreferido',
+                    'Profesión': 'profesion',
+                    'Fecha Nacimiento': 'fechaNacimiento',
+                    'Fecha Ingreso': 'fechaIngreso',
+                    'Bautizado': 'bautizado',
+                    'Fecha Bautismo': 'fechaBautismo',
+                    'Cónyuge': 'conyuge',
+                    'Hijos': 'hijos',
+                    'Notas': 'notas',
+                  }}
+                  requiredFields={['nombre', 'apellido']}
+                  defaults={{ estado: 'Activo', estadoCivil: 'Soltero', contactoPreferido: 'WhatsApp' }}
+                  onImport={(n) => showToast(`${n} miembro(s) importado(s)`)}
+                />
                 <button className="btn btn-gold" onClick={openNewM}>➕ Nuevo miembro</button>
               </div>
            </div>
@@ -536,6 +562,20 @@ export default function Miembros() {
                   a.click();
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
+                <CsvImportButton
+                  table="ministerios"
+                  fieldMapping={{
+                    'Ministerio': 'nombre',
+                    'Nombre': 'nombre',
+                    'Líder': 'lider',
+                    'Descripción': 'descripcion',
+                    'Color': 'color',
+                    'Emoji': 'emoji',
+                  }}
+                  requiredFields={['nombre']}
+                  defaults={{ color: '#C9A24A', emoji: '⛪' }}
+                  onImport={(n) => showToast(`${n} ministerio(s) importado(s)`)}
+                />
                 <button className="btn btn-gold" onClick={openNewMin}>➕ Nuevo ministerio</button>
               </div>
             </div>
@@ -609,6 +649,18 @@ export default function Miembros() {
                   a.click();
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
+                <CsvImportButton
+                  table="hitos"
+                  fieldMapping={{
+                    'Fecha': 'fecha',
+                    'Tipo': 'tipo',
+                    'Descripción': 'descripcion',
+                    'Miembro': 'miembroId',
+                  }}
+                  requiredFields={['fecha', 'tipo', 'descripcion']}
+                  defaults={{ fecha: () => new Date().toISOString().split('T')[0] }}
+                  onImport={(n) => showToast(`${n} hito(s) importado(s)`)}
+                />
                 <button className="btn btn-gold" onClick={() => openNewH()}>➕ Nuevo hito</button>
               </div>
             </div>

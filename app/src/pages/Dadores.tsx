@@ -9,6 +9,7 @@ import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import type { Colaborador, Aporte } from '../lib/types';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const today = () => new Date().toISOString().split('T')[0];
 const fmt = (d: string) => {
@@ -388,6 +389,7 @@ export default function Dadores() {
             }}>📄 Exportar PDF</button>
           )}
           {tab === 'diezmadores' && (
+            <>
             <button className="btn btn-secondary" onClick={() => {
               if (!dadores.length) return showToast('No hay colaboradores para exportar');
               const h = ['#', 'Nombre', 'Apellido', 'Tipo', 'Teléfono', 'Email', 'Estado', 'Plan', 'Compromiso', 'Total Aportado', 'Aportes Mes'];
@@ -406,6 +408,24 @@ export default function Dadores() {
               a2.click();
               showToast('CSV exportado');
             }}>📥 Exportar CSV</button>
+            <CsvImportButton<Colaborador>
+              table="colaboradores"
+              fieldMapping={{
+                'Nombre': 'nombre',
+                'Apellido': 'apellido',
+                'Teléfono': 'telefono',
+                'Email': 'email',
+                'Estado': 'estado',
+                'Tipo': 'tipo',
+                'Plan Tipo': 'planOfrendaTipo',
+                'Plan Monto': 'planOfrendaMonto',
+                'Notas': 'notas',
+              }}
+              requiredFields={['nombre', 'apellido']}
+              defaults={{ estado: 'Activo', tipo: 'Persona', planOfrendaMonto: 0 }}
+              onImport={(n) => showToast(`${n} colaborador(es) importado(s)`)}
+            />
+            </>
           )}
           {tab === 'aportes' && <button className="btn btn-gold" onClick={openNewAporte}>💰 Registrar Aporte</button>}
           {tab === 'aportes' && (
@@ -452,6 +472,21 @@ export default function Dadores() {
               >
                 📥 Exportar CSV
               </button>
+              <CsvImportButton<Aporte>
+                table="aportes"
+                fieldMapping={{
+                  'Fecha': 'fecha',
+                  'Colaborador': 'colaboradorId',
+                  'Tipo': 'tipo',
+                  'Método': 'metodo',
+                  'Monto': 'monto',
+                  'Referencia': 'referencia',
+                  'Notas': 'notas',
+                }}
+                requiredFields={['fecha', 'monto']}
+                defaults={{ fecha: () => new Date().toISOString().split('T')[0], tipo: 'Ofrenda', metodo: 'Efectivo' }}
+                onImport={(n) => showToast(`${n} aporte(s) importado(s)`)}
+              />
             </>
           )}
         </div>

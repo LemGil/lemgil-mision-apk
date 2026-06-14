@@ -13,6 +13,7 @@ import {
   exportGruposMisionPDF, 
   exportEvangelismoPDF 
 } from '../lib/pdfExport';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const syncMemberFromConversion = async (c: Conversion): Promise<string | null> => {
   if (c.estado !== 'Integrado') return null;
@@ -386,6 +387,33 @@ const [fHijos, setFHijos] = useState('');
             showToast('CSV exportado');
           }}>📥 Exportar CSV</button>
         )}
+        {dataTab === 'conv' && (
+          <CsvImportButton<Conversion>
+            table="conversiones"
+            fieldMapping={{
+              'Nombre': 'nombre',
+              'Apellido': 'apellido',
+              'Teléfono': 'telefono',
+              'Telefono': 'telefono',
+              'Edad': 'edad',
+              'Zona': 'zona',
+              'Líder': 'lider',
+              'Mayor': 'lider',
+              'Fecha': 'fecha',
+              'Estado': 'estado',
+              'Notas': 'notas',
+              'Email': 'email',
+              'Profesión': 'profesion',
+              'Bautizado': 'bautizado',
+              'Fecha Bautismo': 'fechaBautismo',
+              'Cónyuge': 'conyuge',
+              'Hijos': 'hijos',
+            }}
+            requiredFields={['nombre', 'apellido', 'fecha']}
+            defaults={{ estado: 'Nuevo', fecha: () => new Date().toISOString().split('T')[0] }}
+            onImport={(n) => showToast(`${n} conversión(es) importada(s)`)}
+          />
+        )}
       </div>
 
       {/* TAB: Conversiones */}
@@ -471,11 +499,26 @@ const [fHijos, setFHijos] = useState('');
                  const u = URL.createObjectURL(b);
                  const a = document.createElement('a');
                  a.href = u;
-                 a.download = 'lemgil-grupos-mision.csv';
-                 a.click();
-                 showToast('CSV exportado');
-               }}>📥 Exportar CSV</button>
-             </div>
+                  a.download = 'lemgil-grupos-mision.csv';
+                  a.click();
+                  showToast('CSV exportado');
+                }}>📥 Exportar CSV</button>
+                <CsvImportButton
+                  table="grupos"
+                  fieldMapping={{
+                    'Nombre': 'nombre',
+                    'Zona': 'zona',
+                    'Líder': 'lider',
+                    'Día': 'dia',
+                    'Hora': 'hora',
+                    'Capacidad': 'capacidad',
+                    'Lugar': 'lugar',
+                  }}
+                  requiredFields={['nombre']}
+                  defaults={{ zona: '', lider: '', miembros: 0, planOfrendasMensual: 0 }}
+                  onImport={(n) => showToast(`${n} grupo(s) importado(s)`)}
+                />
+              </div>
            </div>
           {grupos.length === 0 ? (
             <EmptyState icon="👥" title="Sin grupos aún" sub="Crea el primer grupo" />
@@ -592,11 +635,26 @@ const [fHijos, setFHijos] = useState('');
                  const u = URL.createObjectURL(b);
                  const a = document.createElement('a');
                  a.href = u;
-                 a.download = 'lemgil-evangelismo.csv';
-                 a.click();
-                 showToast('CSV exportado');
-               }}>📥 Exportar CSV</button>
-             </div>
+                  a.download = 'lemgil-evangelismo.csv';
+                  a.click();
+                  showToast('CSV exportado');
+                }}>📥 Exportar CSV</button>
+                <CsvImportButton
+                  table="evangelismos"
+                  fieldMapping={{
+                    'Fecha': 'fecha',
+                    'Tipo': 'tipo',
+                    'Zona': 'zona',
+                    'Líder': 'lider',
+                    'Contactos': 'contactos',
+                    'Conversiones': 'conversiones',
+                    'Notas': 'notas',
+                  }}
+                  requiredFields={['fecha']}
+                  defaults={{ fecha: () => new Date().toISOString().split('T')[0], contactos: 0, conversiones: 0, participantes: [] }}
+                  onImport={(n) => showToast(`${n} actividad(es) importada(s)`)}
+                />
+              </div>
            </div>
           {evangels.length === 0 ? (
             <EmptyState icon="📢" title="Sin actividades aún" sub='Presiona "📋 Registrar Evangelismo" para comenzar' />

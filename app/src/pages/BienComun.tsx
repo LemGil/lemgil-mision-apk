@@ -15,6 +15,7 @@ import {
   exportMetasPDF,
   exportCumplimientoPDF,
 } from '../lib/pdfExport';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const today = () => new Date().toISOString().split('T')[0];
 const monthKey = (d: string) => (d && d.length >= 7 ? d.slice(0, 7) : '');
@@ -410,6 +411,23 @@ export default function BienComun() {
                         a2.click();
                         showToast('CSV exportado');
                     }}>📥 Exportar CSV</button>
+                    <CsvImportButton
+                      table="aportesComun"
+                      fieldMapping={{
+                        'Fecha': 'fecha',
+                        'Colaborador': 'diezmadorId',
+                        'Grupo': 'grupoId',
+                        'Tipo': 'tipo',
+                        'Monto': 'monto',
+                        'Método': 'metodo',
+                        'Mes': 'mesCorrespondiente',
+                        'Referencia': 'referencia',
+                        'Notas': 'notas',
+                      }}
+                      requiredFields={['fecha', 'monto']}
+                      defaults={{ fecha: () => new Date().toISOString().split('T')[0], tipo: 'Diezmo', metodo: 'Efectivo' }}
+                      onImport={(n) => showToast(`${n} registro(s) importado(s)`)}
+                    />
                 </div>
                 <div className="search-bar">
                     <input className="search-input" placeholder="🔍 Buscar..." value={searchReg} onChange={e => setSearchReg(e.target.value)} />
@@ -501,6 +519,23 @@ export default function BienComun() {
                         a2.click();
                         showToast('CSV exportado');
                     }}>📥 Exportar CSV</button>
+                    <CsvImportButton
+                      table="dadores"
+                      fieldMapping={{
+                        'Nombre': 'nombre',
+                        'Apellido': 'apellido',
+                        'Teléfono': 'telefono',
+                        'Email': 'email',
+                        'Zona': 'zona',
+                        'Grupo': 'grupo',
+                        'Estado': 'estado',
+                        'Plan Diezmo': 'planDiezmo',
+                        'Notas': 'notas',
+                      }}
+                      requiredFields={['nombre', 'apellido']}
+                      defaults={{ estado: 'Activo', planDiezmo: 0 }}
+                      onImport={(n) => showToast(`${n} diezmador(es) importado(s)`)}
+                    />
                 </div>
                 <div className="search-bar">
                     <input className="search-input" placeholder="🔍 Buscar diezmador..." value={searchDz} onChange={e => setSearchDz(e.target.value)} />

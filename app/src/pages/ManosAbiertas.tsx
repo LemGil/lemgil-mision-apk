@@ -10,6 +10,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import type { Beneficiario, Campana } from '../lib/types';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const money = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
@@ -477,6 +478,23 @@ export default function ManosAbiertas() {
                 a.click();
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
+              <CsvImportButton<Beneficiario>
+                table="beneficiarios"
+                fieldMapping={{
+                  'Nombre': 'nombre',
+                  'Apellido': 'apellido',
+                  'Teléfono': 'telefono',
+                  'Dirección': 'direccion',
+                  'Zona': 'zona',
+                  'Familia': 'familia',
+                  'Estado': 'estado',
+                  'Notas': 'notas',
+                  'Tipo': 'tipo',
+                }}
+                requiredFields={['nombre', 'apellido']}
+                defaults={{ estado: 'Activo', familia: 1, tipo: 'Persona', source: 'Manual' }}
+                onImport={(n) => showToast(`${n} beneficiario(s) importado(s)`)}
+              />
             </>
           )}
           {tab === 'camp' && <button className="btn btn-gold" onClick={openNewCamp}>📢 Nueva Campaña</button>}
@@ -512,6 +530,24 @@ export default function ManosAbiertas() {
                 a.click();
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
+              <CsvImportButton<Campana>
+                table="campanas"
+                fieldMapping={{
+                  'Nombre': 'nombre',
+                  'Tipo': 'tipo',
+                  'Responsable': 'responsable',
+                  'Estado': 'estado',
+                  'Fecha Inicio': 'fechaInicio',
+                  'Fecha Fin': 'fechaFin',
+                  'Meta': 'metaFamilias',
+                  'Tipo Meta': 'metaTipo',
+                  'Zona': 'zona',
+                  'Descripción': 'descripcion',
+                }}
+                requiredFields={['nombre']}
+                defaults={{ estado: 'Planificada', metaFamilias: 0, metaTipo: 'Familias', tipo: 'Otra' }}
+                onImport={(n) => showToast(`${n} campaña(s) importada(s)`)}
+              />
             </>
           )}
           {tab === 'ent' && <button className="btn btn-gold" onClick={openNewEnt}>📦 Registrar Entrega</button>}

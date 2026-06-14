@@ -9,6 +9,7 @@ import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import type { Publicacion } from '../lib/types';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const PLATAFORMAS: Publicacion['plataforma'][] = ['YouTube', 'Facebook', 'Instagram', 'WhatsApp', 'Web', 'Email', 'Otro'];
 const TIPOS: Publicacion['tipo'][] = ['Video', 'Reel', 'Imagen', 'Texto', 'Story', 'Live', 'Email', 'Artículo'];
@@ -236,6 +237,24 @@ export default function Comunicacion() {
                 a.click();
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
+              <CsvImportButton<Publicacion>
+                table="publicaciones"
+                fieldMapping={{
+                  'Fecha': 'fecha',
+                  'Título': 'titulo',
+                  'Plataforma': 'plataforma',
+                  'Tipo': 'tipo',
+                  'Estado': 'estado',
+                  'Responsable': 'responsable',
+                  'Alcance': 'alcance',
+                  'Engagement': 'engagement',
+                  'URL': 'url',
+                  'Notas': 'notas',
+                }}
+                requiredFields={['titulo', 'plataforma']}
+                defaults={{ estado: 'Borrador', fecha: () => new Date().toISOString().split('T')[0], alcance: 0, engagement: 0 }}
+                onImport={(n) => showToast(`${n} publicación(es) importada(s)`)}
+              />
             </>
           )}
         </div>

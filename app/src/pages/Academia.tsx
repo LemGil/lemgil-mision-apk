@@ -12,6 +12,7 @@ import {
   exportEstudiantesPDF, 
   exportCursosPDF 
 } from '../lib/pdfExport';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const NIVEL_BADGE: Record<string, string> = { Basico: 'badge-blue', Intermedio: 'badge-yellow', Avanzado: 'badge-red' };
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Completado: 'badge-purple', Pausado: 'badge-yellow' };
@@ -336,6 +337,22 @@ export default function Academia() {
               a.click();
               showToast('CSV exportado');
             }}>📥 Exportar CSV</button>
+            <CsvImportButton<Curso>
+              table="cursos"
+              fieldMapping={{
+                'Nombre': 'nombre',
+                'Instructor': 'instructor',
+                'Nivel': 'nivel',
+                'Estado': 'estado',
+                'Duración': 'duracion',
+                'Descripción': 'descripcion',
+                'Emoji': 'emoji',
+                'Color': 'color',
+              }}
+              requiredFields={['nombre']}
+              defaults={{ nivel: 'Basico', estado: 'Activo', emoji: '📚', color: '#3b82f6' }}
+              onImport={(n) => showToast(`${n} curso(s) importado(s)`)}
+            />
             <button className="btn btn-gold" onClick={openNewCurso}>➕ Nuevo Curso</button>
             <button className="btn btn-secondary" onClick={openNewLeccion}>📝 Agregar Lección</button>
           </div>
@@ -420,7 +437,25 @@ export default function Academia() {
                a.download = 'lemgil-estudiantes.csv';
                a.click();
                showToast('CSV exportado');
-             }}>📥 Exportar CSV</button>
+              }}>📥 Exportar CSV</button>
+              <CsvImportButton<Estudiante>
+                table="estudiantes"
+                fieldMapping={{
+                  'Nombre': 'nombre',
+                  'Apellido': 'apellido',
+                  'Teléfono': 'telefono',
+                  'Email': 'email',
+                  'Curso': 'cursoId',
+                  'Estado': 'estado',
+                  'Zona': 'zona',
+                  'Dirección': 'direccion',
+                  'Profesión': 'profesion',
+                  'Notas': 'notas',
+                }}
+                requiredFields={['nombre', 'apellido']}
+                defaults={{ estado: 'Activo', origen: 'manual' }}
+                onImport={(n) => showToast(`${n} estudiante(s) importado(s)`)}
+              />
            </div>
           {filteredEst.length === 0 ? (
             <EmptyState icon="🎓" title={estudiantes.length ? 'Sin resultados' : 'Sin estudiantes aún'} sub={estudiantes.length ? 'Prueba otros filtros' : 'Matricula el primer estudiante'} />

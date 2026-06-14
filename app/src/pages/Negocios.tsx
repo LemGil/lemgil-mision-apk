@@ -10,6 +10,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import type { Negocio } from '../lib/types';
+import { CsvImportButton } from '../components/CsvImportButton';
 
 const RUBROS = ['Alimentos', 'Tecnología', 'Ropa', 'Servicios', 'Educación', 'Construcción', 'Transporte', 'Salud', 'Belleza', 'Otro'];
 const ETAPAS: { key: 'Idea' | 'Planificación' | 'Lanzamiento' | 'Operación' | 'Crecimiento' | 'Cierre'; emoji: string; order: number }[] = [
@@ -229,6 +230,25 @@ export default function Negocios() {
                 a.click();
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
+              <CsvImportButton<Negocio>
+                table="negocios"
+                fieldMapping={{
+                  'Nombre': 'nombre',
+                  'Emprendedor': 'emprendedor',
+                  'Rubro': 'rubro',
+                  'Zona': 'zona',
+                  'Etapa': 'etapa',
+                  'Estado': 'estado',
+                  'Ingresos Mensuales': 'ingresosMensuales',
+                  'Fecha Inicio': 'fechaInicio',
+                  'Mentor': 'mentor',
+                  'Descripción': 'descripcion',
+                  'Notas': 'notas',
+                }}
+                requiredFields={['nombre', 'emprendedor']}
+                defaults={{ estado: 'Activo', etapa: 'Idea', ingresosMensuales: 0, rubro: 'Otro' }}
+                onImport={(n) => showToast(`${n} negocio(s) importado(s)`)}
+              />
             </>
           )}
         </div>
