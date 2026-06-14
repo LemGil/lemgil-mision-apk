@@ -40,5 +40,5 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/lemgil-mision-apk/',
+  base: '/',
 })
