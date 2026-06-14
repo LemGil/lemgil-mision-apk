@@ -12,6 +12,10 @@ type Props<T = any> = {
   onError?: (msg: string) => void;
 };
 
+function normalizeStr(s: string): string {
+  return s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 export function CsvImportButton<T extends Record<string, any>>({
   table,
   fieldMapping,
@@ -85,8 +89,12 @@ export function CsvImportButton<T extends Record<string, any>>({
     }
   };
 
-  const mappedHeaders = parsed.headers.filter(h => fieldMapping[h]);
-  const unmappedHeaders = parsed.headers.filter(h => !fieldMapping[h]);
+  const normalizedMapping: Record<string, string> = {};
+  for (const [key, val] of Object.entries(fieldMapping)) {
+    normalizedMapping[normalizeStr(key)] = val;
+  }
+  const mappedHeaders = parsed.headers.filter(h => normalizedMapping[normalizeStr(h)]);
+  const unmappedHeaders = parsed.headers.filter(h => !normalizedMapping[normalizeStr(h)]);
 
   return (
     <>
@@ -124,7 +132,7 @@ export function CsvImportButton<T extends Record<string, any>>({
               </div>
             )}
             <div style={{ marginTop: 4, color: 'var(--dim)' }}>
-              Columnas mapeadas: {mappedHeaders.map(h => <span key={h} style={{ background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, margin: '0 2px' }}>{h} → {fieldMapping[h]}</span>)}
+              Columnas mapeadas: {mappedHeaders.map(h => <span key={h} style={{ background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, margin: '0 2px' }}>{h} → {normalizedMapping[normalizeStr(h)]}</span>)}
             </div>
           </div>
           {parsed.rows.length > 0 && (
@@ -141,7 +149,7 @@ export function CsvImportButton<T extends Record<string, any>>({
                     <tr key={i}>
                       <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
                       {parsed.headers.map((h, j) => {
-                        if (!fieldMapping[h]) return null;
+                        if (!normalizedMapping[normalizeStr(h)]) return null;
                         return <td key={h}>{row[j] || '—'}</td>;
                       })}
                     </tr>

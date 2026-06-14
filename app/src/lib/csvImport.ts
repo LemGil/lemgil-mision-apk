@@ -61,6 +61,10 @@ export function parseCSV(text: string): { headers: string[]; rows: string[][] } 
   return { headers, rows };
 }
 
+function normalizeStr(s: string): string {
+  return s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 export function mapRowsToRecords<T extends Record<string, any>>(
   headers: string[],
   rows: string[][],
@@ -71,8 +75,12 @@ export function mapRowsToRecords<T extends Record<string, any>>(
   const preview: Record<string, string>[] = [];
 
   const headerToField: Record<number, string> = {};
+  const normalizedMapping: Record<string, string> = {};
+  for (const [key, val] of Object.entries(config.fieldMapping)) {
+    normalizedMapping[normalizeStr(key)] = val;
+  }
   headers.forEach((h, i) => {
-    const field = config.fieldMapping[h];
+    const field = normalizedMapping[normalizeStr(h)];
     if (field) headerToField[i] = field;
   });
 
