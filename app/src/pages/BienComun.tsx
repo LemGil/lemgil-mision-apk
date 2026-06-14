@@ -1516,7 +1516,11 @@ export default function BienComun() {
                 <div className="form-group"><label className="form-label">Notas</label><textarea className="form-textarea" value={aNotas} onChange={e => setANotas(e.target.value)} /></div>
             </div>
         </Modal>
+// En el footer del modal verD, cambiar de:
+footer={<><button className="btn btn-secondary" onClick={() => { setModal(null); }}>Cerrar</button><button className="btn btn-gold" onClick={() => handleEditDiezmador(viewDiezmador)}>✏️ Editar Diezmador</button></>}
 
+// A:
+footer={<><button className="btn btn-danger btn-sm" onClick={() => { setModal('delD'); setSelectedId(viewDiezmador.id); }}>🗑️ Eliminar</button><button className="btn btn-secondary" onClick={() => { setModal(null); }}>Cerrar</button><button className="btn btn-gold" onClick={() => handleEditDiezmador(viewDiezmador)}>✏️ Editar Diezmador</button></>}
         <Modal open={modal === 'verD'} onClose={() => setModal(null)} title={`🙏 Detalle del Diezmador`} footer={<><button className="btn btn-secondary" onClick={() => { setModal(null); }}>Cerrar</button><button className="btn btn-gold" onClick={() => handleEditDiezmador(viewDiezmador)}>✏️ Editar Diezmador</button></>}>
             {viewDiezmador && (() => {
                 const regs = aportes.filter(a => a.diezmadorId === viewDiezmador.id);
