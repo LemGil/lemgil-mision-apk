@@ -534,6 +534,8 @@ export default function BienComun() {
                                              <div style={{color: 'var(--gold)', fontSize: '13px'}}>{(d as any).zona || 'Sin zona'}</div>
                                          </div>
                                          <span className={`badge ${d.estado === 'Activo' ? 'badge-green' : 'badge-red'}`} style={{fontSize: '11px', padding: '4px 12px'}}>{d.estado}</span>
+                                    // Después del badge de estado (línea 536), agregar:
+                                    <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
                                      </div>
                                      <div style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginBottom: '8px', color: 'var(--dim)'}}>
                                          <span>💰 Total: <span style={{color: 'var(--gold)', fontWeight: 700}}>{money(total)}</span></span>
