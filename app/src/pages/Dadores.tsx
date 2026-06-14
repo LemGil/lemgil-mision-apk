@@ -534,7 +534,8 @@ export default function Dadores() {
             </div>
           </>
         )}
-
+        // Después del badge de estado (línea 536), agregar:
+     <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
         {tab === 'aportes' && (
           <>
             <div className="search-bar">
