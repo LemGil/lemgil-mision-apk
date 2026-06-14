@@ -194,29 +194,36 @@ database.version(18).stores({
   aportes: 'id, colaboradorId, fecha, tipo, metodo, creado',
   aportesComun: 'id, diezmadorId, grupoId, fecha, tipo, mesCorrespondiente, creado',
   planesColaborador: 'id, diezmadorId, tipoPlanId',
+});
+
+database.version(19).stores({
+  dadores: 'id, nombre, apellido, estado, tipo, creado',
+  colaboradores: 'id, nombre, apellido, estado, creado',
+  aportes: 'id, colaboradorId, fecha, tipo, metodo, creado',
+  aportesComun: 'id, diezmadorId, grupoId, fecha, tipo, mesCorrespondiente, creado',
+  planesColaborador: 'id, diezmadorId, tipoPlanId',
 }).upgrade(async (tx) => {
-  // Rename FK fields in aportes: dadorId → colaboradorId
+  // 1. Asegurar renames de FKs (por si v18 se saltó en algunos clientes)
   await tx.table('aportes').toCollection().modify((a: any) => {
     if (typeof a.dadorId !== 'undefined' && typeof a.colaboradorId === 'undefined') {
       a.colaboradorId = a.dadorId;
       delete a.dadorId;
     }
   });
-  // Rename FK fields in aportesComun: miembroId → diezmadorId
   await tx.table('aportesComun').toCollection().modify((a: any) => {
     if (typeof a.miembroId !== 'undefined' && typeof a.diezmadorId === 'undefined') {
       a.diezmadorId = a.miembroId;
       delete a.miembroId;
     }
   });
-  // Rename FK fields in planesColaborador: colaboradorId → diezmadorId
   await tx.table('planesColaborador').toCollection().modify((p: any) => {
     if (typeof p.colaboradorId !== 'undefined' && typeof p.diezmadorId === 'undefined') {
       p.diezmadorId = p.colaboradorId;
       delete p.colaboradorId;
     }
   });
-    // ====== Swap datos entre tablas ======
+
+  // 2. Intercambio de datos local definitivo
   const tempDadores = await tx.table('dadores').toArray();
   const tempColabs = await tx.table('colaboradores').toArray();
   await tx.table('dadores').clear();
