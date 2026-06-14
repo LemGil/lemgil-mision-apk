@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import MisionBiblica from './pages/MisionBiblica';
 import Academia from './pages/Academia';
@@ -12,7 +12,7 @@ import Miembros from './pages/Miembros';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/mision" element={<MisionBiblica />} />
@@ -25,6 +25,6 @@ export default function App() {
         <Route path="/miembros" element={<Miembros />} />
         <Route path="/reportes" element={<Reportes />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
