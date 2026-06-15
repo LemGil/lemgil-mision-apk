@@ -12,15 +12,7 @@ import { db } from '../lib/database';
 import type { Colaborador, Aporte } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-const today = () => new Date().toISOString().split('T')[0];
-const fmt = (d: string) => {
-  if (!d) return '—';
-  const [y, m, dy] = d.split('-');
-  const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${+dy} ${MS[+m - 1]} ${y}`;
-};
-const money = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-const MS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+import { today, fmt, money, MS_SHORT } from '../lib/utils';
 
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Pausado: 'badge-yellow', Inactivo: 'badge-red' };
 const TIPO_BADGE: Record<string, string> = { Persona: 'badge-blue', Empresa: 'badge-purple', Iglesia: 'badge-yellow' };

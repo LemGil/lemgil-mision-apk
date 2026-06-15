@@ -17,14 +17,7 @@ const TIPOS: Publicacion['tipo'][] = ['Video', 'Reel', 'Imagen', 'Texto', 'Story
 const PLAT_ICON: Record<string, string> = { YouTube: '▶️', Facebook: '📘', Instagram: '📸', WhatsApp: '💬', Web: '🌐', Email: '✉️', Otro: '📌' };
 const PLAT_COLOR: Record<string, string> = { YouTube: 'var(--red)', Facebook: 'var(--mision-blue)', Instagram: 'var(--mision-purple)', WhatsApp: 'var(--green)', Web: 'var(--oro-apostolico)', Email: 'var(--oro-luz)', Otro: 'var(--dim)' };
 const EST_BADGE: Record<string, string> = { Borrador: 'badge-yellow', Programada: 'badge-blue', Publicada: 'badge-green', Archivada: 'badge-red' };
-const today = () => new Date().toISOString().split('T')[0];
-const fmt = (d: string) => {
-  if (!d) return '—';
-  const [y, m, dy] = d.split('-');
-  const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${+dy} ${MS[+m - 1]} ${y}`;
-};
-const monthKey = (d: string) => (d && d.length >= 7 ? d.slice(0, 7) : '');
+import { today, fmt, monthKey } from '../lib/utils';
 const num = (n: number) => n.toLocaleString('en-US');
 
 type Tab = 'pub' | 'calendar' | 'resumen';

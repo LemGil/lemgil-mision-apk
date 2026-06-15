@@ -58,13 +58,7 @@ const syncMemberFromConversion = async (c: Conversion): Promise<string | null> =
   return miembroId;
 };
 
-const today = () => new Date().toISOString().split('T')[0];
-const fmt = (d: string) => {
-  if (!d) return '—';
-  const [y, m, dy] = d.split('-');
-  const ms = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${+dy} ${ms[+m - 1]} ${y}`;
-};
+import { today, fmt } from '../lib/utils';
 
 const ESTADOS = ['Nuevo', 'Discipulado', 'Bautizado', 'Integrado', 'Apartado', 'Fallecido'] as const;
 const EST_BADGE: Record<string, string> = { Nuevo: 'badge-blue', Discipulado: 'badge-yellow', Bautizado: 'badge-green', Integrado: 'badge-purple', Apartado: 'badge-red', Fallecido: 'badge-gray' };

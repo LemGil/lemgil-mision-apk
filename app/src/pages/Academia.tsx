@@ -18,8 +18,7 @@ import { CsvImportButton } from '../components/CsvImportButton';
 const NIVEL_BADGE: Record<string, string> = { Basico: 'badge-blue', Intermedio: 'badge-yellow', Avanzado: 'badge-red' };
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Completado: 'badge-purple', Pausado: 'badge-yellow' };
 const CAL_BADGE: Record<string, string> = { Aprobado: 'badge-green', Sobresaliente: 'badge-purple', 'Con Honores': 'badge-yellow' };
-const today = () => new Date().toISOString().split('T')[0];
-const fmt = (d: string) => { if (!d) return '—'; const [y, m, dy] = d.split('-'); const ms = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']; return `${+dy} ${ms[+m - 1]} ${y}`; };
+import { today, fmt } from '../lib/utils';
 
 type Tab = 'cursos' | 'estudiantes' | 'certificados';
 

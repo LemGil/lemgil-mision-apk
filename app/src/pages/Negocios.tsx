@@ -22,8 +22,7 @@ const ETAPAS: { key: 'Idea' | 'Planificación' | 'Lanzamiento' | 'Operación' | 
   { key: 'Crecimiento', emoji: '📈', order: 5 },
   { key: 'Cierre', emoji: '🔒', order: 6 },
 ];
-const today = () => new Date().toISOString().split('T')[0];
-const money = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+import { today, money } from '../lib/utils';
 
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Pausado: 'badge-yellow', Completado: 'badge-purple', Cancelado: 'badge-red' };
 const ETAPA_BADGE: Record<string, string> = { Idea: 'badge-blue', Planificación: 'badge-yellow', Lanzamiento: 'badge-purple', Operación: 'badge-green', Crecimiento: 'badge-green', Cierre: 'badge-red' };

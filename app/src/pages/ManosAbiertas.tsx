@@ -13,16 +13,7 @@ import { db } from '../lib/database';
 import type { Beneficiario, Campana } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-const money = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
-const today = () => new Date().toISOString().split('T')[0];
-const fmt = (d: string) => {
-  if (!d) return '—';
-  const [y, m, dy] = d.split('-');
-  const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${+dy} ${MS[+m - 1]} ${y}`;
-};
-const monthKey = (d: string) => (d && d.length >= 7 ? d.slice(0, 7) : '');
+import { today, fmt, money, monthKey } from '../lib/utils';
 
 const EST_BEN: Record<string, string> = { Activo: 'badge-green', Inactivo: 'badge-red' };
 const CAMP_EST: Record<string, string> = { Planificada: 'badge-blue', 'En curso': 'badge-yellow', Completada: 'badge-green', Cancelada: 'badge-red' };

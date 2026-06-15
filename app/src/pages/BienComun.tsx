@@ -17,11 +17,7 @@ import {
   exportCumplimientoPDF,
 } from '../lib/pdfExport';
 import { CsvImportButton } from '../components/CsvImportButton';
-
-const today = () => new Date().toISOString().split('T')[0];
-const monthKey = (d: string) => (d && d.length >= 7 ? d.slice(0, 7) : '');
-const money = (n: number) => `$${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const MS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+import { today, monthKey, money, MS_SHORT } from '../lib/utils';
 
 type Tab = 'registros' | 'diezmadores' | 'resumen' | 'ofrendasGrupos' | 'planes';
 type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoPlan' | 'delTipoPlan' | 'planDiezmador' | 'delPlanDiezmador';

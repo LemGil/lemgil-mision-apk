@@ -11,13 +11,7 @@ import type { Miembro, MiembroMinisterio, Hito } from '../lib/types';
 import { exportMiembrosPDF, exportMinisteriosPDF, exportHitosPDF } from '../lib/pdfExport';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-const today = () => new Date().toISOString().split('T')[0];
-const fmt = (d: string) => {
-  if (!d) return '—';
-  const [y, m, dy] = d.split('-');
-  const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${+dy} ${MS[+m - 1]} ${y}`;
-};
+import { today, fmt } from '../lib/utils';
 const calcAge = (d: string) => {
   if (!d) return null;
   const n = new Date(d);

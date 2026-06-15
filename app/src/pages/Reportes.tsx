@@ -6,17 +6,8 @@ import { Modal } from '../components/Modal';
 import { exportCSV } from '../lib/csvExport';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
+import { MS_FULL, fmt, monthKey, inRange, money } from '../lib/utils';
 
-const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const MS_FULL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const fmt = (d: string) => {
-  if (!d) return '—';
-  const [y, m, dy] = d.split('-');
-  return `${+dy} ${MS[+m - 1]} ${y}`;
-};
-const monthKey = (d: string) => (d && d.length >= 7 ? d.slice(0, 7) : '');
-const inRange = (d: string, desde: string, hasta: string) => d && d >= desde && d <= hasta;
-const money = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 const num = (n: number) => n.toLocaleString('en-US');
 
 type PeriodoPreset = 'mes' | 'mesAnterior' | 'anio' | 'todo' | 'custom';

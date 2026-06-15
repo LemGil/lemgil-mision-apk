@@ -5,13 +5,14 @@ import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
 import { db } from '../lib/database';
 
-const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+import { MS, monthKey } from '../lib/utils';
+
 const fmtDate = (d: string) => {
   if (!d) return '—';
   const [y, m, dy] = d.split('-');
   return `${+dy} ${MS[+m - 1]} ${y}`;
 };
-const monthKey = (d: string) => (d && d.length >= 7 ? d.slice(0, 7) : '');
+
 const relTime = (iso: string) => {
   if (!iso) return '';
   const ms = Date.now() - new Date(iso).getTime();
