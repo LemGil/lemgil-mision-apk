@@ -357,7 +357,16 @@ async function pullFromSupabase() {
 
       for (const record of toUpdate) {
         try {
-          await (db as any)[table].update(record.id, record);
+          const existing = await (db as any)[table].get(record.id);
+          if (existing) {
+            const merged = { ...existing };
+            for (const [key, val] of Object.entries(record)) {
+              if (val !== null && val !== undefined) merged[key] = val;
+            }
+            await (db as any)[table].update(record.id, merged);
+          } else {
+            await (db as any)[table].add(record);
+          }
         } catch { /* skip if version conflict */ }
       }
 

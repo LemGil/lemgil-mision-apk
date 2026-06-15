@@ -212,7 +212,7 @@ const [fHijos, setFHijos] = useState('');
     if (!fNombre.trim() || !fApellido.trim()) return showToast('Nombre y apellido son obligatorios');
     if (!fZona) return showToast('Selecciona una zona');
     if (!fLider.trim()) return showToast('Selecciona o escribe el hermano mayor');
-    const data = { nombre: fNombre.trim(), apellido: fApellido.trim(), telefono: fTelefono.trim(), edad: fEdad, direccion: fDireccion.trim(), familia: fFamilia, fecha: fFecha, zona: fZona, lider: fLider.trim(), grupoId: fGrupoId, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), hermanoMayorId: null, email: fEmail.trim(), profesion: fProfesion.trim(), bautizado: fBautizado, fechaBautismo: fFechaBautismo, conyuge: fConyuge.trim(), hijos: fHijos.trim() };
+    const data = { nombre: fNombre.trim(), apellido: fApellido.trim(), telefono: fTelefono.trim(), edad: fEdad, direccion: fDireccion.trim(), familia: fFamilia, fecha: fFecha, zona: fZona, lider: fLider.trim(), grupoId: fGrupoId, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), hermanoMayorId: editConvId ? (convs.find(x => x.id === editConvId)?.hermanoMayorId ?? null) : null, email: fEmail.trim(), profesion: fProfesion.trim(), bautizado: fBautizado, fechaBautismo: fFechaBautismo, conyuge: fConyuge.trim(), hijos: fHijos.trim() };
     if (editConvId) {
       await db.conversiones.update(editConvId, data);
       const c = convs.find((x) => x.id === editConvId);
