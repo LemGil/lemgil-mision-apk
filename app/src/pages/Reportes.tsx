@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
+import { exportCSV } from '../lib/csvExport';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 
@@ -315,13 +316,7 @@ export default function Reportes() {
                   ['Comunicación', 'Publicaciones', datos.comunicacion.publicaciones],
                   ['Comunicación', 'Alcance', datos.comunicacion.alcance],
                 ];
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = `reporte-lemgil-${ymNow}.csv`;
-                a.click();
+                exportCSV(h, r, `reporte-lemgil-${ymNow}.csv`);
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
             </div>

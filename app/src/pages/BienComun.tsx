@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
+import { exportCSV } from '../lib/csvExport';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import {
@@ -402,13 +403,7 @@ export default function BienComun() {
                             const c = colaboradores.find(x => x.id === a.diezmadorId);
                             return [a.fecha, c ? `${c.nombre} ${c.apellido}` : '—', a.tipo, a.monto, a.metodo, a.referencia || '', (a.notas || '').replace(/,/g, ';')];
                         });
-                        const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                        const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                        const u = URL.createObjectURL(b);
-                        const a2 = document.createElement('a');
-                        a2.href = u;
-                        a2.download = 'lemgil-registros.csv';
-                        a2.click();
+                        exportCSV(h, r, 'lemgil-registros.csv');
                         showToast('CSV exportado');
                     }}>📥 Exportar CSV</button>
                     <CsvImportButton
@@ -510,13 +505,7 @@ export default function BienComun() {
                             const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
                             return [i + 1, c.nombre, c.apellido, (c as any).zona || '', c.estado, (c as any).planDiezmo || 0, total];
                         });
-                        const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                        const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                        const u = URL.createObjectURL(b);
-                        const a2 = document.createElement('a');
-                        a2.href = u;
-                        a2.download = 'lemgil-diezmadores.csv';
-                        a2.click();
+                        exportCSV(h, r, 'lemgil-diezmadores.csv');
                         showToast('CSV exportado');
                     }}>📥 Exportar CSV</button>
                     <CsvImportButton
@@ -661,13 +650,7 @@ export default function BienComun() {
                             } else if (subTab === 'cumplimiento') {
                                 r = cumplimiento.mensuales.map(m => [m.etiqueta, `${money(m.total)} / ${money(m.metaEsperada)} | ${m.pct !== null ? `${Math.round(m.pct)}%` : '—'}`]);
                             }
-                            const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                            const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                            const u = URL.createObjectURL(b);
-                            const a = document.createElement('a');
-                            a.href = u;
-                            a.download = `lemgil-resumen-${subTab}-${anioResumen}.csv`;
-                            a.click();
+                            exportCSV(h, r, `lemgil-resumen-${subTab}-${anioResumen}.csv`);
                             showToast('CSV exportado');
                         }}>📥 Exportar CSV</button>
                     </div>
@@ -1273,13 +1256,7 @@ export default function BienComun() {
                                 const mes = regs.filter(a => a.fecha?.startsWith(mesK)).reduce((s, a) => s + (a.monto || 0), 0);
                                 return [i + 1, g.nombre, g.zona || '', g.lider || '', (g as any).planOfrendasMensual || 0, total, mes];
                             });
-                            const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                            const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                            const u = URL.createObjectURL(b);
-                            const a2 = document.createElement('a');
-                            a2.href = u;
-                            a2.download = 'lemgil-grupos-ofrendas.csv';
-                            a2.click();
+                            exportCSV(h, r, 'lemgil-grupos-ofrendas.csv');
                             showToast('CSV exportado');
                         }}>📥 Exportar CSV</button>
                     </div>

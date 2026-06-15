@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
+import { exportCSV } from '../lib/csvExport';
 import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
@@ -328,13 +329,7 @@ export default function Academia() {
                 const count = lecciones.filter(l => l.cursoId === c.id).length;
                 return [c.nombre, c.instructor || '', c.nivel || '', c.estado || '', count, c.duracion || ''];
               });
-              const csv = [h, ...r].map(x => x.join(',')).join('\n');
-              const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-              const u = URL.createObjectURL(b);
-              const a = document.createElement('a');
-              a.href = u;
-              a.download = 'lemgil-cursos.csv';
-              a.click();
+              exportCSV(h, r, 'lemgil-cursos.csv');
               showToast('CSV exportado');
             }}>📥 Exportar CSV</button>
             <CsvImportButton<Curso>
@@ -422,21 +417,15 @@ export default function Academia() {
            </div>
            <div style={{ display: 'flex', gap: 8, padding: '0 16px', marginBottom: 12 }}>
              <button className="btn btn-secondary btn-sm" onClick={() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } })}>📄 Exportar PDF</button>
-             <button className="btn btn-secondary btn-sm" onClick={() => {
-               if (!filteredEst.length) return showToast('No hay estudiantes para exportar');
-               const h = ['#', 'Nombre', 'Apellido', 'Curso', 'Teléfono', 'Email', 'Estado'];
-               const r = filteredEst.map((e, i) => {
-                 const curso = cursos.find(c => c.id === e.cursoId);
-                 return [i + 1, e.nombre, e.apellido, curso?.nombre || '', e.telefono || '', e.email || '', e.estado || ''];
-               });
-               const csv = [h, ...r].map(x => x.join(',')).join('\n');
-               const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-               const u = URL.createObjectURL(b);
-               const a = document.createElement('a');
-               a.href = u;
-               a.download = 'lemgil-estudiantes.csv';
-               a.click();
-               showToast('CSV exportado');
+              <button className="btn btn-secondary btn-sm" onClick={() => {
+                if (!filteredEst.length) return showToast('No hay estudiantes para exportar');
+                const h = ['#', 'Nombre', 'Apellido', 'Curso', 'Teléfono', 'Email', 'Estado'];
+                const r = filteredEst.map((e, i) => {
+                  const curso = cursos.find(c => c.id === e.cursoId);
+                  return [i + 1, e.nombre, e.apellido, curso?.nombre || '', e.telefono || '', e.email || '', e.estado || ''];
+                });
+                exportCSV(h, r, 'lemgil-estudiantes.csv');
+                showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
               <CsvImportButton<Estudiante>
                 table="estudiantes"

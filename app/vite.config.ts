@@ -41,4 +41,15 @@ export default defineConfig({
     }),
   ],
   base: '/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('jspdf')) {
+            return 'jspdf';
+          }
+        },
+      },
+    },
+  },
 })

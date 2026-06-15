@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
+import { exportCSV } from '../lib/csvExport';
 import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
@@ -437,13 +438,7 @@ export default function Miembros() {
                   if (!miembrosFiltrados.length) return showToast('No hay miembros para exportar');
                   const h = ['#', 'Nombre', 'Apellido', 'Estado Civil', 'Zona', 'Teléfono', 'Email', 'Estado'];
                   const r = miembrosFiltrados.map((m, i) => [i + 1, m.nombre, m.apellido, m.estadoCivil || '', m.zona || '', m.telefono || '', m.email || '', m.estado]);
-                  const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                  const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                  const u = URL.createObjectURL(b);
-                  const a = document.createElement('a');
-                  a.href = u;
-                  a.download = 'lemgil-miembros.csv';
-                  a.click();
+                  exportCSV(h, r, 'lemgil-miembros.csv');
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
                 <CsvImportButton<Miembro>
@@ -553,13 +548,7 @@ export default function Miembros() {
                     const count = asignaciones.filter(a => a.ministerioId === m.id).length;
                     return [m.nombre, m.lider || '', count];
                   });
-                  const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                  const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                  const u = URL.createObjectURL(b);
-                  const a = document.createElement('a');
-                  a.href = u;
-                  a.download = 'lemgil-ministerios.csv';
-                  a.click();
+                  exportCSV(h, r, 'lemgil-ministerios.csv');
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
                 <CsvImportButton
@@ -640,13 +629,7 @@ export default function Miembros() {
                     const m = miembros.find(x => x.id === h.miembroId);
                     return [h.fecha, m ? `${m.nombre} ${m.apellido}` : '—', h.tipo, (h.descripcion || '').replace(/,/g, ';')];
                   });
-                  const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                  const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                  const u = URL.createObjectURL(b);
-                  const a = document.createElement('a');
-                  a.href = u;
-                  a.download = 'lemgil-hitos.csv';
-                  a.click();
+                  exportCSV(h, r, 'lemgil-hitos.csv');
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
                 <CsvImportButton

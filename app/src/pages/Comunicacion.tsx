@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { exportCSV } from '../lib/csvExport';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
@@ -228,13 +229,7 @@ export default function Comunicacion() {
                 if (!pubs.length) return showToast('No hay publicaciones para exportar');
                 const h = ['Fecha', 'Título', 'Plataforma', 'Tipo', 'Estado', 'Responsable', 'Alcance', 'Engagement', 'Notas'];
                 const r = pubs.map(p => [p.fecha, p.titulo, p.plataforma, p.tipo, p.estado, p.responsable || '', p.alcance || 0, p.engagement || 0, (p.notas || '').replace(/,/g, ';')]);
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-publicaciones.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-publicaciones.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
               <CsvImportButton<Publicacion>
@@ -355,13 +350,7 @@ export default function Comunicacion() {
                 if (!pubsCal.length) return showToast('No hay publicaciones programadas');
                 const h = ['Fecha', 'Título', 'Plataforma', 'Tipo', 'Estado', 'Responsable', 'Alcance'];
                 const r = pubsCal.map((p: any) => [p.fecha, p.titulo, p.plataforma, p.tipo, p.estado, p.responsable || '', p.alcance || 0]);
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-calendario-publicaciones.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-calendario-publicaciones.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
             </div>
@@ -431,13 +420,7 @@ export default function Comunicacion() {
                 if (!platDist.length) return showToast('No hay datos para exportar');
                 const h = ['Plataforma', 'Publicaciones', 'Alcance', 'Engagement', 'Eng. Rate'];
                 const r = platDist.map(p => [p.plataforma, p.count, p.alcance, p.eng, p.alcance > 0 ? `${((p.eng / p.alcance) * 100).toFixed(1)}%` : '0.0%']);
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-resumen-plataformas.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-resumen-plataformas.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
             </div>

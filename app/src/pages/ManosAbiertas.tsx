@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { exportCSV } from '../lib/csvExport';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
@@ -469,13 +470,7 @@ export default function ManosAbiertas() {
                 if (!benFiltrados.length) return showToast('No hay beneficiarios para exportar');
                 const h = ['Nombre', 'Apellido', 'Teléfono', 'Zona', 'Dirección', 'Familia', 'Estado', 'Notas'];
                 const r = benFiltrados.map(b => [b.nombre, b.apellido, b.telefono || '', b.zona || '', b.direccion || '', b.familia, b.estado, (b.notas || '').replace(/,/g, ';')]);
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-beneficiarios.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-beneficiarios.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
               <CsvImportButton<Beneficiario>
@@ -521,13 +516,7 @@ export default function ManosAbiertas() {
                 if (!campFiltradas.length) return showToast('No hay campañas para exportar');
                 const h = ['Nombre', 'Tipo', 'Responsable', 'Estado', 'Fecha Inicio', 'Meta', 'Tipo Meta', 'Descripción'];
                 const r = campFiltradas.map(c => [c.nombre, c.tipo, c.responsable || '', c.estado, c.fechaInicio || '', c.metaFamilias || '', c.metaTipo || 'Familias', (c.descripcion || '').replace(/,/g, ';')]);
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-campanas.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-campanas.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
               <CsvImportButton<Campana>
@@ -578,13 +567,7 @@ export default function ManosAbiertas() {
                   const camp = campanas.find(c => c.id === e.campanaId);
                   return [e.fecha, ben ? `${ben.nombre} ${ben.apellido}` : '—', camp?.nombre || '—', e.tipo, e.cantidad, (e.notas || '').replace(/,/g, ';')];
                 });
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-entregas.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-entregas.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
             </>

@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { exportCSV } from '../lib/csvExport';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
@@ -221,13 +222,7 @@ export default function Negocios() {
                 if (!filtered.length) return showToast('No hay negocios para exportar');
                 const h = ['Nombre', 'Emprendedor', 'Rubro', 'Zona', 'Etapa', 'Estado', 'Ingresos Mensuales', 'Fecha Inicio', 'Descripción'];
                 const r = filtered.map(n => [n.nombre, n.emprendedor, n.rubro, n.zona || '', n.etapa, n.estado, n.ingresosMensuales || 0, n.fechaInicio || '', (n.descripcion || '').replace(/,/g, ';')]);
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-negocios.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-negocios.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
               <CsvImportButton<Negocio>
@@ -360,13 +355,7 @@ export default function Negocios() {
                   ['DISTRIBUCIÓN POR RUBRO', ''],
                   ...rubroDist.map(r => [r.key, `${r.count} (${Math.round((r.count / (rubroDist.reduce((s, x) => s + x.count, 0) || 1)) * 100)}%)`]),
                 ];
-                const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = 'lemgil-resumen-negocios.csv';
-                a.click();
+                exportCSV(h, r, 'lemgil-resumen-negocios.csv');
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
             </div>

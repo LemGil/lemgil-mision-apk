@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { exportCSV } from '../lib/csvExport';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Layout } from '../components/Layout';
@@ -399,13 +400,7 @@ export default function Dadores() {
                 const planNombre = tiposPlanes.find(t => t.id === d.planOfrendaTipo)?.nombre || '';
                 return [i + 1, d.nombre, d.apellido, d.tipo, d.telefono || '', d.email || '', d.estado, planNombre, d.planOfrendaMonto || 0, total, mes];
               });
-              const csv = [h, ...r].map((x) => x.join(',')).join('\n');
-              const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-              const u = URL.createObjectURL(b);
-              const a2 = document.createElement('a');
-              a2.href = u;
-              a2.download = 'lemgil-colaboradores.csv';
-              a2.click();
+              exportCSV(h, r, 'lemgil-colaboradores.csv');
               showToast('CSV exportado');
             }}>📥 Exportar CSV</button>
             <CsvImportButton<Colaborador>
@@ -460,13 +455,7 @@ export default function Dadores() {
                     const d = dadores.find((x) => x.id === a.colaboradorId);
                     return [a.fecha, d ? `${d.nombre} ${d.apellido}` : '—', a.tipo, a.metodo, a.monto, a.referencia || '', (a.notas || '').replace(/,/g, ';')];
                   });
-                  const csv = [h, ...r].map((x) => x.join(',')).join('\n');
-                  const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                  const u = URL.createObjectURL(b);
-                  const a2 = document.createElement('a');
-                  a2.href = u;
-                  a2.download = 'lemgil-aportes.csv';
-                  a2.click();
+                  exportCSV(h, r, 'lemgil-aportes.csv');
                   showToast('CSV exportado');
                 }}
               >

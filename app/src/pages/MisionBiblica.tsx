@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
+import { exportCSV } from '../lib/csvExport';
 import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
@@ -380,10 +381,7 @@ const [fHijos, setFHijos] = useState('');
             if (!convs.length) return showToast('No hay datos para exportar');
             const h = ['Nombre','Apellido','Telefono','Edad','Zona','Mayor','Fecha','Estado','Notas'];
             const r = convs.map(c => [c.nombre,c.apellido,c.telefono||'',c.edad||'',c.zona,c.lider,c.fecha,c.estado,(c.notas||'').replace(/,/g,';')]);
-            const csv = [h,...r].map(x=>x.join(',')).join('\n');
-            const b = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-            const u = URL.createObjectURL(b);
-            const a = document.createElement('a'); a.href=u; a.download='lemgil-conversiones.csv'; a.click();
+            exportCSV(h, r, 'lemgil-conversiones.csv');
             showToast('CSV exportado');
           }}>📥 Exportar CSV</button>
         )}
@@ -490,17 +488,11 @@ const [fHijos, setFHijos] = useState('');
              </div>
              <div style={{ display: 'flex', gap: 5 }}>
                <button className="btn btn-secondary btn-sm" onClick={() => exportGruposMisionPDF({ grupos, miembros })}>📄 Exportar PDF</button>
-               <button className="btn btn-secondary btn-sm" onClick={() => {
-                 if (!grupos.length) return showToast('No hay grupos para exportar');
-                 const h = ['Nombre', 'Zona', 'Líder', 'Día', 'Hora', 'Capacidad', 'Lugar'];
-                 const r = grupos.map(g => [g.nombre, g.zona || '', g.lider || '', g.dia || '', g.hora || '', g.capacidad || '', g.lugar || '']);
-                 const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                 const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                 const u = URL.createObjectURL(b);
-                 const a = document.createElement('a');
-                 a.href = u;
-                  a.download = 'lemgil-grupos-mision.csv';
-                  a.click();
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  if (!grupos.length) return showToast('No hay grupos para exportar');
+                  const h = ['Nombre', 'Zona', 'Líder', 'Día', 'Hora', 'Capacidad', 'Lugar'];
+                  const r = grupos.map(g => [g.nombre, g.zona || '', g.lider || '', g.dia || '', g.hora || '', g.capacidad || '', g.lugar || '']);
+                  exportCSV(h, r, 'lemgil-grupos-mision.csv');
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
                 <CsvImportButton
@@ -626,17 +618,11 @@ const [fHijos, setFHijos] = useState('');
              </div>
              <div style={{ display: 'flex', gap: 5 }}>
                <button className="btn btn-secondary btn-sm" onClick={() => exportEvangelismoPDF({ evangelismos: evangels })}>📄 Exportar PDF</button>
-               <button className="btn btn-secondary btn-sm" onClick={() => {
-                 if (!evangels.length) return showToast('No hay actividades para exportar');
-                 const h = ['Fecha', 'Tipo', 'Zona', 'Líder', 'Contactos', 'Conversiones', 'Notas'];
-                 const r = evangels.map(e => [e.fecha, e.tipo, e.zona || '', e.lider || '', e.contactos || 0, e.conversiones || 0, (e.notas || '').replace(/,/g, ';')]);
-                 const csv = [h, ...r].map(x => x.join(',')).join('\n');
-                 const b = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                 const u = URL.createObjectURL(b);
-                 const a = document.createElement('a');
-                 a.href = u;
-                  a.download = 'lemgil-evangelismo.csv';
-                  a.click();
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  if (!evangels.length) return showToast('No hay actividades para exportar');
+                  const h = ['Fecha', 'Tipo', 'Zona', 'Líder', 'Contactos', 'Conversiones', 'Notas'];
+                  const r = evangels.map(e => [e.fecha, e.tipo, e.zona || '', e.lider || '', e.contactos || 0, e.conversiones || 0, (e.notas || '').replace(/,/g, ';')]);
+                  exportCSV(h, r, 'lemgil-evangelismo.csv');
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
                 <CsvImportButton
