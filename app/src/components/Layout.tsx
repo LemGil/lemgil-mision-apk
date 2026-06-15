@@ -4,6 +4,7 @@ import { Topbar } from './Topbar';
 import { ToastContainer } from './Toast';
 import { SyncIndicator } from './SyncIndicator';
 import { forcePushAllLocal } from '../lib/sync';
+import { useErrorNotification } from '../lib/errorNotifications';
 
 interface LayoutProps {
   title: string;
@@ -13,13 +14,15 @@ interface LayoutProps {
 }
 
 export function Layout({ title, breadcrumb, right, children }: LayoutProps) {
+  const { showError, showSuccess } = useErrorNotification();
+
   const handleForceSync = async () => {
     if (confirm('¿Desea forzar la sincronización de todos los datos locales a la nube? Esto actualizará los registros existentes en Supabase.')) {
       try {
         await forcePushAllLocal();
-        alert('Sincronización total completada.');
+        showSuccess('Sincronización total completada.');
       } catch (e) {
-        alert('Error al sincronizar: ' + e);
+        showError('Error al sincronizar: ' + e);
       }
     }
   };
