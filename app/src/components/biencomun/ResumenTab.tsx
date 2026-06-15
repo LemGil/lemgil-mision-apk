@@ -53,7 +53,7 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
     const topDiezmadores = colaboradores.map(c => {
       const regs = regsAnio.filter(a => a.diezmadorId === c.id);
       const tot = regs.reduce((s, a) => s + (a.monto || 0), 0);
-      return { id: c.id, nombre: c.nombre, apellido: c.apellido, zona: (c as any).zona, total: tot, regs: regs.length };
+      return { id: c.id, nombre: c.nombre, apellido: c.apellido, zona: c.zona, total: tot, regs: regs.length };
     }).filter(c => c.total > 0).sort((a, b) => b.total - a.total).slice(0, 5);
     const topGrupos = grupos.map(g => {
       const regs = regsAnio.filter(a => a.grupoId === g.id && a.tipo === 'Ofrenda');
@@ -68,7 +68,7 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
 
   const cumplimiento = useMemo(() => {
     const regsAnio = aportes.filter(a => a.fecha.startsWith(anioResumen));
-    const metaGlobalAnual = colaboradores.reduce((s, c) => s + ((c as any).planDiezmo || 0) * 12, 0);
+    const metaGlobalAnual = colaboradores.reduce((s, c) => s + (c.planDiezmo || 0) * 12, 0);
     const metaGlobalMes = metaGlobalAnual / 12;
     const totalRecAnio = regsAnio.reduce((s, a) => s + (a.monto || 0), 0);
     const totalRecMesActual = regsAnio.filter(a => monthKey(a.fecha) === new Date().toISOString().slice(0, 7)).reduce((s, a) => s + (a.monto || 0), 0);
@@ -78,15 +78,15 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
     const cumplimientoDiezmadores = colaboradores.map(c => {
       const regs = regsAnio.filter(a => a.diezmadorId === c.id);
       const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-      const planDiezmo = (c as any).planDiezmo || 0;
+      const planDiezmo = c.planDiezmo || 0;
       const metaAnual = planDiezmo * 12;
       const pct = metaAnual > 0 ? (total / metaAnual) * 100 : null;
-      return { id: c.id, nombre: c.nombre, apellido: c.apellido, zona: (c as any).zona || '—', planDiezmo, metaAnual, total, regs: regs.length, pct };
+      return { id: c.id, nombre: c.nombre, apellido: c.apellido, zona: c.zona || '—', planDiezmo, metaAnual, total, regs: regs.length, pct };
     }).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
     const cumplimientoGrupos = grupos.map(g => {
       const regs = regsAnio.filter(a => a.grupoId === g.id && a.tipo === 'Ofrenda');
       const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-      const metaMes = (g as any).planOfrendasMensual || 0;
+      const metaMes = g.planOfrendasMensual || 0;
       const metaAnual = metaMes * 12;
       const pct = metaAnual > 0 ? (total / metaAnual) * 100 : null;
       return { id: g.id, nombre: g.nombre, zona: g.zona || '—', planOfrendasMensual: metaMes, metaAnual, total, regs: regs.length, pct };
@@ -106,7 +106,8 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
       const metaAcum = metaGlobalMes * (i + 1);
       acumulados.push({ ...periodos[i], acumulado: acum, metaAcumulada: metaAcum, pctAcumulado: metaAcum > 0 ? (acum / metaAcum) * 100 : null });
     }
-    const trimestres: any[] = [];
+    type Periodo = { etiqueta: string; tipo: 'mes' | 'trimestre' | 'semestre' | 'año'; total: number; metaEsperada: number; pct: number | null; idx?: number };
+    const trimestres: Periodo[] = [];
     for (let t = 0; t < 4; t++) {
       const regsT = regsAnio.filter(a => {
         const mes = parseInt(a.fecha.slice(5, 7));
@@ -117,7 +118,7 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
       const pct = metaEsperada > 0 ? (total / metaEsperada) * 100 : null;
       trimestres.push({ etiqueta: `Q${t + 1}`, tipo: 'trimestre' as const, total, metaEsperada, pct });
     }
-    const semestres: any[] = [];
+    const semestres: Periodo[] = [];
     for (let s = 0; s < 2; s++) {
       const regsS = regsAnio.filter(a => {
         const mes = parseInt(a.fecha.slice(5, 7));
@@ -187,7 +188,7 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
 
       <div className="tabs" style={{marginBottom: '20px', flexWrap: 'wrap'}}>
         {[{k: 'general', l: '📈 GENERAL'}, {k: 'mensual', l: '📊 MENSUAL'}, {k: 'top', l: '🏅 TOP'}, {k: 'metas', l: '🎯 METAS'}, {k: 'cumplimiento', l: '✅ CUMPLIMIENTO'}].map(s => (
-          <button key={s.k} className={`tab ${subTab === s.k ? 'active' : ''}`} onClick={() => setSubTab(s.k as any)}>{s.l}</button>
+          <button key={s.k} className={`tab ${subTab === s.k ? 'active' : ''}`} onClick={() => setSubTab(s.k as typeof subTab)}>{s.l}</button>
         ))}
       </div>
 
@@ -433,7 +434,7 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
               <div style={{padding: '16px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
                 <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 600}}>Meta Mensual Global</div>
                 <div style={{fontSize: '20px', fontWeight: 800, color: 'var(--blue)'}}>{money(cumplimiento.metaGlobalMes)}</div>
-                <div style={{fontSize: '11px', color: 'var(--dim)', marginTop: '4px'}}>{colaboradores.filter(c => (c as any).planDiezmo > 0).length} diezmadores + {grupos.filter(g => (g as any).planOfrendasMensual > 0).length} grupos</div>
+                <div style={{fontSize: '11px', color: 'var(--dim)', marginTop: '4px'}}>{colaboradores.filter(c => c.planDiezmo > 0).length} diezmadores + {grupos.filter(g => (g.planOfrendasMensual || 0) > 0).length} grupos</div>
               </div>
               <div style={{padding: '16px', background: 'var(--gold-glow)', borderRadius: '12px', border: '1px solid var(--gold)', textAlign: 'center'}}>
                 <div style={{fontSize: '12px', color: 'var(--gold)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700}}>Meta Anual Global</div>
@@ -528,7 +529,7 @@ export function ResumenTab({ aportes, colaboradores, grupos, showToast }: Resume
                         <input type="number" min="0" step="0.01" defaultValue={g.planOfrendasMensual} onBlur={async (e) => {
                           const v = parseFloat(e.target.value) || 0;
                           if (v !== g.planOfrendasMensual) {
-                            await db.grupos.update(g.id, { planOfrendasMensual: v } as any);
+                            await db.grupos.update(g.id, { planOfrendasMensual: v });
                             showToast(`Meta de ${g.nombre} actualizada`);
                           }
                         }} style={{width: '90px', textAlign: 'right', padding: '4px 8px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--gold)', fontWeight: 600, fontSize: '13px'}} />
