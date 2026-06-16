@@ -9,6 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import type { Conversion } from '../lib/types';
+import { today, fmt, MS, accentStyle } from '../lib/utils';
 import { 
   exportConversionesPDF, 
   exportGruposMisionPDF, 
@@ -56,9 +57,7 @@ const syncMemberFromConversion = async (c: Conversion): Promise<string | null> =
     creado: now,
   });
   return miembroId;
-};
-
-import { today, fmt, accentStyle } from '../lib/utils';
+}
 
 const ESTADOS = ['Nuevo', 'Discipulado', 'Bautizado', 'Integrado', 'Apartado', 'Fallecido'] as const;
 const EST_BADGE: Record<string, string> = { Nuevo: 'badge-blue', Discipulado: 'badge-yellow', Bautizado: 'badge-green', Integrado: 'badge-purple', Apartado: 'badge-red', Fallecido: 'badge-gray' };
@@ -81,6 +80,8 @@ export default function MisionBiblica() {
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterZona, setFilterZona] = useState('');
+  const [filterAnoConv, setFilterAnoConv] = useState('');
+  const [filterMesConv, setFilterMesConv] = useState('');
 
   const [searchG, setSearchG] = useState('');
   const [filterGZona, setFilterGZona] = useState('');
@@ -155,9 +156,29 @@ const [fHijos, setFHijos] = useState('');
   const apaCount = convs.filter((c) => c.estado === 'Apartado').length;
   const falCount = convs.filter((c) => c.estado === 'Fallecido').length;
 
+  // Extract unique years from conversiones data
+  const anos = Array.from(
+    new Set(
+      convs
+        .filter((c) => c.fecha)
+        .map((c) => c.fecha?.slice(0, 4))
+        .filter(Boolean) as string[]
+    )
+  ).sort((a, b) => b.localeCompare(a)); // Sort descending (newest first)
+
+  // Extract unique months from conversiones data
+  const meses = Array.from(
+    new Set(
+      convs
+        .filter((c) => c.fecha)
+        .map((c) => c.fecha?.slice(5, 7))
+        .filter(Boolean) as string[]
+    )
+  ).sort(); // Sort ascending (Jan-Dec)
+
   const filtered = convs.filter((c) => {
     const s = `${c.nombre} ${c.apellido} ${c.zona} ${c.lider}`.toLowerCase();
-    return (!search || s.includes(search.toLowerCase())) && (!filterEstado || c.estado === filterEstado) && (!filterZona || c.zona === filterZona);
+    return (!search || s.includes(search.toLowerCase())) && (!filterEstado || c.estado === filterEstado) && (!filterZona || c.zona === filterZona) && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) && (!filterMesConv || c.fecha?.slice(5, 7) === filterMesConv);
   });
 
   const gruposFiltrados = grupos.filter((g) => {
@@ -414,21 +435,33 @@ const [fHijos, setFHijos] = useState('');
                 <div className="card-title">📋 Registro de Conversiones</div>
                 <div style={{ fontSize: 12, color: 'var(--dim)' }}>{convs.length} registros</div>
               </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona } })}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv } })}>📄 Exportar PDF</button>
             </div>
-           <div className="search-bar">
-             <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder…" value={search} onChange={(e) => setSearch(e.target.value)} />
-             <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
-               <option value="">Todos los estados</option>
-               {ESTADOS.map((e) => <option key={e}>{e}</option>)}
-               <option>Apartado</option>
-               <option>Fallecido</option>
-             </select>
-             <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
-               <option value="">Todas las zonas</option>
-               {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
-             </select>
-           </div>
+            <div className="search-bar">
+              <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
+                <option value="">Todos los estados</option>
+                {ESTADOS.map((e) => <option key={e}>{e}</option>)}
+                <option>Apartado</option>
+                <option>Fallecido</option>
+              </select>
+              <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
+                <option value="">Todas las zonas</option>
+                {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+              </select>
+              <select className="filter-select" value={filterAnoConv} onChange={(e) => setFilterAnoConv(e.target.value)}>
+                <option value="">Todos los años</option>
+                {anos.map((ano) => (
+                  <option key={ano} value={ano}>{ano}</option>
+                ))}
+              </select>
+              <select className="filter-select" value={filterMesConv} onChange={(e) => setFilterMesConv(e.target.value)}>
+                <option value="">Todos los meses</option>
+                {meses.map((mes) => (
+                  <option key={mes} value={mes}>{MS[parseInt(mes) - 1]}</option>
+                ))}
+              </select>
+            </div>
            {filtered.length === 0 ? (
              <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />
            ) : (
