@@ -171,3 +171,22 @@ export async function ensureZonas(): Promise<Zona[]> {
   await db.zonas.bulkAdd(seeds);
   return seeds;
 }
+
+export async function backfillHistorial(): Promise<void> {
+  const convs = await db.conversiones.toArray();
+  const updates: Promise<number>[] = [];
+  for (const c of convs) {
+    if (!c.historial || c.historial.length === 0) {
+      const estado = c.estado || 'Nuevo';
+      updates.push(
+        db.conversiones.update(c.id, {
+          historial: [{ fecha: c.fecha || c.creado?.split('T')[0] || '', estado, nota: 'Registro inicial (backfill)' }],
+        })
+      );
+    }
+  }
+  if (updates.length > 0) {
+    await Promise.all(updates);
+    console.log(`[Migrate] Backfill historial: ${updates.length} conversiones actualizadas`);
+  }
+}

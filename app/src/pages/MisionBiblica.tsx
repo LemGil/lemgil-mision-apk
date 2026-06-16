@@ -83,6 +83,9 @@ export default function MisionBiblica() {
   const [filterAnoConv, setFilterAnoConv] = useState('');
   const [filterMesConv, setFilterMesConv] = useState('');
 
+  const [globalAno, setGlobalAno] = useState('');
+  const [globalMes, setGlobalMes] = useState('');
+
   const [searchG, setSearchG] = useState('');
   const [filterGZona, setFilterGZona] = useState('');
   const [filterGEstado, setFilterGEstado] = useState('');
@@ -148,37 +151,41 @@ const [fHijos, setFHijos] = useState('');
   const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELider(''); setELiderCustom(false); setEParticipantes([]); setEPartCustom(''); setEContactos('0'); setEConvs('0'); setENotas(''); };
 
   const mo = new Date().toISOString().slice(0, 7);
-  const convCount = convs.length;
   const mesCount = convs.filter((c) => c.fecha?.startsWith(mo)).length;
+
+  // Helper híbrido: obtiene la fecha en que una conversión alcanzó un estado
+  // Usa historial si existe, fallback a fecha de registro
+  const getFechaEstado = (c: Conversion, estado: string): string => {
+    const entry = c.historial?.find((h) => h.estado === estado);
+    return entry?.fecha || c.fecha || '';
+  };
+
   const discCount = convs.filter((c) => c.estado === 'Discipulado').length;
   const bautCount = convs.filter((c) => c.estado === 'Bautizado').length;
   const intCount = convs.filter((c) => c.estado === 'Integrado').length;
   const apaCount = convs.filter((c) => c.estado === 'Apartado').length;
   const falCount = convs.filter((c) => c.estado === 'Fallecido').length;
 
-  // Extract unique years from conversiones data
+  // Extract unique years from ALL data sources
   const anos = Array.from(
-    new Set(
-      convs
-        .filter((c) => c.fecha)
-        .map((c) => c.fecha?.slice(0, 4))
-        .filter(Boolean) as string[]
-    )
-  ).sort((a, b) => b.localeCompare(a)); // Sort descending (newest first)
+    new Set([
+      ...convs.filter((c) => c.fecha).map((c) => c.fecha!.slice(0, 4)),
+      ...evangels.filter((e) => e.fecha).map((e) => e.fecha!.slice(0, 4)),
+    ])
+  ).filter(Boolean).sort((a, b) => b.localeCompare(a));
 
-  // Extract unique months from conversiones data
   const meses = Array.from(
-    new Set(
-      convs
-        .filter((c) => c.fecha)
-        .map((c) => c.fecha?.slice(5, 7))
-        .filter(Boolean) as string[]
-    )
-  ).sort(); // Sort ascending (Jan-Dec)
+    new Set([
+      ...convs.filter((c) => c.fecha).map((c) => c.fecha!.slice(5, 7)),
+      ...evangels.filter((e) => e.fecha).map((e) => e.fecha!.slice(5, 7)),
+    ])
+  ).filter(Boolean).sort();
 
   const filtered = convs.filter((c) => {
     const s = `${c.nombre} ${c.apellido} ${c.zona} ${c.lider}`.toLowerCase();
-    return (!search || s.includes(search.toLowerCase())) && (!filterEstado || c.estado === filterEstado) && (!filterZona || c.zona === filterZona) && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) && (!filterMesConv || c.fecha?.slice(5, 7) === filterMesConv);
+    const byLocal = (!search || s.includes(search.toLowerCase())) && (!filterEstado || c.estado === filterEstado) && (!filterZona || c.zona === filterZona) && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) && (!filterMesConv || c.fecha?.slice(5, 7) === filterMesConv);
+    const byGlobal = (!globalAno || c.fecha?.startsWith(globalAno)) && (!globalMes || c.fecha?.slice(5, 7) === globalMes);
+    return byLocal && byGlobal;
   });
 
   const gruposFiltrados = grupos.filter((g) => {
@@ -197,6 +204,11 @@ const [fHijos, setFHijos] = useState('');
       if (filterGEstado === 'saturado' && pct < 100) return false;
       if (filterGEstado === 'sin-meta' && capacidad > 0) return false;
     }
+    if (globalAno || globalMes) {
+      const convsEnRango = convs.filter(c => c.grupoId === g.id && c.fecha && (!globalAno || c.fecha.startsWith(globalAno)) && (!globalMes || c.fecha.slice(5, 7) === globalMes));
+      const miembrosEnRango = miembros.filter(m => m.grupoId === g.id && m.fechaIngreso && (!globalAno || m.fechaIngreso.startsWith(globalAno)) && (!globalMes || m.fechaIngreso.slice(5, 7) === globalMes));
+      if (convsEnRango.length === 0 && miembrosEnRango.length === 0) return false;
+    }
     return true;
   });
 
@@ -207,6 +219,8 @@ const [fHijos, setFHijos] = useState('');
     if (filterEZona && e.zona !== filterEZona) return false;
     if (filterEMinistro && e.lider !== filterEMinistro) return false;
     if (filterEMes && !e.fecha.startsWith(filterEMes)) return false;
+    if (globalAno && !e.fecha.startsWith(globalAno)) return false;
+    if (globalMes && e.fecha.slice(5, 7) !== globalMes) return false;
     return true;
   });
 
@@ -242,7 +256,7 @@ const [fHijos, setFHijos] = useState('');
       showToast(`${fNombre} ${fApellido} actualizado/a`);
     } else {
       const id = uuid();
-      const nuevo: Conversion = { id, ...data, historial: [], creado: new Date().toISOString() };
+      const nuevo: Conversion = { id, ...data, historial: data.estado && data.estado !== 'Nuevo' ? [{ fecha: data.fecha || today(), estado: data.estado, nota: 'Registro inicial' }] : [], creado: new Date().toISOString() };
       await db.conversiones.add(nuevo);
       const synced = await syncMemberFromConversion(nuevo);
       showToast(synced ? `🧑 ${fNombre} registrado e integrado → Miembros` : `${fNombre} ${fApellido} guardado/a correctamente`);
@@ -362,19 +376,39 @@ const [fHijos, setFHijos] = useState('');
   };
 
   const tabLabel = (tab: DataTab) => {
-    if (tab === 'conv') return `✝️ Conversiones (${convs.length})`;
-    if (tab === 'grupo') return `👥 Grupos (${grupos.length})`;
-    return `📋 Evangelismo (${evangels.length})`;
+    if (tab === 'conv') return `✝️ Conversiones (${filtered.length})`;
+    if (tab === 'grupo') return `👥 Grupos (${gruposFiltrados.length})`;
+    return `📋 Evangelismo (${evangelsFiltrados.length})`;
   };
 
   return (
     <Layout title="Misión Bíblica">
       <div className="page-mision">
+
+      {anos.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--dim)', fontWeight: 600 }}>📅 Filtrar por período:</span>
+          <select className="filter-select" value={globalAno} onChange={(e) => setGlobalAno(e.target.value)} style={{ maxWidth: 130 }}>
+            <option value="">Todos los años</option>
+            {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select className="filter-select" value={globalMes} onChange={(e) => setGlobalMes(e.target.value)} style={{ maxWidth: 130 }}>
+            <option value="">Todos los meses</option>
+            {meses.map((m) => <option key={m} value={m}>{MS[parseInt(m) - 1]}</option>)}
+          </select>
+          {(globalAno || globalMes) && (
+            <span style={{ fontSize: 11, color: 'var(--oro-apostolico)', fontWeight: 700 }}>
+              {globalAno || ''}{globalMes ? ` ${MS[parseInt(globalMes) - 1]}` : ''}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="kpis">
-        <KpiCard label="Conversiones 2026" value={convCount} icon="✝️" accent="var(--mision-purple)" sub={`este mes: ${mesCount}`} />
-        <KpiCard label="En Discipulado" value={discCount} icon="📖" accent="var(--oro-apostolico)" sub="seguimiento activo" />
-        <KpiCard label="Bautizados" value={bautCount} icon="💧" accent="var(--mision-blue)" sub="confirmados" />
-        <KpiCard label="Integrados" value={intCount} icon="🏘️" accent="var(--oro-luz)" sub="al ministerio" />
+        <KpiCard label={globalAno ? `Conversiones ${globalAno}` : 'Conversiones'} value={filtered.length} icon="✝️" accent="var(--mision-purple)" sub={globalMes ? `${MS[parseInt(globalMes) - 1]}: ${convs.filter((c) => c.fecha?.startsWith(globalAno || new Date().getFullYear().toString()) && c.fecha?.slice(5, 7) === globalMes).length}` : `este mes: ${mesCount}`} />
+        <KpiCard label={globalAno ? `Discipulado ${globalAno}` : 'En Discipulado'} value={globalAno || globalMes ? convs.filter((c) => c.estado === 'Discipulado' && (() => { const f = getFechaEstado(c, 'Discipulado'); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : discCount} icon="📖" accent="var(--oro-apostolico)" sub="seguimiento activo" />
+        <KpiCard label={globalAno ? `Bautizados ${globalAno}` : 'Bautizados'} value={globalAno || globalMes ? convs.filter((c) => c.estado === 'Bautizado' && (() => { const f = getFechaEstado(c, 'Bautizado'); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : bautCount} icon="💧" accent="var(--mision-blue)" sub="confirmados" />
+        <KpiCard label={globalAno ? `Integrados ${globalAno}` : 'Integrados'} value={globalAno || globalMes ? convs.filter((c) => c.estado === 'Integrado' && (() => { const f = getFechaEstado(c, 'Integrado'); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : intCount} icon="🏘️" accent="var(--oro-luz)" sub="al ministerio" />
         {apaCount > 0 && <KpiCard label="Apartados" value={apaCount} icon="🚪" accent="var(--red, #ef4444)" sub="se apartaron" />}
         {falCount > 0 && <KpiCard label="Fallecidos" value={falCount} icon="✝️" accent="var(--dim)" sub="en memoria" />}
       </div>

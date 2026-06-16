@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [impactView, setImpactView] = useState<'familias' | 'personas'>('personas');
   const [editMetas, setEditMetas] = useState(false);
   const [toast, setToast] = useState('');
+  const [filterAno, setFilterAno] = useState('');
 
   const [mMembresia, setMMembresia] = useState('500');
   const [mAcademia, setMAcademia] = useState('150');
@@ -65,37 +66,56 @@ export default function Dashboard() {
   const dateStr = today.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const mo = today.toISOString().slice(0, 7);
 
+  const anos = useMemo(() => {
+    const years = new Set<string>();
+    convs.forEach((c) => { if (c.fecha) years.add(c.fecha.slice(0, 4)); });
+    aportes.forEach((a) => { if (a.fecha) years.add(a.fecha.slice(0, 4)); });
+    entregas.forEach((e) => { if (e.fecha) years.add(e.fecha.slice(0, 4)); });
+    evangels.forEach((e) => { if (e.fecha) years.add(e.fecha.slice(0, 4)); });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [convs, aportes, entregas, evangels]);
+
+  const convsF = useMemo(() => filterAno ? convs.filter((c) => c.fecha?.startsWith(filterAno)) : convs, [convs, filterAno]);
+  const evangelsF = useMemo(() => filterAno ? evangels.filter((e) => e.fecha?.startsWith(filterAno)) : evangels, [evangels, filterAno]);
+  const aportesF = useMemo(() => filterAno ? aportes.filter((a) => a.fecha?.startsWith(filterAno)) : aportes, [aportes, filterAno]);
+  const entregasF = useMemo(() => filterAno ? entregas.filter((e) => e.fecha?.startsWith(filterAno)) : entregas, [entregas, filterAno]);
+
   const kpis = useMemo(() => {
-    const totalConv = convs.length;
-    const mesCount = convs.filter((c) => monthKey(c.fecha) === mo).length;
+    const totalConv = convsF.length;
+    const mesCount = filterAno
+      ? convsF.filter((c) => monthKey(c.fecha) === `${filterAno}-${String(today.getMonth() + 1).padStart(2, '0')}`).length
+      : convs.filter((c) => monthKey(c.fecha) === mo).length;
     const activos = grupos.filter((g) => g.miembros > 0).length;
     const totalMembers = grupos.reduce((s, g) => s + (g.miembros || 0), 0);
     const estActivos = estudiantes.filter((e) => e.estado === 'Activo').length;
-    const certCount = certs.length;
+    const certCount = filterAno
+      ? certs.filter((c) => c.emitido?.startsWith(filterAno)).length
+      : certs.length;
     return { totalConv, mesCount, activos, totalMembers, estActivos, certCount };
-  }, [convs, grupos, estudiantes, certs, mo]);
+  }, [convsF, grupos, estudiantes, certs, mo, filterAno, today]);
 
   const chart = useMemo(() => {
     const counts: Record<string, number> = {};
-    convs.forEach((c) => {
+    convsF.forEach((c) => {
       const k = monthKey(c.fecha);
       if (k) counts[k] = (counts[k] || 0) + 1;
     });
     const last: { key: string; label: string; val: number }[] = [];
+    const chartYear = filterAno ? parseInt(filterAno) : today.getFullYear();
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const d = new Date(chartYear, today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       last.push({ key, label: MS[d.getMonth()], val: counts[key] || 0 });
     }
     const max = Math.max(1, ...last.map((x) => x.val));
     const curKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     return last.map((x) => ({ ...x, pct: Math.round((x.val / max) * 100), highlight: x.key === curKey }));
-  }, [convs, today]);
+  }, [convsF, today, filterAno]);
 
   const activities = useMemo<Activity[]>(() => {
     const all: Activity[] = [];
-    convs.slice(-5).forEach((c) => all.push({ icon: '🌱', bg: 'var(--mision-purple-soft)', title: `${c.nombre} ${c.apellido} — ${c.estado}`, meta: `${c.zona} · ${c.lider || 'Sin líder'}`, time: relTime(c.creado) }));
-    evangels.slice(-5).forEach((e) => all.push({ icon: '📢', bg: 'var(--oro-luz-soft)', title: `${e.tipo} — ${e.contactos} contactos`, meta: `${e.zona} · ${e.lider || 'Sin líder'}`, time: relTime(e.creado) }));
+    convsF.slice(-5).forEach((c) => all.push({ icon: '🌱', bg: 'var(--mision-purple-soft)', title: `${c.nombre} ${c.apellido} — ${c.estado}`, meta: `${c.zona} · ${c.lider || 'Sin líder'}`, time: relTime(c.creado) }));
+    evangelsF.slice(-5).forEach((e) => all.push({ icon: '📢', bg: 'var(--oro-luz-soft)', title: `${e.tipo} — ${e.contactos} contactos`, meta: `${e.zona} · ${e.lider || 'Sin líder'}`, time: relTime(e.creado) }));
     estudiantes.slice(-5).forEach((e) => {
       const curso = cursos.find((c) => c.id === e.cursoId);
       all.push({ icon: '🎓', bg: 'var(--academia-teal-soft)', title: `${e.nombre} ${e.apellido} matriculado/a`, meta: curso ? `${curso.emoji} ${curso.nombre}` : 'Sin curso', time: relTime(e.creado) });
@@ -105,7 +125,7 @@ export default function Dashboard() {
       all.push({ icon: '🏆', bg: 'var(--gold-soft)', title: `Certificado emitido — ${c.calificacion}`, meta: est ? `${est.nombre} ${est.apellido}` : 'Estudiante', time: relTime(c.emitido) });
     });
     return all.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 5);
-  }, [convs, evangels, estudiantes, certs, cursos]);
+  }, [convsF, evangelsF, estudiantes, certs, cursos]);
 
   const alerts = useMemo<Alert[]>(() => {
     const out: Alert[] = [];
@@ -125,19 +145,21 @@ export default function Dashboard() {
   }, [grupos, estudiantes, cursos, evangels, kpis.mesCount, convs.length]);
 
   const impact = useMemo(() => {
-    const uniqIds = new Set(entregas.map((e) => e.beneficiarioId));
+    const uniqIds = new Set(entregasF.map((e) => e.beneficiarioId));
     const familias = uniqIds.size;
     const personas = beneficiarios
       .filter((b) => uniqIds.has(b.id))
       .reduce((s, b) => s + (b.familia || 1), 0);
     return { familias, personas };
-  }, [entregas, beneficiarios]);
+  }, [entregasF, beneficiarios]);
 
   const goals = useMemo(() => {
     const m = metasDoc || { membresia: 500, academia: 150, sostenimiento: 8000, familias: 200, personas: 800 };
-    const miembros = convs.filter((c) => c.estado === 'Integrado').length + kpis.totalMembers;
+    const miembros = convsF.filter((c) => c.estado === 'Integrado').length + kpis.totalMembers;
     const graduados = kpis.certCount;
-    const sostenimiento = aportes.filter((a) => monthKey(a.fecha) === mo).reduce((s, a) => s + (a.monto || 0), 0);
+    const sostenimiento = filterAno
+      ? aportesF.reduce((s, a) => s + (a.monto || 0), 0)
+      : aportesF.filter((a) => monthKey(a.fecha) === mo).reduce((s, a) => s + (a.monto || 0), 0);
     const impactCurrent = impactView === 'familias' ? impact.familias : impact.personas;
     const impactTotal = impactView === 'familias' ? m.familias : m.personas;
     return [
@@ -146,7 +168,7 @@ export default function Dashboard() {
       { label: `💰 Sostenimiento: $${m.sostenimiento.toLocaleString()}/mes`, current: sostenimiento, total: m.sostenimiento, color: 'var(--oro-apostolico)', prefix: '$' },
       { label: `🤲 ${impactView === 'familias' ? 'Familias' : 'Personas'} impactadas: ${impactTotal.toLocaleString()}`, current: impactCurrent, total: impactTotal, color: 'var(--manos-terracota)' },
     ];
-  }, [metasDoc, convs, kpis.totalMembers, kpis.certCount, aportes, mo, impactView, impact]);
+  }, [metasDoc, convsF, kpis.totalMembers, kpis.certCount, aportesF, mo, impactView, impact, filterAno]);
 
   const saveMetas = async () => {
     const membresia = parseInt(mMembresia) || 0;
@@ -178,6 +200,17 @@ export default function Dashboard() {
           {dateStr}
         </div>
       </div>
+
+      {anos.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <span style={{ fontSize: 12, color: 'var(--dim)', fontWeight: 600 }}>📅 Filtrar por año:</span>
+          <select className="filter-select" value={filterAno} onChange={(e) => setFilterAno(e.target.value)} style={{ maxWidth: 160 }}>
+            <option value="">Todos los años</option>
+            {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          {filterAno && <span style={{ fontSize: 11, color: 'var(--oro-apostolico)', fontWeight: 700 }}>Mostrando datos de {filterAno}</span>}
+        </div>
+      )}
 
       <div className="kpis">
         <KpiCard label="Conversiones Totales" value={kpis.totalConv} icon="✝️" accent="var(--mision-purple)" change={`▲ +${kpis.mesCount} este mes`} changeDir="up" />
@@ -281,6 +314,32 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {anos.length > 1 && (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div className="card-header">
+            <div className="card-title">📊 Resumen por Años</div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ minWidth: 500 }}>
+              <thead>
+                <tr><th>Año</th><th>Conversiones</th><th>Evangelismos</th><th>Aportes</th><th>Entregas</th></tr>
+              </thead>
+              <tbody>
+                {anos.map((a) => (
+                  <tr key={a} style={{ cursor: 'pointer', background: filterAno === a ? 'rgba(201,162,74,0.08)' : undefined }} onClick={() => setFilterAno(filterAno === a ? '' : a)}>
+                    <td style={{ fontWeight: 700 }}>{a}</td>
+                    <td>{convs.filter((c) => c.fecha?.startsWith(a)).length}</td>
+                    <td>{evangels.filter((e) => e.fecha?.startsWith(a)).length}</td>
+                    <td>${aportes.filter((ap) => ap.fecha?.startsWith(a)).reduce((s, ap) => s + (ap.monto || 0), 0).toLocaleString()}</td>
+                    <td>{entregas.filter((e) => e.fecha?.startsWith(a)).length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-header">
