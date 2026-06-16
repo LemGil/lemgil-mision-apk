@@ -21,6 +21,7 @@ export interface Conversion {
   notas: string;
   historial: HistorialEntry[];
   creado: string;
+  updatedAt?: number;
 }
 
 export interface HistorialEntry {

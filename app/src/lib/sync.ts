@@ -208,7 +208,8 @@ function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro creado`);
           break;
         case 'update':
-          const { error: uErr } = await supabase.from(supaTable).update(toLowerCaseKeys(data.changes)).eq('id', data.id);
+          const updatePayload = { ...data.changes, updatedAt: Date.now() };
+          const { error: uErr } = await supabase.from(supaTable).update(toLowerCaseKeys(updatePayload)).eq('id', data.id);
           if (uErr) throw uErr;
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro actualizado`);
           break;
@@ -281,6 +282,7 @@ async function pushAllLocal() {
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
+          rest.updatedAt = r.updatedAt || Date.now();
           return rest;
         });
         console.log(`[Sync] ⬆ ${table} → ${supaTable}: subiendo ${cleaned.length} registros locales...`);
@@ -327,6 +329,7 @@ export async function forcePushAllLocal() {
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
+          rest.updatedAt = r.updatedAt || Date.now();
           return rest;
         });
         console.log(`[Sync] ⬆ Forzando ${table} → ${supaTable}: ${cleaned.length} registros...`);
@@ -382,6 +385,11 @@ async function pullFromSupabase() {
         try {
           const existing = await (db as any)[table].get(record.id);
           if (existing) {
+            const localUpdated = existing.updatedAt || 0;
+            const remoteUpdated = record.updatedAt || 0;
+            if (remoteUpdated <= localUpdated) {
+              continue;
+            }
             const merged = { ...existing };
             for (const [key, val] of Object.entries(record)) {
               if (val !== null && val !== undefined) merged[key] = val;
