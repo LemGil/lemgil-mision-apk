@@ -208,8 +208,8 @@ function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro creado`);
           break;
         case 'update':
-          const updatePayload = { ...data.changes, updatedAt: Date.now() };
-          const { error: uErr } = await supabase.from(supaTable).update(toLowerCaseKeys(updatePayload)).eq('id', data.id);
+          const { updatedAt: _ignored, ...cleanChanges } = data.changes || {};
+          const { error: uErr } = await supabase.from(supaTable).update(toLowerCaseKeys(cleanChanges)).eq('id', data.id);
           if (uErr) throw uErr;
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro actualizado`);
           break;
@@ -274,7 +274,7 @@ async function pushAllLocal() {
         const localData = await (db as any)[table].toArray();
         if (localData.length === 0) continue;
         const cleaned = localData.map((r: any) => {
-          const { _primKey, ...rest } = r;
+          const { _primKey, updatedAt: _u, ...rest } = r;
           if (table === 'dadores') delete (rest as any).base;
           if (table === 'colaboradores') {
             delete (rest as any).planofrendatipo;
@@ -282,7 +282,6 @@ async function pushAllLocal() {
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
-          rest.updatedAt = r.updatedAt || Date.now();
           return rest;
         });
         console.log(`[Sync] ⬆ ${table} → ${supaTable}: subiendo ${cleaned.length} registros locales...`);
@@ -321,7 +320,7 @@ export async function forcePushAllLocal() {
         const localData = await (db as any)[table].toArray();
         if (localData.length === 0) continue;
         const cleaned = localData.map((r: any) => {
-          const { _primKey, ...rest } = r;
+          const { _primKey, updatedAt: _u, ...rest } = r;
           if (table === 'dadores') delete (rest as any).base;
           if (table === 'colaboradores') {
             delete (rest as any).planofrendatipo;
@@ -329,7 +328,6 @@ export async function forcePushAllLocal() {
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
-          rest.updatedAt = r.updatedAt || Date.now();
           return rest;
         });
         console.log(`[Sync] ⬆ Forzando ${table} → ${supaTable}: ${cleaned.length} registros...`);
