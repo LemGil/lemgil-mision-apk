@@ -145,13 +145,22 @@ async function processQueue() {
       switch (op.operation) {
         case 'create':
           if (op.data) {
-            const { error } = await supabase.from(toSupabase(op.table)).insert(toLowerCaseKeys(op.data));
+            // Skip records with null grupoId for conversiones
+            if (op.table === 'conversiones' && op.data.grupoId === null) {
+              console.log(`[Sync] ⏸ Saltando conversión con grupoId null: ${op.data.id}`);
+              break;
+            }
+            // Remove 'base' field for dadores (column doesn't exist in Supabase)
+            const payload = op.table === 'dadores' ? (({ base, ...rest }) => rest)(op.data) : op.data;
+            const { error } = await supabase.from(toSupabase(op.table)).insert(toLowerCaseKeys(payload));
             if (error) throw error;
           }
           break;
         case 'update':
           if (op.changes) {
-            const { error } = await supabase.from(toSupabase(op.table)).update(toLowerCaseKeys(op.changes)).eq('id', op.id);
+            // Remove 'base' field for dadores (column doesn't exist in Supabase)
+            const changesPayload = op.table === 'dadores' ? (({ base, ...rest }) => rest)(op.changes) : op.changes;
+            const { error } = await supabase.from(toSupabase(op.table)).update(toLowerCaseKeys(changesPayload)).eq('id', op.id);
             if (error) throw error;
           }
           break;
@@ -265,6 +274,13 @@ async function pushAllLocal() {
         if (localData.length === 0) continue;
         const cleaned = localData.map((r: any) => {
           const { _primKey, ...rest } = r;
+          if (table === 'dadores') delete (rest as any).base;
+          if (table === 'colaboradores') {
+            delete (rest as any).planofrendatipo;
+            delete (rest as any).planOfrendaTipo;
+            if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
+            if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
+          }
           return rest;
         });
         console.log(`[Sync] ⬆ ${table} → ${supaTable}: subiendo ${cleaned.length} registros locales...`);
@@ -304,6 +320,13 @@ export async function forcePushAllLocal() {
         if (localData.length === 0) continue;
         const cleaned = localData.map((r: any) => {
           const { _primKey, ...rest } = r;
+          if (table === 'dadores') delete (rest as any).base;
+          if (table === 'colaboradores') {
+            delete (rest as any).planofrendatipo;
+            delete (rest as any).planOfrendaTipo;
+            if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
+            if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
+          }
           return rest;
         });
         console.log(`[Sync] ⬆ Forzando ${table} → ${supaTable}: ${cleaned.length} registros...`);

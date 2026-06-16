@@ -78,6 +78,8 @@ database.version(6).stores({
 }).upgrade(async (tx) => {
   await tx.table('conversiones').toCollection().modify((c: any) => {
     if (typeof c.grupoId === 'undefined') c.grupoId = null;
+    if (typeof c.fechabautismo === 'undefined') c.fechabautismo = null;
+    if (typeof c.apellido === 'undefined') c.apellido = '';
   });
 });
 
