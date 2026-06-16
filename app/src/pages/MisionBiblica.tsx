@@ -123,6 +123,7 @@ const [fBautizado, setFBautizado] = useState(false);
 const [fFechaBautismo, setFFechaBautismo] = useState('');
 const [fConyuge, setFConyuge] = useState('');
 const [fHijos, setFHijos] = useState('');
+const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; nota: string }[]>([]);
   const [gNombre, setGNombre] = useState('');
   const [gZona, setGZona] = useState('');
   const [gLider, setGLider] = useState('');
@@ -146,7 +147,7 @@ const [fHijos, setFHijos] = useState('');
   const [tempEst, setTempEst] = useState<string | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
-  const resetForm = () => { setEditConvId(null); setFNombre(''); setFApellido(''); setFTelefono(''); setFEdad(''); setFDireccion(''); setFFamilia('No'); setFFecha(today()); setFZona(''); setFLider(''); setFLiderCustom(false); setFEstado('Nuevo'); setFGrupoId(''); setFNotas(''); setFEmail(''); setFProfesion(''); setFBautizado(false); setFFechaBautismo(''); setFConyuge(''); setFHijos(''); };
+  const resetForm = () => { setEditConvId(null); setFNombre(''); setFApellido(''); setFTelefono(''); setFEdad(''); setFDireccion(''); setFFamilia('No'); setFFecha(today()); setFZona(''); setFLider(''); setFLiderCustom(false); setFEstado('Nuevo'); setFGrupoId(''); setFNotas(''); setFEmail(''); setFProfesion(''); setFBautizado(false); setFFechaBautismo(''); setFConyuge(''); setFHijos(''); setFHistorial([]); };
   const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); setGMeta(''); };
   const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELider(''); setELiderCustom(false); setEParticipantes([]); setEPartCustom(''); setEContactos('0'); setEConvs('0'); setENotas(''); };
 
@@ -239,13 +240,14 @@ const [fHijos, setFHijos] = useState('');
   setFEmail(c.email || ''); setFProfesion(c.profesion || '');
   setFBautizado(!!c.bautizado); setFFechaBautismo(c.fechaBautismo || '');
   setFConyuge(c.conyuge || ''); setFHijos(c.hijos || '');
+  setFHistorial(c.historial ? [...c.historial] : []);
   setModal('conv');
   };
   const saveConv = async () => {
     if (!fNombre.trim() || !fApellido.trim()) return showToast('Nombre y apellido son obligatorios');
     if (!fZona) return showToast('Selecciona una zona');
     if (!fLider.trim()) return showToast('Selecciona o escribe el hermano mayor');
-    const data = { nombre: fNombre.trim(), apellido: fApellido.trim(), telefono: fTelefono.trim(), edad: fEdad, direccion: fDireccion.trim(), familia: fFamilia, fecha: fFecha, zona: fZona, lider: fLider.trim(), grupoId: fGrupoId, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), hermanoMayorId: editConvId ? (convs.find(x => x.id === editConvId)?.hermanoMayorId ?? null) : null, email: fEmail.trim(), profesion: fProfesion.trim(), bautizado: fBautizado, fechaBautismo: fFechaBautismo, conyuge: fConyuge.trim(), hijos: fHijos.trim() };
+    const data = { nombre: fNombre.trim(), apellido: fApellido.trim(), telefono: fTelefono.trim(), edad: fEdad, direccion: fDireccion.trim(), familia: fFamilia, fecha: fFecha, zona: fZona, lider: fLider.trim(), grupoId: fGrupoId, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), hermanoMayorId: editConvId ? (convs.find(x => x.id === editConvId)?.hermanoMayorId ?? null) : null, email: fEmail.trim(), profesion: fProfesion.trim(), bautizado: fBautizado, fechaBautismo: fFechaBautismo, conyuge: fConyuge.trim(), hijos: fHijos.trim(), historial: fHistorial };
     if (editConvId) {
       await db.conversiones.update(editConvId, data);
       const c = convs.find((x) => x.id === editConvId);
@@ -810,6 +812,21 @@ const [fHijos, setFHijos] = useState('');
         {/* ─── SECCIÓN: NOTAS ─── */}
         <div className="form-section" style={{ marginTop: 16 }}>📝 Notas</div>
         <div className="form-group"><textarea className="form-textarea" value={fNotas} onChange={(e) => setFNotas(e.target.value)} placeholder="¿Cómo fue contactado?" style={{ minHeight: 55 }} /></div>
+
+        {/* ─── SECCIÓN: HISTORIAL DE ESTADOS ─── */}
+        <div className="form-section" style={{ marginTop: 16 }}>📋 Historial de Estados</div>
+        <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>Registra las fechas reales de cada cambio de estado</div>
+        {fHistorial.length > 0 && fHistorial.map((h, i) => (
+          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, background: 'var(--surface-2)', borderRadius: 8, padding: '8px 10px' }}>
+            <input className="form-input" type="date" value={h.fecha} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], fecha: e.target.value }; setFHistorial(n); }} style={{ flex: '0 0 140px' }} />
+            <select className="form-select" value={h.estado} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], estado: e.target.value }; setFHistorial(n); }} style={{ flex: 1 }}>
+              {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
+            </select>
+            <input className="form-input" value={h.nota} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], nota: e.target.value }; setFHistorial(n); }} placeholder="Nota (opcional)" style={{ flex: 1 }} />
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFHistorial(fHistorial.filter((_, j) => j !== i))} title="Eliminar">🗑️</button>
+          </div>
+        ))}
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFHistorial([...fHistorial, { fecha: today(), estado: fEstado, nota: '' }])} style={{ marginTop: 4 }}>➕ Agregar entrada al historial</button>
       </Modal>
 
       {/* MODAL: Grupo (Nuevo / Editar) */}
