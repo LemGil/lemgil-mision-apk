@@ -331,7 +331,7 @@ export default function Negocios() {
                 doc.text(`Activos: ${negocios.filter(n => n.estado === 'Activo').length} · Ingresos: $${negocios.filter(n => n.estado === 'Activo').reduce((s, n) => s + (n.ingresosMensuales || 0), 0).toLocaleString()}/mes`, 14, 34);
                 const rows = etapaDist.map(e => [e.key, e.count, `${e.pct}%`]);
                 autoTable(doc, { startY: 40, head: [['Etapa', 'Cantidad', '%']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
-                const lastY = (doc as any).lastAutoTable?.finalY || 40;
+                const lastY = doc.lastAutoTable?.finalY || 40;
                 const rubRows = rubroDist.map(r => [r.key, r.count, `${Math.round((r.count / (rubroDist.reduce((s, x) => s + x.count, 0) || 1)) * 100)}%`]);
                 autoTable(doc, { startY: lastY + 10, head: [['Rubro', 'Cantidad', '%']], body: rubRows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
                 doc.save('lemgil-resumen-negocios.pdf');

@@ -58,7 +58,7 @@ const syncMemberFromConversion = async (c: Conversion): Promise<string | null> =
   return miembroId;
 };
 
-import { today, fmt } from '../lib/utils';
+import { today, fmt, accentStyle } from '../lib/utils';
 
 const ESTADOS = ['Nuevo', 'Discipulado', 'Bautizado', 'Integrado', 'Apartado', 'Fallecido'] as const;
 const EST_BADGE: Record<string, string> = { Nuevo: 'badge-blue', Discipulado: 'badge-yellow', Bautizado: 'badge-green', Integrado: 'badge-purple', Apartado: 'badge-red', Fallecido: 'badge-gray' };
@@ -81,7 +81,6 @@ export default function MisionBiblica() {
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterZona, setFilterZona] = useState('');
-  const [showIntegrados, setShowIntegrados] = useState(false);
 
   const [searchG, setSearchG] = useState('');
   const [filterGZona, setFilterGZona] = useState('');
@@ -157,7 +156,6 @@ const [fHijos, setFHijos] = useState('');
   const falCount = convs.filter((c) => c.estado === 'Fallecido').length;
 
   const filtered = convs.filter((c) => {
-    if (!showIntegrados && c.estado === 'Integrado') return false;
     const s = `${c.nombre} ${c.apellido} ${c.zona} ${c.lider}`.toLowerCase();
     return (!search || s.includes(search.toLowerCase())) && (!filterEstado || c.estado === filterEstado) && (!filterZona || c.zona === filterZona);
   });
@@ -408,69 +406,61 @@ const [fHijos, setFHijos] = useState('');
         )}
       </div>
 
-      {/* TAB: Conversiones */}
-      {dataTab === 'conv' && (
-        <div className="card">
-           <div className="card-header">
-             <div style={{ display: 'flex', flexDirection: 'column' }}>
-               <div className="card-title">📋 Registro de Conversiones</div>
-               <div style={{ fontSize: 12, color: 'var(--dim)' }}>{showIntegrados ? convs.length : convs.filter(c => c.estado !== 'Integrado').length} de {convs.length} registros{intCount > 0 && !showIntegrados && ` · ${intCount} ya integrados ocultos`}</div>
-             </div>
-             <button className="btn btn-secondary btn-sm" onClick={() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona } })}>📄 Exportar PDF</button>
+       {/* TAB: Conversiones */}
+       {dataTab === 'conv' && (
+         <div className="card">
+            <div className="card-header">
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div className="card-title">📋 Registro de Conversiones</div>
+                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{convs.length} registros</div>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona } })}>📄 Exportar PDF</button>
+            </div>
+           <div className="search-bar">
+             <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder…" value={search} onChange={(e) => setSearch(e.target.value)} />
+             <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
+               <option value="">Todos los estados</option>
+               {ESTADOS.map((e) => <option key={e}>{e}</option>)}
+               <option>Apartado</option>
+               <option>Fallecido</option>
+             </select>
+             <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
+               <option value="">Todas las zonas</option>
+               {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+             </select>
            </div>
-          <div className="search-bar">
-            <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
-              <option value="">Todos los estados</option>
-              {ESTADOS.map((e) => <option key={e}>{e}</option>)}
-              <option>Apartado</option>
-              <option>Fallecido</option>
-            </select>
-            <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
-              <option value="">Todas las zonas</option>
-              {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
-            </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: showIntegrados ? 'var(--green)' : 'var(--dim)', cursor: 'pointer', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, background: showIntegrados ? 'rgba(61,122,79,.1)' : 'var(--bg-input)', userSelect: 'none' }}>
-              <input type="checkbox" checked={showIntegrados} onChange={(e) => setShowIntegrados(e.target.checked)} style={{ cursor: 'pointer' }} />
-              Mostrar también Integrados
-            </label>
-          </div>
-          {filtered.length === 0 ? (
-            convs.length === 0 ? (
-              <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />
-            ) : (
-              <EmptyState icon="✅" title="Sin conversiones en proceso" sub={intCount > 0 ? `Tienes ${intCount} conversión(es) ya integrada(s) — marca "Mostrar también Integrados" para verlas` : 'Ajusta los filtros para ver resultados'} />
-            )
-          ) : (
-            <table className="data-table">
-              <thead><tr><th>#</th><th>Nombre</th><th>Zona</th><th>Fecha</th><th>Mayor</th><th>Grupo</th><th>Estado</th><th>Acciones</th></tr></thead>
-              <tbody>
-                {filtered.map((c, i) => {
-                  const grupoAsignado = c.grupoId ? grupos.find(g => g.id === c.grupoId) : null;
-                  return (
-                  <tr key={c.id}>
-                    <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
-                    <td><strong>{c.nombre} {c.apellido}</strong>{c.telefono && <><br /><span style={{ fontSize: 10, color: 'var(--dim)' }}>{c.telefono}</span></>}</td>
-                    <td>{c.zona || '—'}</td>
-                    <td>{fmt(c.fecha)}</td>
-                    <td>{c.lider || '—'}</td>
-                    <td>{grupoAsignado ? <span style={{ padding: '3px 8px', borderRadius: '6px', background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: '11px', fontWeight: 700, border: '1px solid var(--gold)' }}>👥 {grupoAsignado.nombre}</span> : <span style={{ color: 'var(--dim)', fontSize: '11px' }}>—</span>}</td>
-                    <td><span className={`badge ${EST_BADGE[c.estado] || 'badge-blue'}`}>{c.estado}</span>{c.estado === 'Integrado' && <span style={{ marginLeft: 4, padding: '2px 6px', borderRadius: 6, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 10, fontWeight: 700, border: '1px solid var(--gold)' }}>✓ Miembro</span>}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => openDetail(c.id)}>👁 Ver</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => openEditConv(c.id)}>✏️ Editar</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => quickAdv(c.id)}>⬆ Estado</button>
-                      </div>
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+           {filtered.length === 0 ? (
+             <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />
+           ) : (
+             <table className="data-table">
+               <thead><tr><th>#</th><th>Nombre</th><th>Zona</th><th>Fecha</th><th>Mayor</th><th>Grupo</th><th>Estado</th><th>Acciones</th></tr></thead>
+               <tbody>
+                 {filtered.map((c, i) => {
+                   const grupoAsignado = c.grupoId ? grupos.find(g => g.id === c.grupoId) : null;
+                   return (
+                   <tr key={c.id}>
+                     <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
+                     <td><strong>{c.nombre} {c.apellido}</strong>{c.telefono && <><br /><span style={{ fontSize: 10, color: 'var(--dim)' }}>{c.telefono}</span></>}</td>
+                     <td>{c.zona || '—'}</td>
+                     <td>{fmt(c.fecha)}</td>
+                     <td>{c.lider || '—'}</td>
+                     <td>{grupoAsignado ? <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: '11px', fontWeight: 700, border: '1px solid var(--gold)', whiteSpace: 'nowrap' }}>👥 {grupoAsignado.nombre}</span> : <span style={{ color: 'var(--dim)', fontSize: '11px' }}>—</span>}</td>
+                     <td><span className={`badge ${EST_BADGE[c.estado] || 'badge-blue'}`}>{c.estado}</span>{c.estado === 'Integrado' && <><br /><span style={{ padding: '1px 5px', borderRadius: 4, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 9, fontWeight: 700, border: '1px solid var(--gold)' }}>✓ Miembro</span></>}</td>
+                     <td>
+                       <div style={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
+                         <button className="btn btn-secondary btn-sm" onClick={() => openDetail(c.id)}>👁</button>
+                         <button className="btn btn-secondary btn-sm" onClick={() => openEditConv(c.id)}>✏️</button>
+                         <button className="btn btn-secondary btn-sm" onClick={() => quickAdv(c.id)}>⬆</button>
+                       </div>
+                     </td>
+                   </tr>
+                   );
+                 })}
+               </tbody>
+             </table>
+           )}
+         </div>
+       )}
 
       {/* TAB: Grupos */}
       {dataTab === 'grupo' && (
@@ -852,22 +842,22 @@ const [fHijos, setFHijos] = useState('');
 
             {/* STATS */}
             <div className="kpis" style={{ marginBottom: 20 }}>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--gold)' }}>
+              <div className="kpi" style={accentStyle('var(--gold)')}>
                 <div className="kpi-label">📅 Días en proceso</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{diasEnProceso}</div>
                 <div className="kpi-sub">desde {fmt(selConv.fecha)}</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: ESTADOS_COLOR[idxActual] || 'var(--gold)' }}>
+              <div className="kpi" style={accentStyle(ESTADOS_COLOR[idxActual] || 'var(--gold)')}>
                 <div className="kpi-label">⏱️ En estado actual</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{diasEnEstado}</div>
                 <div className="kpi-sub">{diasEnEstado === 0 ? 'cambió hoy' : `hace ${diasEnEstado} ${diasEnEstado === 1 ? 'día' : 'días'}`}</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--green)' }}>
+              <div className="kpi" style={accentStyle('var(--green)')}>
                 <div className="kpi-label">🎯 Próximo objetivo</div>
                 <div className="kpi-value" style={{ fontSize: 16 }}>{proxEstado ? `${ESTADOS_EMOJI[proxEstado]} ${proxEstado}` : '✓ Completo'}</div>
                 <div className="kpi-sub">{proxEstado ? `avanzar a ${proxEstado}` : 'proceso finalizado'}</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--purple)' }}>
+              <div className="kpi" style={accentStyle('var(--purple)')}>
                 <div className="kpi-label">📊 Progreso</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{progreso}%</div>
                 <div className="kpi-sub">paso {idxActual + 1} de {ESTADOS.length}</div>

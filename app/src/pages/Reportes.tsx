@@ -107,8 +107,8 @@ export default function Reportes() {
     const bienComunDiezmos = apComunDiezmos;
     const bienComunOfrendas = apComunOfrendas;
     const bienComunTotal = apComunTotal;
-    const bienComunGruposPlan = grupos.reduce((s, g) => s + ((g as any).planOfrendasMensual || 0), 0);
-    const bienComunPlan = diezmadores.reduce((s, c) => s + ((c as any).planDiezmo || 0), 0) + bienComunGruposPlan;
+    const bienComunGruposPlan = grupos.reduce((s, g) => s + (g.planOfrendasMensual || 0), 0);
+    const bienComunPlan = diezmadores.reduce((s, c) => s + (c.planDiezmo || 0), 0) + bienComunGruposPlan;
 
     const colaboradoresAyuda = apRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
     const colaboradoresMisiones = apRango.filter((a) => a.tipo === 'Misión').reduce((s, a) => s + (a.monto || 0), 0);

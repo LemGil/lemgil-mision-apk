@@ -10,3 +10,11 @@ declare module 'virtual:pwa-register' {
 
   export function registerSW(options?: RegisterSWOptions): (reloadPage?: boolean) => Promise<void>
 }
+
+interface JsPDFWithAutoTable {
+  lastAutoTable?: { finalY: number };
+}
+
+declare module 'jspdf' {
+  interface jsPDF extends JsPDFWithAutoTable {}
+}

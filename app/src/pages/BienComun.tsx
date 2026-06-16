@@ -14,7 +14,7 @@ import {
 import { CsvImportButton } from '../components/CsvImportButton';
 import { ResumenTab } from '../components/biencomun/ResumenTab';
 import { OfrendasGruposTab } from '../components/biencomun/OfrendasGruposTab';
-import { today, monthKey, money, MS_SHORT } from '../lib/utils';
+import { today, monthKey, money, MS_SHORT, accentStyle } from '../lib/utils';
 
 type Tab = 'registros' | 'diezmadores' | 'resumen' | 'ofrendasGrupos' | 'planes';
 type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoPlan' | 'delTipoPlan' | 'planDiezmador' | 'delPlanDiezmador';
@@ -234,22 +234,22 @@ export default function BienComun() {
   return (
     <Layout title="Bien Común">
         <div className="kpis">
-            <div className="kpi" style={{'--accent': 'var(--gold)'} as any}>
+            <div className="kpi" style={accentStyle('var(--gold)')}>
                 <div className="kpi-label">Total Recaudado</div>
                 <div className="kpi-value">{money(kpisGlobales.totalRec)}</div>
                 <div className="kpi-icon">💰</div>
             </div>
-            <div className="kpi" style={{'--accent': 'var(--green)'} as any}>
+            <div className="kpi" style={accentStyle('var(--green)')}>
                 <div className="kpi-label">Diezmos Mes</div>
                 <div className="kpi-value">{money(kpisGlobales.diezmes)}</div>
                 <div className="kpi-icon">📅</div>
             </div>
-            <div className="kpi" style={{'--accent': 'var(--purple)'} as any}>
+            <div className="kpi" style={accentStyle('var(--purple)')}>
                 <div className="kpi-label">Ofrendas Mes</div>
                 <div className="kpi-value">{money(kpisGlobales.ofrmes)}</div>
                 <div className="kpi-icon">🎁</div>
             </div>
-            <div className="kpi" style={{'--accent': 'var(--blue)'} as any}>
+            <div className="kpi" style={accentStyle('var(--blue)')}>
                 <div className="kpi-label">Diezmadores Activos</div>
                 <div className="kpi-value">{kpisGlobales.activos}</div>
                 <div className="kpi-icon">🙏</div>
@@ -427,6 +427,7 @@ export default function BienComun() {
                                              <div style={{color: 'var(--gold)', fontSize: '13px'}}>{d.zona || 'Sin zona'}</div>
                                          </div>
                                          <span className={`badge ${d.estado === 'Activo' ? 'badge-green' : 'badge-red'}`} style={{fontSize: '11px', padding: '4px 12px'}}>{d.estado}</span>
+                                         <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
                                     <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
                                      </div>
                                      <div style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginBottom: '8px', color: 'var(--dim)'}}>
@@ -651,7 +652,7 @@ export default function BienComun() {
                 <div className="form-group"><label className="form-label">Notas</label><textarea className="form-textarea" value={aNotas} onChange={e => setANotas(e.target.value)} /></div>
             </div>
         </Modal>
-        <Modal open={modal === 'verD'} onClose={() => setModal(null)} title={`🙏 Detalle del Diezmador`} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button><button className="btn btn-gold" onClick={() => { if (viewDiezmador) handleEditDiezmador(viewDiezmador); }}>✏️ Editar Diezmador</button></>}>
+        <Modal open={modal === 'verD'} onClose={() => setModal(null)} title={`🙏 Detalle del Diezmador`} footer={<><button className="btn btn-danger btn-sm" onClick={() => { setModal('delD'); if (viewDiezmador) setSelectedId(viewDiezmador.id); }}>🗑️ Eliminar</button><button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button><button className="btn btn-gold" onClick={() => { if (viewDiezmador) handleEditDiezmador(viewDiezmador); }}>✏️ Editar Diezmador</button></>}>
             {viewDiezmador && (() => {
                 const regs = aportes.filter(a => a.diezmadorId === viewDiezmador.id);
                 const total = regs.reduce((s, a) => s + (a.monto || 0), 0);

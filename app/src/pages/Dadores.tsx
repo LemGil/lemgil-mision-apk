@@ -12,7 +12,7 @@ import { db } from '../lib/database';
 import type { Colaborador, Aporte } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-import { today, fmt, money, MS_SHORT } from '../lib/utils';
+import { today, fmt, money, MS_SHORT, accentStyle } from '../lib/utils';
 
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Pausado: 'badge-yellow', Inactivo: 'badge-red' };
 const TIPO_BADGE: Record<string, string> = { Persona: 'badge-blue', Empresa: 'badge-purple', Iglesia: 'badge-yellow' };
@@ -51,7 +51,7 @@ const exportDadoresPDF = (dadores: Colaborador[], aportes: Aporte[]) => {
       return [a.fecha, d ? `${d.nombre} ${d.apellido}` : '—', a.tipo, a.metodo, `$${a.monto.toLocaleString()}`, a.referencia || ''];
     });
 
-  const lastY = (doc as any).lastAutoTable?.finalY || 34;
+  const lastY = doc.lastAutoTable?.finalY || 34;
   doc.setFontSize(12);
   doc.setTextColor(0);
   doc.text('Aportes del Mes', 14, lastY + 14);
@@ -649,7 +649,7 @@ export default function Dadores() {
             {subTab === 'general' && (
               <>
                 <div className="kpis" style={{marginBottom: '24px'}}>
-                  <div className="kpi" style={{'--accent': 'var(--gold)'} as any}>
+                  <div className="kpi" style={accentStyle('var(--gold)')}>
                     <div className="kpi-label">Total Recaudado</div>
                     <div className="kpi-value">{money(resumenAnual.total)}</div>
                     {resumenCompleto.variacionTotal !== null && (
@@ -660,13 +660,13 @@ export default function Dadores() {
                     <div className="kpi-icon">💰</div>
                   </div>
                   {resumenAnual.porTipo.map(t => (
-                    <div key={t.tipo} className="kpi" style={{'--accent': 'var(--blue)'} as any}>
+                    <div key={t.tipo} className="kpi" style={accentStyle('var(--blue)')}>
                       <div className="kpi-label">{t.tipo}</div>
                       <div className="kpi-value">{money(t.total)}</div>
                       <div className="kpi-icon">📊</div>
                     </div>
                   ))}
-                  <div className="kpi" style={{'--accent': 'var(--green)'} as any}>
+                  <div className="kpi" style={accentStyle('var(--green)')}>
                     <div className="kpi-label">Colaboradores Activos</div>
                     <div className="kpi-value">{resumenCompleto.activosAnio}</div>
                     <div style={{fontSize: '12px', fontWeight: 600, marginTop: '4px', color: 'var(--dim)'}}>de {dadores.length} registrados</div>

@@ -18,7 +18,7 @@ import { CsvImportButton } from '../components/CsvImportButton';
 const NIVEL_BADGE: Record<string, string> = { Basico: 'badge-blue', Intermedio: 'badge-yellow', Avanzado: 'badge-red' };
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Completado: 'badge-purple', Pausado: 'badge-yellow' };
 const CAL_BADGE: Record<string, string> = { Aprobado: 'badge-green', Sobresaliente: 'badge-purple', 'Con Honores': 'badge-yellow' };
-import { today, fmt } from '../lib/utils';
+import { today, fmt, accentStyle } from '../lib/utils';
 
 type Tab = 'cursos' | 'estudiantes' | 'certificados';
 
@@ -682,22 +682,22 @@ export default function Academia() {
 
             {/* ─── KPIS ─── */}
             <div className="kpis" style={{ marginBottom: 20 }}>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--blue)' }}>
+              <div className="kpi" style={accentStyle('var(--blue)')}>
                 <div className="kpi-label">Cursos Totales</div>
                 <div className="kpi-value" style={{ fontSize: 20 }}>{selEstData.totalCursos}</div>
                 <div className="kpi-sub">incluye actual</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--gold)' }}>
+              <div className="kpi" style={accentStyle('var(--gold)')}>
                 <div className="kpi-label">Certificados</div>
                 <div className="kpi-value" style={{ fontSize: 20 }}>{selEstData.myCerts.length}</div>
                 <div className="kpi-sub">obtidos</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--green)' }}>
+              <div className="kpi" style={accentStyle('var(--green)')}>
                 <div className="kpi-label">Estado</div>
                 <div className="kpi-value" style={{ fontSize: 16 }}>{selEst!.estado}</div>
                 <div className="kpi-sub">estatus académico</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--purple)' }}>
+              <div className="kpi" style={accentStyle('var(--purple)')}>
                 <div className="kpi-label">Progreso</div>
                 <div className="kpi-value" style={{ fontSize: 16 }}>{selEstData.totalCursos > 0 ? `${Math.round((selEstData.myCerts.length / selEstData.totalCursos) * 100)}%` : '—'}</div>
                 <div className="kpi-sub">completado</div>
@@ -798,7 +798,7 @@ export default function Academia() {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Tipo</label>
-                <select className="form-select" value={qhTipo} onChange={(e) => setQHTipo(e.target.value as any)}>
+                <select className="form-select" value={qhTipo} onChange={(e) => setQHTipo(e.target.value as 'Conversión' | 'Bautismo' | 'Discipulado' | 'Curso Completado' | 'Integración' | 'Liderazgo' | 'Matrimonio' | 'Otro')}>
                   <option>Conversión</option><option>Bautismo</option><option>Discipulado</option>
                   <option>Curso Completado</option><option>Integración</option><option>Liderazgo</option>
                   <option>Matrimonio</option><option>Otro</option>

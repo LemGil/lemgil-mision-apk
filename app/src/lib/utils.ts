@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 export const today = () => new Date().toISOString().split('T')[0];
 
 export const fmt = (d: string) => {
@@ -21,3 +23,5 @@ export const MS_FULL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', '
 export function q(search: string, text: string) {
   return search && !text.toLowerCase().includes(search.toLowerCase());
 }
+
+export const accentStyle = (color: string): CSSProperties => ({ '--accent': color } as CSSProperties);

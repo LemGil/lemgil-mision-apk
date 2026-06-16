@@ -345,9 +345,9 @@ export default function ManosAbiertas() {
     if (!e) return;
     setEditEntId(id);
     setECampana(e.campanaId);
-    setEBenefOrigen((e as any).beneficiarioTipo || 'Manual');
+    setEBenefOrigen((e.beneficiarioTipo as 'Convertido' | 'Miembro' | 'Manual') || 'Manual');
     setEBenefId(e.beneficiarioId || '');
-    setEBenefManual((e as any).beneficiarioNombre || '');
+    setEBenefManual(e.beneficiarioNombre ?? '');
     setEFecha(e.fecha);
     setETipo(e.tipo);
     setECant(String(e.cantidad));
@@ -787,7 +787,7 @@ export default function ManosAbiertas() {
         >
           <div className="form-section" style={{ color: typeAccent }}>Datos del Beneficiario ({benefType})</div>
           <div className="form-row" style={{ border: `2px solid ${typeAccent}`, padding: '16px', borderRadius: '12px' }}>
-            <div className="form-group"><label className="form-label">Origen</label><select className="form-select" value={benefSource} onChange={(e) => { setBenefSource(e.target.value as any); setBenefSourceId(''); }}><option value="Manual">Manual</option><option value="Convertido">Converso (Misión)</option><option value="Miembro">Miembro (Iglesia)</option></select></div>
+            <div className="form-group"><label className="form-label">Origen</label><select className="form-select" value={benefSource} onChange={(e) => { setBenefSource(e.target.value as 'Convertido' | 'Miembro' | 'Manual'); setBenefSourceId(''); }}><option value="Manual">Manual</option><option value="Convertido">Converso (Misión)</option><option value="Miembro">Miembro (Iglesia)</option></select></div>
             
             {benefSource === 'Convertido' && (
               <div className="form-group"><label className="form-label">Converso *</label><select className="form-select" value={benefSourceId} onChange={(e) => setBenefSourceId(e.target.value)}><option value="">Seleccionar converso…</option>{conversiones.map((c) => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select></div>
@@ -796,7 +796,7 @@ export default function ManosAbiertas() {
               <div className="form-group"><label className="form-label">Miembro *</label><select className="form-select" value={benefSourceId} onChange={(e) => setBenefSourceId(e.target.value)}><option value="">Seleccionar miembro…</option>{miembros.map((m) => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}</select></div>
             )}
 
-            <div className="form-group"><label className="form-label">Tipo</label><select className="form-select" value={benefType} onChange={(e) => setBenefType(e.target.value as any)}><option value="Persona">Persona</option><option value="Casa de Familia">Casa de Familia</option><option value="Grupo">Grupo</option><option value="Vulnerable">Vulnerable</option></select></div>
+            <div className="form-group"><label className="form-label">Tipo</label><select className="form-select" value={benefType} onChange={(e) => setBenefType(e.target.value as 'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable')}><option value="Persona">Persona</option><option value="Casa de Familia">Casa de Familia</option><option value="Grupo">Grupo</option><option value="Vulnerable">Vulnerable</option></select></div>
             
             {benefType === 'Persona' ? (
                 <>
@@ -840,7 +840,7 @@ export default function ManosAbiertas() {
             <div className="form-group"><label className="form-label">Fecha de Inicio *</label><input className="form-input" type="date" value={cInicio} onChange={(e) => setCInicio(e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Fecha de Cierre</label><input className="form-input" type="date" value={cFin} onChange={(e) => setCFin(e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Zona</label><ZonaSelect value={cZona} onChange={setCZona} /></div>
-            <div className="form-group"><label className="form-label">Meta de</label><select className="form-select" value={cMetaTipo} onChange={(e) => setCMetaTipo(e.target.value as any)}><option value="Familias">Familias</option><option value="Personas">Personas</option></select></div>
+            <div className="form-group"><label className="form-label">Meta de</label><select className="form-select" value={cMetaTipo} onChange={(e) => setCMetaTipo(e.target.value as 'Familias' | 'Personas')}><option value="Familias">Familias</option><option value="Personas">Personas</option></select></div>
             <div className="form-group"><label className="form-label">Meta</label><input className="form-input" type="number" value={cMeta} onChange={(e) => setCMeta(e.target.value)} min="0" placeholder="50" /></div>
             <div className="form-group"><label className="form-label">Responsable</label><input className="form-input" value={cResp} onChange={(e) => setCResp(e.target.value)} placeholder="Nombre del líder" /></div>
           </div>
@@ -857,7 +857,7 @@ export default function ManosAbiertas() {
           <div className="form-row">
             <div className="form-group"><label className="form-label">Campaña *</label><select className="form-select" value={eCampana} onChange={(e) => setECampana(e.target.value)}><option value="">Seleccionar campaña…</option>{campanas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
             
-            <div className="form-group"><label className="form-label">Origen *</label><select className="form-select" value={eBenefOrigen} onChange={(e) => setEBenefOrigen(e.target.value as any)}><option value="Manual">Manual</option><option value="Convertido">Converso (Misión)</option><option value="Miembro">Miembro (Iglesia)</option></select></div>
+            <div className="form-group"><label className="form-label">Origen *</label><select className="form-select" value={eBenefOrigen} onChange={(e) => setEBenefOrigen(e.target.value as 'Convertido' | 'Miembro' | 'Manual')}><option value="Manual">Manual</option><option value="Convertido">Converso (Misión)</option><option value="Miembro">Miembro (Iglesia)</option></select></div>
             
             {eBenefOrigen === 'Manual' ? (
                 <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={eBenefManual} onChange={(e) => setEBenefManual(e.target.value)} placeholder="Nombre del beneficiario" /></div>

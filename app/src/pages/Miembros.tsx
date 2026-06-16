@@ -11,7 +11,7 @@ import type { Miembro, MiembroMinisterio, Hito } from '../lib/types';
 import { exportMiembrosPDF, exportMinisteriosPDF, exportHitosPDF } from '../lib/pdfExport';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-import { today, fmt } from '../lib/utils';
+import { today, fmt, accentStyle } from '../lib/utils';
 const calcAge = (d: string) => {
   if (!d) return null;
   const n = new Date(d);
@@ -509,7 +509,7 @@ export default function Miembros() {
                       </td>
                       <td>{calcAge(m.fechaNacimiento) ?? '—'}</td>
                       <td style={{ fontSize: 12 }}>{m.zona || '—'}</td>
-                      <td style={{ fontSize: 12 }}>{grupoAsignado ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 11, fontWeight: 700, border: '1px solid var(--gold)', whiteSpace: 'nowrap' }}>👥 {grupoAsignado.nombre}</span> : <span style={{ color: 'var(--dim)' }}>—</span>}</td>
+                      <td style={{ fontSize: 12, maxWidth: 160, overflow: 'hidden' }}>{grupoAsignado ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 6, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 11, fontWeight: 700, border: '1px solid var(--gold)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>👥 {grupoAsignado.nombre}</span> : <span style={{ color: 'var(--dim)' }}>—</span>}</td>
                       <td style={{ fontSize: 12 }}>{mints || <span style={{ color: 'var(--dim)' }}>—</span>}</td>
                       <td><span className={`badge ${EST_BADGE[m.estado]}`}>{m.estado}</span></td>
                       <td>
@@ -913,22 +913,22 @@ export default function Miembros() {
 
             {/* STATS */}
             <div className="kpis" style={{ marginBottom: 20 }}>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--gold)' }}>
+              <div className="kpi" style={accentStyle('var(--gold)')}>
                 <div className="kpi-label">⛪ Días en la iglesia</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{diasIglesia}</div>
                 <div className="kpi-sub">{aniosIglesia === 0 ? 'menos de 1 año' : `${aniosIglesia} ${aniosIglesia === 1 ? 'año' : 'años'}`} · desde {fmt(selMiembro.fechaIngreso)}</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--blue)' }}>
+              <div className="kpi" style={accentStyle('var(--blue)')}>
                 <div className="kpi-label">⛪ Ministerios</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{asigs.length}</div>
                 <div className="kpi-sub">{asigs.filter((a) => a.rol === 'Líder' || a.rol === 'Coordinador').length} liderazgo · {asigs.filter((a) => a.rol === 'Servidor' || a.rol === 'Miembro').length} servicio</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: 'var(--green)' }}>
+              <div className="kpi" style={accentStyle('var(--green)')}>
                 <div className="kpi-label">📍 Hitos</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{histo.length}</div>
                 <div className="kpi-sub">{histo.filter((h) => h.tipo === 'Bautismo').length} bautismo · {histo.filter((h) => h.tipo === 'Discipulado').length} discipulado</div>
               </div>
-              <div className="kpi" style={{ ['--accent' as any]: sinHitoReciente ? 'var(--red)' : 'var(--purple)' }}>
+              <div className="kpi" style={accentStyle(sinHitoReciente ? 'var(--red)' : 'var(--purple)')}>
                 <div className="kpi-label">🕒 Último hito</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{diasUltimoHito === null ? '—' : diasUltimoHito === 0 ? 'Hoy' : diasUltimoHito}</div>
                 <div className="kpi-sub">{ultimoHito ? `${ultimoHito.tipo} · ${fmt(ultimoHito.fecha)}` : 'sin hitos registrados'}</div>

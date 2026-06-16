@@ -7,49 +7,25 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg'],
-      manifest: false,
+      includeAssets: ['favicon.svg'],
+      manifest: {
+        name: 'LemGil — Ministerio Apostólico',
+        short_name: 'LemGil',
+        description: 'Sistema de gestión eclesial',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#0f1117',
+        theme_color: '#d4a843',
+        icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }]
+      },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/ykynzeykphufrkwgncyu\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
-        ],
-      },
-    }),
+        globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
+        runtimeCaching: [{
+          urlPattern: /^https:\/\/ykynzeykphufrkwgncyu\.supabase\.co\/.*/i,
+          handler: 'NetworkFirst',
+          options: { cacheName: 'supabase-api', expiration: { maxEntries: 50, maxAgeSeconds: 300 } }
+        }]
+      }
+    })
   ],
-  base: '/',
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('jspdf')) {
-            return 'jspdf';
-          }
-        },
-      },
-    },
-  },
 })
