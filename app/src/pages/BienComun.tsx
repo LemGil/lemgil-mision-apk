@@ -81,12 +81,11 @@ export default function BienComun() {
   const [aTipo, setATipo] = useState<'Diezmo' | 'Ofrenda'>('Diezmo');
   const [aMetodo, setAMetodo] = useState('Efectivo');
   const [aServicio, setAServicio] = useState('General');
-  const [aRecibo, setARecibo] = useState('');
   const [aNotas, setANotas] = useState('');
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
   const resetD = () => { setEditDId(null); setDNombre(''); setDApellido(''); setDTel(''); setDEmail(''); setDZona(''); setDGrupo(''); setDEstado('Activo'); setDPlanDiezmo(''); setDNotas(''); setPlanTipoId(''); setPlanMonto(''); };
-  const resetA = () => { setEditAId(null); setAMiembro(''); setAGrupo(''); setAFecha(today()); setAMonto(''); setATipo('Diezmo'); setAMetodo('Efectivo'); setAServicio('General'); setARecibo(''); setANotas(''); };
+  const resetA = () => { setEditAId(null); setAMiembro(''); setAGrupo(''); setAFecha(today()); setAMonto(''); setATipo('Diezmo'); setAMetodo('Efectivo'); setAServicio('General'); setANotas(''); };
 
   const saveD = async () => {
     if (!dNombre.trim() || !dApellido.trim()) return showToast('Nombre y apellido obligatorios');
@@ -122,7 +121,7 @@ export default function BienComun() {
     if (aTipo === 'Diezmo' && !aMiembro) return showToast('Selecciona un diezmador para el diezmo');
     if (aTipo === 'Ofrenda' && !aMiembro && !aGrupo) return showToast('Selecciona un diezmador o grupo para la ofrenda');
     if (monto <= 0) return showToast('Monto inválido');
-    const data = { diezmadorId: aMiembro || null, grupoId: aGrupo || null, fecha: aFecha, monto, tipo: aTipo as AporteComun['tipo'], metodo: aMetodo as AporteComun['metodo'], referencia: aRecibo.trim(), notas: `${aServicio} | ${aNotas.trim()}`, mesCorrespondiente: monthKey(aFecha), creado: new Date().toISOString() };
+    const data = { diezmadorId: aMiembro || null, grupoId: aGrupo || null, fecha: aFecha, monto, tipo: aTipo as AporteComun['tipo'], metodo: aMetodo as AporteComun['metodo'], referencia: '', notas: `${aServicio} | ${aNotas.trim()}`, mesCorrespondiente: monthKey(aFecha), creado: new Date().toISOString() };
     if (editAId) {
       await db.aportesComun.update(editAId, data);
     } else {
@@ -157,7 +156,6 @@ export default function BienComun() {
     const [serv, notas] = a.notas.split('|');
     setAServicio(serv?.trim() || 'General');
     setANotas(notas?.trim() || '');
-    setARecibo(a.referencia || '');
     setModal('aporte');
   };
 
@@ -334,7 +332,7 @@ export default function BienComun() {
                         </div>
                     </div>
                     <table className="data-table">
-                        <thead><tr><th>#</th><th>Diezmador</th><th>Tipo</th><th>Monto</th><th>Fecha</th><th>Servicio</th><th>Método</th><th>Recibo</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>#</th><th>Diezmador</th><th>Tipo</th><th>Monto</th><th>Fecha</th><th>Servicio</th><th>Método</th><th>Acciones</th></tr></thead>
                         <tbody>
                                  {registrosFiltrados.map((a) => (
                                      <tr key={a.id}>
@@ -345,8 +343,7 @@ export default function BienComun() {
                                          <td>{a.fecha}</td>
                                          <td style={{color: 'var(--dim)'}}>{a.notas.split('|')[0]?.trim() || 'General'}</td>
                                          <td style={{color: 'var(--dim)'}}>{a.metodo || '—'}</td>
-                                         <td style={{color: 'var(--dim)'}}>{a.referencia || '—'}</td>
-                                         <td>
+                                          <td>
                                              <div style={{display: 'flex', gap: '5px'}}>
                                                  <button className="btn btn-secondary btn-sm" onClick={() => handleEditAporte(a)}>✏️</button>
                                                  <button className="btn btn-danger btn-sm" onClick={() => { setSelectedId(a.id); setModal('delA'); }}>🗑</button>
@@ -647,7 +644,6 @@ export default function BienComun() {
                 </div>
                 <div className="form-row">
                     <div className="form-group"><label className="form-label">Servicio</label><input className="form-input" value={aServicio} onChange={e => setAServicio(e.target.value)} /></div>
-                    <div className="form-group"><label className="form-label">Recibo</label><input className="form-input" value={aRecibo} onChange={e => setARecibo(e.target.value)} /></div>
                 </div>
                 <div className="form-group"><label className="form-label">Notas</label><textarea className="form-textarea" value={aNotas} onChange={e => setANotas(e.target.value)} /></div>
             </div>
@@ -824,13 +820,12 @@ export default function BienComun() {
                             </div>
                             {regs.length > 0 ? (
                                 <table className="data-table" style={{fontSize: '13px'}}>
-                                    <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Recibo</th><th>Acciones</th></tr></thead>
+                                    <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Acciones</th></tr></thead>
                                     <tbody>{[...regs].sort((a, b) => b.fecha.localeCompare(a.fecha)).map(r => (
                                         <tr key={r.id}>
                                             <td>{r.fecha}</td>
                                             <td style={{fontWeight: 700, color: 'var(--gold)'}}>{money(r.monto)}</td>
                                             <td style={{color: 'var(--dim)'}}>{r.metodo || '—'}</td>
-                                            <td style={{color: 'var(--dim)'}}>{r.referencia || '—'}</td>
                                             <td>
                                                 <div style={{display: 'flex', gap: '5px'}} onClick={e => e.stopPropagation()}>
                                                     <button className="btn btn-secondary btn-sm" onClick={() => { setModal(null); handleEditAporte(r); }}>✏️</button>
