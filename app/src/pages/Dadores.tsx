@@ -109,7 +109,6 @@ export default function Dadores() {
   const [aMonto, setAMonto] = useState('');
   const [aTipo, setATipo] = useState('Diezmo');
   const [aMetodo, setAMetodo] = useState('Efectivo');
-  const [aRef, setARef] = useState('');
   const [aNotas, setANotas] = useState('');
 
   const showToast = (msg: string) => {
@@ -136,7 +135,6 @@ export default function Dadores() {
     setAMonto('');
     setATipo('Diezmo');
     setAMetodo('Efectivo');
-    setARef('');
     setANotas('');
   };
 
@@ -308,7 +306,6 @@ export default function Dadores() {
     setAMonto(String(a.monto));
     setATipo(a.tipo);
     setAMetodo(a.metodo);
-    setARef(a.referencia);
     setANotas(a.notas);
     setModal('aporte');
   };
@@ -317,7 +314,7 @@ export default function Dadores() {
     if (!aFecha) return showToast('La fecha es obligatoria');
     const monto = parseFloat(aMonto) || 0;
     if (monto <= 0) return showToast('El monto debe ser mayor a 0');
-    const data = { colaboradorId: aDador, fecha: aFecha, monto, tipo: aTipo as Aporte['tipo'], metodo: aMetodo as Aporte['metodo'], referencia: aRef.trim(), notas: aNotas.trim() };
+    const data = { colaboradorId: aDador, fecha: aFecha, monto, tipo: aTipo as Aporte['tipo'], metodo: aMetodo as Aporte['metodo'], referencia: '', notas: aNotas.trim() };
     if (editAporteId) {
       await db.aportes.update(editAporteId, data);
       showToast('Aporte actualizado');
@@ -595,7 +592,6 @@ export default function Dadores() {
                       <th>Tipo</th>
                       <th>Método</th>
                       <th style={{ textAlign: 'right' }}>Monto</th>
-                      <th>Referencia</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
@@ -609,7 +605,6 @@ export default function Dadores() {
                           <td><span className={`badge ${APORTE_BADGE[a.tipo] || 'badge-blue'}`}>{a.tipo}</span></td>
                           <td><span className={`badge ${METODO_BADGE[a.metodo] || 'badge-blue'}`}>{a.metodo}</span></td>
                           <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--oro-apostolico)' }}>{money(a.monto)}</td>
-                          <td style={{ fontSize: 11, color: 'var(--dim)' }}>{a.referencia || '—'}</td>
                           <td>
                             <div style={{ display: 'flex', gap: 5 }}>
                               <button className="btn btn-secondary btn-sm" onClick={() => openEditAporte(a.id)}>✏️</button>
@@ -962,7 +957,6 @@ export default function Dadores() {
             <div className="form-group"><label className="form-label">Monto *</label><input className="form-input" type="number" value={aMonto} onChange={(e) => setAMonto(e.target.value)} placeholder="0.00" min="0" step="0.01" /></div>
             <div className="form-group"><label className="form-label">Tipo de Aporte</label><select className="form-select" value={aTipo} onChange={(e) => setATipo(e.target.value)}><option>Diezmo</option>{tiposPlanes.map((t) => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}<option>Otro</option></select></div>
             <div className="form-group"><label className="form-label">Método de Pago</label><select className="form-select" value={aMetodo} onChange={(e) => setAMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Tarjeta</option><option>Otro</option></select></div>
-            <div className="form-group"><label className="form-label">Referencia</label><input className="form-input" value={aRef} onChange={(e) => setARef(e.target.value)} placeholder="Nº recibo, transacción…" /></div>
           </div>
           <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Notas</label><textarea className="form-textarea" value={aNotas} onChange={(e) => setANotas(e.target.value)} placeholder="Detalles adicionales…" style={{ minHeight: 55 }} /></div>
         </Modal>
