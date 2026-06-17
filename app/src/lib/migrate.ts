@@ -179,6 +179,7 @@ export async function backfillCodigos(): Promise<void> {
     { name: 'evangelismos', dateField: 'fecha' as const },
     { name: 'cursos', dateField: 'creado' as const },
     { name: 'aportes', dateField: 'fecha' as const },
+    { name: 'aportescomun', dateField: 'fecha' as const },
     { name: 'entregas', dateField: 'fecha' as const },
   ];
 

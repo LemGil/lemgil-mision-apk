@@ -31,6 +31,7 @@ export const CODE_PREFIXES: Record<string, string> = {
   evangelismos: 'EVG',
   cursos: 'CUR',
   aportes: 'APO',
+  aportescomun: 'BIEN',
   entregas: 'MA',
   dadores: 'DON',
   colaboradores: 'COL',

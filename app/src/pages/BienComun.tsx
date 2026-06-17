@@ -14,7 +14,7 @@ import {
 import { CsvImportButton } from '../components/CsvImportButton';
 import { ResumenTab } from '../components/biencomun/ResumenTab';
 import { OfrendasGruposTab } from '../components/biencomun/OfrendasGruposTab';
-import { today, monthKey, money, MS_SHORT, accentStyle } from '../lib/utils';
+import { today, monthKey, money, MS_SHORT, accentStyle, generateCodigo } from '../lib/utils';
 
 type Tab = 'registros' | 'diezmadores' | 'resumen' | 'ofrendasGrupos' | 'planes';
 type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoPlan' | 'delTipoPlan' | 'planDiezmador' | 'delPlanDiezmador';
@@ -126,7 +126,9 @@ export default function BienComun() {
     if (editAId) {
       await db.aportesComun.update(editAId, data);
     } else {
-      await db.aportesComun.add({ id: uuid(), ...data });
+      const existingCodes = aportes.map((a) => a.codigo || '').filter(Boolean);
+      const codigo = generateCodigo('aportescomun', aFecha, existingCodes);
+      await db.aportesComun.add({ id: uuid(), codigo, ...data });
       showToast('Aporte registrado');
     }
     resetA(); setModal(null);
@@ -643,6 +645,7 @@ export default function BienComun() {
                 </div>
                 <div className="form-row">
                     <div className="form-group"><label className="form-label">Fecha *</label><input className="form-input" type="date" value={aFecha} onChange={e => setAFecha(e.target.value)} /></div>
+                    {!editAId && <div className="form-group"><label className="form-label">Código de Recibo</label><div style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 6, fontSize: 13, fontWeight: 700, color: 'var(--mision-purple)', border: '1px dashed var(--mision-purple)' }}>{generateCodigo('aportescomun', aFecha, aportes.map((a: any) => a.codigo || '').filter(Boolean))}</div></div>}
                     <div className="form-group"><label className="form-label">Método</label><select className="form-select" value={aMetodo} onChange={e => setAMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cheque</option></select></div>
                 </div>
                 <div className="form-row">

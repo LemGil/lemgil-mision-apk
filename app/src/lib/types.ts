@@ -275,6 +275,7 @@ export interface AporteComun {
   referencia: string;
   notas: string;
   creado: string;
+  codigo?: string;
 }
 
 export interface Miembro {
