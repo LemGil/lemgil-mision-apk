@@ -1,6 +1,7 @@
 import { db } from './database';
 import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Metas, Miembro, Hito, Zona } from './types';
 import { v4 as uuid } from 'uuid';
+import { generateCodigo } from './utils';
 
 const PREFIX = 'lemgil_';
 
@@ -170,6 +171,38 @@ export async function ensureZonas(): Promise<Zona[]> {
   const seeds: Zona[] = ZONAS_DEFAULT.map((nombre) => ({ id: uuid(), nombre, creado: now }));
   await db.zonas.bulkAdd(seeds);
   return seeds;
+}
+
+export async function backfillCodigos(): Promise<void> {
+  const tables = [
+    { name: 'conversiones', dateField: 'fecha' as const },
+    { name: 'evangelismos', dateField: 'fecha' as const },
+    { name: 'cursos', dateField: 'creado' as const },
+    { name: 'aportes', dateField: 'fecha' as const },
+    { name: 'entregas', dateField: 'fecha' as const },
+  ];
+
+  for (const { name, dateField } of tables) {
+    const records = await (db as any)[name].toArray();
+    const withoutCode = records.filter((r: any) => !r.codigo);
+    if (withoutCode.length === 0) continue;
+
+    const existingCodes = records.filter((r: any) => r.codigo).map((r: any) => r.codigo as string);
+    const sorted = withoutCode.sort((a: any, b: any) => {
+      const da = a[dateField] || a.creado?.split('T')[0] || '';
+      const db2 = b[dateField] || b.creado?.split('T')[0] || '';
+      return da.localeCompare(db2);
+    });
+
+    let codes = [...existingCodes];
+    for (const r of sorted) {
+      const fecha = r[dateField] || r.creado?.split('T')[0] || new Date().toISOString().split('T')[0];
+      const codigo = generateCodigo(name, fecha, codes);
+      codes.push(codigo);
+      await (db as any)[name].update(r.id, { codigo });
+    }
+    console.log(`[Migrate] Backfill códigos: ${sorted.length} registros en ${name}`);
+  }
 }
 
 
