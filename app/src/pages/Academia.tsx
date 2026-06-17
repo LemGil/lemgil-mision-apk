@@ -18,7 +18,7 @@ import { CsvImportButton } from '../components/CsvImportButton';
 const NIVEL_BADGE: Record<string, string> = { Basico: 'badge-blue', Intermedio: 'badge-yellow', Avanzado: 'badge-red' };
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Completado: 'badge-purple', Pausado: 'badge-yellow' };
 const CAL_BADGE: Record<string, string> = { Aprobado: 'badge-green', Sobresaliente: 'badge-purple', 'Con Honores': 'badge-yellow' };
-import { today, fmt, accentStyle } from '../lib/utils';
+import { today, fmt, accentStyle, generateCodigo } from '../lib/utils';
 
 type Tab = 'cursos' | 'estudiantes' | 'certificados';
 
@@ -156,7 +156,7 @@ export default function Academia() {
     if (!cInst.trim()) return showToast('El instructor es obligatorio');
     const data = { nombre: cNombre.trim(), instructor: cInst.trim(), nivel: cNivel as Curso['nivel'], duracion: cDur, emoji: cEmoji || '📖', color: cColor, estado: cEstado as Curso['estado'], descripcion: cDesc.trim() };
     if (editCursoId) { await db.cursos.update(editCursoId, data); showToast(`Curso "${cNombre}" actualizado`); }
-    else { await db.cursos.add({ id: uuid(), creado: today(), ...data }); showToast(`Curso "${cNombre}" creado`); }
+    else { const existingCCodes = cursos.map((c) => c.codigo || '').filter(Boolean); const codigo = generateCodigo('cursos', today(), existingCCodes); await db.cursos.add({ id: uuid(), creado: today(), codigo, ...data }); showToast(`Curso "${cNombre}" creado`); }
     setEditCursoId(null); resetCurso(); setModal(null);
   };
   const delCurso = async () => {

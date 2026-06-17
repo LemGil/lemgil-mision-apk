@@ -13,7 +13,7 @@ import { db } from '../lib/database';
 import type { Beneficiario, Campana } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-import { today, fmt, money, monthKey } from '../lib/utils';
+import { today, fmt, money, monthKey, generateCodigo } from '../lib/utils';
 
 const EST_BEN: Record<string, string> = { Activo: 'badge-green', Inactivo: 'badge-red' };
 const CAMP_EST: Record<string, string> = { Planificada: 'badge-blue', 'En curso': 'badge-yellow', Completada: 'badge-green', Cancelada: 'badge-red' };
@@ -389,7 +389,10 @@ export default function ManosAbiertas() {
       await db.entregas.update(editEntId, data);
       showToast('Entrega actualizada');
     } else {
-      await db.entregas.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      const eFecha = data.fecha || today();
+      const existingECodes = entregas.map((e) => e.codigo || '').filter(Boolean);
+      const codigo = generateCodigo('entregas', eFecha, existingECodes);
+      await db.entregas.add({ id: uuid(), creado: new Date().toISOString(), codigo, ...data });
       showToast('Entrega registrada');
     }
     resetEnt();

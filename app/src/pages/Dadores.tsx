@@ -12,7 +12,7 @@ import { db } from '../lib/database';
 import type { Colaborador, Aporte } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-import { today, fmt, money, MS_SHORT, accentStyle } from '../lib/utils';
+import { today, fmt, money, MS_SHORT, accentStyle, generateCodigo } from '../lib/utils';
 
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Pausado: 'badge-yellow', Inactivo: 'badge-red' };
 const TIPO_BADGE: Record<string, string> = { Persona: 'badge-blue', Empresa: 'badge-purple', Iglesia: 'badge-yellow' };
@@ -322,7 +322,9 @@ export default function Dadores() {
       await db.aportes.update(editAporteId, data);
       showToast('Aporte actualizado');
     } else {
-      await db.aportes.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      const existingACodes = aportes.map((a) => a.codigo || '').filter(Boolean);
+      const codigo = generateCodigo('aportes', aFecha, existingACodes);
+      await db.aportes.add({ id: uuid(), creado: new Date().toISOString(), codigo, ...data });
       showToast(`Aporte de ${money(monto)} registrado`);
     }
     resetAporte();
