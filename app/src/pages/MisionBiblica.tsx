@@ -9,7 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import type { Conversion } from '../lib/types';
-import { today, fmt, MS, accentStyle, generateCodigo } from '../lib/utils';
+import { today, fmt, MS, accentStyle } from '../lib/utils';
 import { 
   exportConversionesPDF, 
   exportGruposMisionPDF, 
@@ -258,9 +258,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       showToast(`${fNombre} ${fApellido} actualizado/a`);
     } else {
       const id = uuid();
-      const existingCodes = convs.map((c) => c.codigo || '').filter(Boolean);
-      const codigo = generateCodigo('conversiones', data.fecha, existingCodes);
-      const nuevo: Conversion = { id, ...data, codigo, historial: data.estado && data.estado !== 'Nuevo' ? [{ fecha: data.fecha || today(), estado: data.estado, nota: 'Registro inicial' }] : [], creado: new Date().toISOString() };
+      const nuevo: Conversion = { id, ...data, historial: data.estado && data.estado !== 'Nuevo' ? [{ fecha: data.fecha || today(), estado: data.estado, nota: 'Registro inicial' }] : [], creado: new Date().toISOString() };
       await db.conversiones.add(nuevo);
       const synced = await syncMemberFromConversion(nuevo);
       showToast(synced ? `🧑 ${fNombre} registrado e integrado → Miembros` : `${fNombre} ${fApellido} guardado/a correctamente`);
@@ -368,9 +366,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       await db.evangelismos.update(editEvangId, data);
       showToast('Actividad actualizada');
     } else {
-      const existingEvCodes = evangels.map((e: any) => e.codigo || '').filter(Boolean);
-      const codigo = generateCodigo('evangelismos', eFecha, existingEvCodes);
-      await db.evangelismos.add({ id: uuid(), ...data, codigo, creado: new Date().toISOString() });
+      await db.evangelismos.add({ id: uuid(), ...data, creado: new Date().toISOString() });
       showToast(`Evangelismo guardado — ${eConvs} conversión(es)`);
     }
     resetEvang(); setModal(null);
@@ -506,14 +502,13 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
              <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />
            ) : (
              <table className="data-table">
-                <thead><tr><th>#</th><th>Código</th><th>Nombre</th><th>Zona</th><th>Fecha</th><th>Mayor</th><th>Grupo</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <thead><tr><th>#</th><th>Nombre</th><th>Zona</th><th>Fecha</th><th>Mayor</th><th>Grupo</th><th>Estado</th><th>Acciones</th></tr></thead>
                 <tbody>
                   {filtered.map((c, i) => {
                     const grupoAsignado = c.grupoId ? grupos.find(g => g.id === c.grupoId) : null;
                     return (
                     <tr key={c.id}>
                       <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
-                      <td>{c.codigo ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--mision-purple)', background: 'var(--mision-purple-glow, rgba(124,58,237,0.1))', padding: '2px 6px', borderRadius: 4 }}>{c.codigo}</span> : '—'}</td>
                      <td><strong>{c.nombre} {c.apellido}</strong>{c.telefono && <><br /><span style={{ fontSize: 10, color: 'var(--dim)' }}>{c.telefono}</span></>}</td>
                      <td>{c.zona || '—'}</td>
                      <td>{fmt(c.fecha)}</td>
@@ -730,12 +725,11 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
               <EmptyState icon="🔍" title="Sin resultados" sub="Ajusta los filtros para ver actividades" />
             ) : (
             <table className="data-table">
-              <thead><tr><th>#</th><th>Código</th><th>Tipo</th><th>Zona</th><th>Fecha</th><th>Ministro</th><th>Equipo</th><th>Contactos</th><th>Conversiones</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>#</th><th>Tipo</th><th>Zona</th><th>Fecha</th><th>Ministro</th><th>Equipo</th><th>Contactos</th><th>Conversiones</th><th>Acciones</th></tr></thead>
               <tbody>
                 {evangelsFiltrados.map((e, i) => (
                   <tr key={e.id}>
                     <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
-                    <td>{e.codigo ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--mision-purple)', background: 'rgba(124,58,237,0.1)', padding: '2px 6px', borderRadius: 4 }}>{e.codigo}</span> : '—'}</td>
                     <td><span className={`badge ${TIPO_BADGE[e.tipo] || 'badge-blue'}`}>{e.tipo}</span></td>
                     <td>{e.zona || '—'}</td>
                     <td>{fmt(e.fecha)}</td>

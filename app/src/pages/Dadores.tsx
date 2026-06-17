@@ -12,7 +12,7 @@ import { db } from '../lib/database';
 import type { Colaborador, Aporte } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-import { today, fmt, money, MS_SHORT, accentStyle, generateCodigo } from '../lib/utils';
+import { today, fmt, money, MS_SHORT, accentStyle } from '../lib/utils';
 
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Pausado: 'badge-yellow', Inactivo: 'badge-red' };
 const TIPO_BADGE: Record<string, string> = { Persona: 'badge-blue', Empresa: 'badge-purple', Iglesia: 'badge-yellow' };
@@ -322,9 +322,7 @@ export default function Dadores() {
       await db.aportes.update(editAporteId, data);
       showToast('Aporte actualizado');
     } else {
-      const existingACodes = aportes.map((a) => a.codigo || '').filter(Boolean);
-      const codigo = generateCodigo('aportes', aFecha, existingACodes);
-      await db.aportes.add({ id: uuid(), creado: new Date().toISOString(), codigo, ...data });
+      await db.aportes.add({ id: uuid(), creado: new Date().toISOString(), ...data });
       showToast(`Aporte de ${money(monto)} registrado`);
     }
     resetAporte();
@@ -592,7 +590,6 @@ export default function Dadores() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Código</th>
                       <th>Fecha</th>
                       <th>Colaborador</th>
                       <th>Tipo</th>
@@ -607,7 +604,6 @@ export default function Dadores() {
                       const d = dadores.find((x) => x.id === a.colaboradorId);
                       return (
                         <tr key={a.id}>
-                          <td>{a.codigo ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--mision-purple)', background: 'rgba(124,58,237,0.1)', padding: '2px 6px', borderRadius: 4 }}>{a.codigo}</span> : '—'}</td>
                           <td>{fmt(a.fecha)}</td>
                           <td><strong>{d ? `${d.nombre} ${d.apellido}` : '—'}</strong></td>
                           <td><span className={`badge ${APORTE_BADGE[a.tipo] || 'badge-blue'}`}>{a.tipo}</span></td>
@@ -963,7 +959,6 @@ export default function Dadores() {
           <div className="form-row">
             <div className="form-group"><label className="form-label">Colaborador *</label><select className="form-select" value={aDador} onChange={(e) => setADador(e.target.value)}><option value="">Seleccionar colaborador…</option>{dadores.map((d) => <option key={d.id} value={d.id}>{d.nombre} {d.apellido}</option>)}</select></div>
             <div className="form-group"><label className="form-label">Fecha *</label><input className="form-input" type="date" value={aFecha} onChange={(e) => setAFecha(e.target.value)} /></div>
-            {!editAporteId && <div className="form-group"><label className="form-label">Código de Recibo</label><div style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 6, fontSize: 13, fontWeight: 700, color: 'var(--mision-purple)', border: '1px dashed var(--mision-purple)' }}>{generateCodigo('aportes', aFecha, aportes.map((a) => a.codigo || '').filter(Boolean))}</div></div>}
             <div className="form-group"><label className="form-label">Monto *</label><input className="form-input" type="number" value={aMonto} onChange={(e) => setAMonto(e.target.value)} placeholder="0.00" min="0" step="0.01" /></div>
             <div className="form-group"><label className="form-label">Tipo de Aporte</label><select className="form-select" value={aTipo} onChange={(e) => setATipo(e.target.value)}><option>Diezmo</option>{tiposPlanes.map((t) => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}<option>Otro</option></select></div>
             <div className="form-group"><label className="form-label">Método de Pago</label><select className="form-select" value={aMetodo} onChange={(e) => setAMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Tarjeta</option><option>Otro</option></select></div>

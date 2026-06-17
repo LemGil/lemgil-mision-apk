@@ -13,7 +13,7 @@ import { db } from '../lib/database';
 import type { Beneficiario, Campana } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
 
-import { today, fmt, money, monthKey, generateCodigo } from '../lib/utils';
+import { today, fmt, money, monthKey } from '../lib/utils';
 
 const EST_BEN: Record<string, string> = { Activo: 'badge-green', Inactivo: 'badge-red' };
 const CAMP_EST: Record<string, string> = { Planificada: 'badge-blue', 'En curso': 'badge-yellow', Completada: 'badge-green', Cancelada: 'badge-red' };
@@ -389,10 +389,7 @@ export default function ManosAbiertas() {
       await db.entregas.update(editEntId, data);
       showToast('Entrega actualizada');
     } else {
-      const eFecha = data.fecha || today();
-      const existingECodes = entregas.map((e) => e.codigo || '').filter(Boolean);
-      const codigo = generateCodigo('entregas', eFecha, existingECodes);
-      await db.entregas.add({ id: uuid(), creado: new Date().toISOString(), codigo, ...data });
+      await db.entregas.add({ id: uuid(), creado: new Date().toISOString(), ...data });
       showToast('Entrega registrada');
     }
     resetEnt();
@@ -742,7 +739,6 @@ export default function ManosAbiertas() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Código</th>
                       <th>Fecha</th>
                       <th>Beneficiario</th>
                       <th>Campaña</th>
@@ -757,7 +753,6 @@ export default function ManosAbiertas() {
                       const camp = campanas.find((x) => x.id === e.campanaId);
                       return (
                         <tr key={e.id}>
-                          <td>{e.codigo ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--mision-purple)', background: 'rgba(124,58,237,0.1)', padding: '2px 6px', borderRadius: 4 }}>{e.codigo}</span> : '—'}</td>
                           <td>{fmt(e.fecha)}</td>
                           <td><strong>{ben ? `${ben.nombre} ${ben.apellido}` : '—'}</strong></td>
                           <td>{camp ? camp.nombre : '—'}</td>

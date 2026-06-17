@@ -18,7 +18,7 @@ import { CsvImportButton } from '../components/CsvImportButton';
 const NIVEL_BADGE: Record<string, string> = { Basico: 'badge-blue', Intermedio: 'badge-yellow', Avanzado: 'badge-red' };
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Completado: 'badge-purple', Pausado: 'badge-yellow' };
 const CAL_BADGE: Record<string, string> = { Aprobado: 'badge-green', Sobresaliente: 'badge-purple', 'Con Honores': 'badge-yellow' };
-import { today, fmt, accentStyle, generateCodigo } from '../lib/utils';
+import { today, fmt, accentStyle } from '../lib/utils';
 
 type Tab = 'cursos' | 'estudiantes' | 'certificados';
 
@@ -156,7 +156,7 @@ export default function Academia() {
     if (!cInst.trim()) return showToast('El instructor es obligatorio');
     const data = { nombre: cNombre.trim(), instructor: cInst.trim(), nivel: cNivel as Curso['nivel'], duracion: cDur, emoji: cEmoji || '📖', color: cColor, estado: cEstado as Curso['estado'], descripcion: cDesc.trim() };
     if (editCursoId) { await db.cursos.update(editCursoId, data); showToast(`Curso "${cNombre}" actualizado`); }
-    else { const existingCCodes = cursos.map((c) => c.codigo || '').filter(Boolean); const codigo = generateCodigo('cursos', today(), existingCCodes); await db.cursos.add({ id: uuid(), creado: today(), codigo, ...data }); showToast(`Curso "${cNombre}" creado`); }
+    else { await db.cursos.add({ id: uuid(), creado: today(), ...data }); showToast(`Curso "${cNombre}" creado`); }
     setEditCursoId(null); resetCurso(); setModal(null);
   };
   const delCurso = async () => {
@@ -373,7 +373,7 @@ export default function Academia() {
                     {c.estado !== 'Activo' && <div style={{ position: 'absolute', top: 8, left: 8 }}><span className="badge badge-yellow">{c.estado}</span></div>}
                   </div>
                   <div style={{ padding: 14 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 3 }}>{c.codigo && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--mision-purple)', background: 'rgba(124,58,237,0.1)', padding: '1px 5px', borderRadius: 4, marginRight: 6 }}>{c.codigo}</span>}{c.nombre}</div>
+                    <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 3 }}>{c.nombre}</div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10 }}>👤 {c.instructor}{c.duracion && ` · ${c.duracion} sem`} · 📝 {lecs.length} lecciones · 🎓 {ests.length} estudiantes</div>
                     {c.descripcion && <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8, lineHeight: 1.5 }}>{c.descripcion.slice(0, 80)}{c.descripcion.length > 80 ? '…' : ''}</div>}
                     <div className="progress-bar"><div className="progress-fill" style={{ width: `${Math.min(100, lecs.length * 8)}%`, background: 'var(--purple)' }} /></div>

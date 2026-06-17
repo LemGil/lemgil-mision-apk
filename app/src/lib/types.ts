@@ -22,7 +22,6 @@ export interface Conversion {
   historial: HistorialEntry[];
   creado: string;
   updatedAt?: number;
-  codigo?: string;
 }
 
 export interface HistorialEntry {
@@ -55,7 +54,6 @@ export interface Evangelismo {
   conversiones: number;
   notas: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Curso {
@@ -69,7 +67,6 @@ export interface Curso {
   estado: 'Activo' | 'Borrador' | 'Archivado';
   descripcion: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Leccion {
@@ -142,7 +139,6 @@ export interface Aporte {
   referencia: string;
   notas: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Beneficiario {
@@ -175,7 +171,6 @@ export interface Campana {
   estado: 'Planificada' | 'En curso' | 'Completada' | 'Cancelada';
   descripcion: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Entrega {
@@ -190,7 +185,6 @@ export interface Entrega {
   unidad: string;
   notas: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Metas {
@@ -217,7 +211,6 @@ export interface Negocio {
   descripcion: string;
   notas: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Publicacion {
@@ -233,7 +226,6 @@ export interface Publicacion {
   responsable: string;
   notas: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Reporte {
@@ -245,7 +237,6 @@ export interface Reporte {
   resumen: string;
   generado: string;
   generadoPor: string;
-  codigo?: string;
 }
 
 export interface Colaborador {
@@ -260,7 +251,6 @@ export interface Colaborador {
   planOfrendaMonto: number;
   notas: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface AporteComun {
@@ -275,7 +265,6 @@ export interface AporteComun {
   referencia: string;
   notas: string;
   creado: string;
-  codigo?: string;
 }
 
 export interface Miembro {
