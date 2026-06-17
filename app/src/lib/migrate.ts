@@ -174,6 +174,9 @@ export async function ensureZonas(): Promise<Zona[]> {
 }
 
 export async function backfillCodigos(): Promise<void> {
+  const FLAG_KEY = 'lemgil_codigos_backfilled_v2';
+  if (localStorage.getItem(FLAG_KEY)) return;
+
   const tables = [
     { name: 'conversiones', dateField: 'fecha' as const },
     { name: 'evangelismos', dateField: 'fecha' as const },
@@ -185,25 +188,24 @@ export async function backfillCodigos(): Promise<void> {
 
   for (const { name, dateField } of tables) {
     const records = await (db as any)[name].toArray();
-    const withoutCode = records.filter((r: any) => !r.codigo);
-    if (withoutCode.length === 0) continue;
+    if (records.length === 0) continue;
 
-    const existingCodes = records.filter((r: any) => r.codigo).map((r: any) => r.codigo as string);
-    const sorted = withoutCode.sort((a: any, b: any) => {
+    const sorted = records.sort((a: any, b: any) => {
       const da = a[dateField] || a.creado?.split('T')[0] || '';
       const db2 = b[dateField] || b.creado?.split('T')[0] || '';
       return da.localeCompare(db2);
     });
 
-    let codes = [...existingCodes];
+    let codes: string[] = [];
     for (const r of sorted) {
       const fecha = r[dateField] || r.creado?.split('T')[0] || new Date().toISOString().split('T')[0];
       const codigo = generateCodigo(name, fecha, codes);
       codes.push(codigo);
       await (db as any)[name].update(r.id, { codigo });
     }
-    console.log(`[Migrate] Backfill códigos: ${sorted.length} registros en ${name}`);
+    console.log(`[Migrate] Backfill códigos v2: ${sorted.length} registros en ${name}`);
   }
+  localStorage.setItem(FLAG_KEY, '1');
 }
 
 
