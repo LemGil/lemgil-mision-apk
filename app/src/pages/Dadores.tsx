@@ -592,6 +592,7 @@ export default function Dadores() {
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th>Código</th>
                       <th>Fecha</th>
                       <th>Colaborador</th>
                       <th>Tipo</th>
@@ -606,6 +607,7 @@ export default function Dadores() {
                       const d = dadores.find((x) => x.id === a.colaboradorId);
                       return (
                         <tr key={a.id}>
+                          <td>{a.codigo ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--mision-purple)', background: 'rgba(124,58,237,0.1)', padding: '2px 6px', borderRadius: 4 }}>{a.codigo}</span> : '—'}</td>
                           <td>{fmt(a.fecha)}</td>
                           <td><strong>{d ? `${d.nombre} ${d.apellido}` : '—'}</strong></td>
                           <td><span className={`badge ${APORTE_BADGE[a.tipo] || 'badge-blue'}`}>{a.tipo}</span></td>

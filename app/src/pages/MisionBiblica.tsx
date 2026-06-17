@@ -730,11 +730,12 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
               <EmptyState icon="🔍" title="Sin resultados" sub="Ajusta los filtros para ver actividades" />
             ) : (
             <table className="data-table">
-              <thead><tr><th>#</th><th>Tipo</th><th>Zona</th><th>Fecha</th><th>Ministro</th><th>Equipo</th><th>Contactos</th><th>Conversiones</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>#</th><th>Código</th><th>Tipo</th><th>Zona</th><th>Fecha</th><th>Ministro</th><th>Equipo</th><th>Contactos</th><th>Conversiones</th><th>Acciones</th></tr></thead>
               <tbody>
                 {evangelsFiltrados.map((e, i) => (
                   <tr key={e.id}>
                     <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
+                    <td>{e.codigo ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--mision-purple)', background: 'rgba(124,58,237,0.1)', padding: '2px 6px', borderRadius: 4 }}>{e.codigo}</span> : '—'}</td>
                     <td><span className={`badge ${TIPO_BADGE[e.tipo] || 'badge-blue'}`}>{e.tipo}</span></td>
                     <td>{e.zona || '—'}</td>
                     <td>{fmt(e.fecha)}</td>

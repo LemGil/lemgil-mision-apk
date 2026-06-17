@@ -742,6 +742,7 @@ export default function ManosAbiertas() {
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th>Código</th>
                       <th>Fecha</th>
                       <th>Beneficiario</th>
                       <th>Campaña</th>
@@ -756,6 +757,7 @@ export default function ManosAbiertas() {
                       const camp = campanas.find((x) => x.id === e.campanaId);
                       return (
                         <tr key={e.id}>
+                          <td>{e.codigo ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--mision-purple)', background: 'rgba(124,58,237,0.1)', padding: '2px 6px', borderRadius: 4 }}>{e.codigo}</span> : '—'}</td>
                           <td>{fmt(e.fecha)}</td>
                           <td><strong>{ben ? `${ben.nombre} ${ben.apellido}` : '—'}</strong></td>
                           <td>{camp ? camp.nombre : '—'}</td>
