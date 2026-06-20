@@ -220,30 +220,42 @@ export default function BienComun() {
   }, [aportes]);
 
   const kpisGlobales = useMemo(() => {
-    const totalRec = aportes.reduce((s, a) => s + (a.monto || 0), 0);
+    const filtered = filterAnio ? aportes.filter(a => a.fecha?.startsWith(filterAnio)) : aportes;
+    const totalRec = filtered.reduce((s, a) => s + (a.monto || 0), 0);
     const activos = colaboradores.filter(c => c.estado === 'Activo').length;
-    const mesK = new Date().toISOString().slice(0, 7);
-    const mesRegs = aportes.filter(a => monthKey(a.fecha) === mesK);
+    const mesK = filterAnio ? `${filterAnio}-${new Date().toISOString().slice(5, 7)}` : new Date().toISOString().slice(0, 7);
+    const mesRegs = filtered.filter(a => monthKey(a.fecha) === mesK);
     const diezmes = mesRegs.filter(a => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
     const ofrmes = mesRegs.filter(a => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
     return { totalRec, activos, diezmes, ofrmes };
-  }, [aportes, colaboradores]);
+  }, [aportes, colaboradores, filterAnio]);
+
+  const anosDatos = useMemo(() => {
+    const anos = [...new Set(aportes.map(a => a.fecha?.slice(0, 4)).filter(Boolean))].sort().reverse();
+    return anos.map(ano => {
+      const regs = aportes.filter(a => a.fecha?.startsWith(ano));
+      const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
+      const diezmos = regs.filter(a => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
+      const ofrendas = regs.filter(a => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+      return { ano, total, diezmos, ofrendas, count: regs.length };
+    });
+  }, [aportes]);
 
   return (
     <Layout title="Bien Común">
         <div className="kpis">
             <div className="kpi" style={accentStyle('var(--gold)')}>
-                <div className="kpi-label">Total Recaudado</div>
+                <div className="kpi-label">{filterAnio ? `Total ${filterAnio}` : 'Total Recaudado'}</div>
                 <div className="kpi-value">{money(kpisGlobales.totalRec)}</div>
                 <div className="kpi-icon">💰</div>
             </div>
             <div className="kpi" style={accentStyle('var(--green)')}>
-                <div className="kpi-label">Diezmos Mes</div>
+                <div className="kpi-label">{filterAnio ? `Diezmos ${filterAnio}` : 'Diezmos Mes'}</div>
                 <div className="kpi-value">{money(kpisGlobales.diezmes)}</div>
                 <div className="kpi-icon">📅</div>
             </div>
             <div className="kpi" style={accentStyle('var(--purple)')}>
-                <div className="kpi-label">Ofrendas Mes</div>
+                <div className="kpi-label">{filterAnio ? `Ofrendas ${filterAnio}` : 'Ofrendas Mes'}</div>
                 <div className="kpi-value">{money(kpisGlobales.ofrmes)}</div>
                 <div className="kpi-icon">🎁</div>
             </div>
@@ -257,6 +269,26 @@ export default function BienComun() {
         <div className="tabs">
             {['registros', 'diezmadores', 'ofrendasGrupos', 'resumen', 'planes'].map(t => <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t as Tab)}>{t === 'ofrendasGrupos' ? 'GRUPOS' : t.toUpperCase()}</button>)}
         </div>
+
+        {anosDatos.length > 1 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: 'var(--oro-apostolico)' }}>📊 Resumen por Años</div>
+                <table className="data-table" style={{ fontSize: 12 }}>
+                    <thead><tr><th>Año</th><th style={{ textAlign: 'right' }}>Diezmos</th><th style={{ textAlign: 'right' }}>Ofrendas</th><th style={{ textAlign: 'right' }}>Total</th><th style={{ textAlign: 'center' }}>Registros</th></tr></thead>
+                    <tbody>
+                        {anosDatos.map(d => (
+                            <tr key={d.ano} style={{ cursor: 'pointer', background: filterAnio === d.ano ? 'var(--gold-glow)' : undefined }} onClick={() => setFilterAnio(filterAnio === d.ano ? '' : d.ano)}>
+                                <td style={{ fontWeight: 700 }}>{d.ano}</td>
+                                <td style={{ textAlign: 'right', color: 'var(--green)' }}>{money(d.diezmos)}</td>
+                                <td style={{ textAlign: 'right', color: 'var(--purple)' }}>{money(d.ofrendas)}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--gold)' }}>{money(d.total)}</td>
+                                <td style={{ textAlign: 'center', color: 'var(--dim)' }}>{d.count}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
 
         {tab === 'registros' && (
             <div className="page-content">
