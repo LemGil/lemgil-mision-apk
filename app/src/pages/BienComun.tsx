@@ -223,11 +223,9 @@ export default function BienComun() {
     const filtered = filterAnio ? aportes.filter(a => a.fecha?.startsWith(filterAnio)) : aportes;
     const totalRec = filtered.reduce((s, a) => s + (a.monto || 0), 0);
     const activos = colaboradores.filter(c => c.estado === 'Activo').length;
-    const mesK = filterAnio ? `${filterAnio}-${new Date().toISOString().slice(5, 7)}` : new Date().toISOString().slice(0, 7);
-    const mesRegs = filtered.filter(a => monthKey(a.fecha) === mesK);
-    const diezmes = mesRegs.filter(a => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
-    const ofrmes = mesRegs.filter(a => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
-    return { totalRec, activos, diezmes, ofrmes };
+    const diezmos = filtered.filter(a => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
+    const ofrendas = filtered.filter(a => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+    return { totalRec, activos, diezmos, ofrendas };
   }, [aportes, colaboradores, filterAnio]);
 
   const anosDatos = useMemo(() => {
@@ -250,13 +248,13 @@ export default function BienComun() {
                 <div className="kpi-icon">💰</div>
             </div>
             <div className="kpi" style={accentStyle('var(--green)')}>
-                <div className="kpi-label">{filterAnio ? `Diezmos ${filterAnio}` : 'Diezmos Mes'}</div>
-                <div className="kpi-value">{money(kpisGlobales.diezmes)}</div>
+                <div className="kpi-label">{filterAnio ? `Diezmos ${filterAnio}` : 'Diezmos'}</div>
+                <div className="kpi-value">{money(kpisGlobales.diezmos)}</div>
                 <div className="kpi-icon">📅</div>
             </div>
             <div className="kpi" style={accentStyle('var(--purple)')}>
-                <div className="kpi-label">{filterAnio ? `Ofrendas ${filterAnio}` : 'Ofrendas Mes'}</div>
-                <div className="kpi-value">{money(kpisGlobales.ofrmes)}</div>
+                <div className="kpi-label">{filterAnio ? `Ofrendas ${filterAnio}` : 'Ofrendas'}</div>
+                <div className="kpi-value">{money(kpisGlobales.ofrendas)}</div>
                 <div className="kpi-icon">🎁</div>
             </div>
             <div className="kpi" style={accentStyle('var(--blue)')}>
