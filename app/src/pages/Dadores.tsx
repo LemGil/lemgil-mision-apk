@@ -338,7 +338,7 @@ export default function Dadores() {
   };
 
   return (
-    <Layout title="Diezmadores (Bien Común)">
+    <Layout title="Red de Colaboradores">
       <div className="page-dadores">
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--oro-luz)', letterSpacing: 1 }}>
@@ -359,7 +359,7 @@ export default function Dadores() {
 
         <div className="tabs">
           <button className={`tab ${tab === 'diezmadores' ? 'active' : ''}`} onClick={() => { setTab('diezmadores'); setSearch(''); setFilterEstado(''); setFilterTipo(''); setFilterPlan(''); }}>
-            🙏 Diezmadores ({dadores.length})
+            🙏 Colaboradores ({dadores.length})
           </button>
           <button className={`tab ${tab === 'aportes' ? 'active' : ''}`} onClick={() => { setTab('aportes'); setSearch(''); setFilterTipoAporte(''); setFilterMetodo(''); setFilterMes(''); setFilterAnio(new Date().getFullYear().toString()); }}>
             💰 Aportes ({aportes.length})
