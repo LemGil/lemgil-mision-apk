@@ -208,7 +208,7 @@ function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro creado`);
           break;
         case 'update':
-          const { updatedAt: _ignored, ...cleanChanges } = data.changes || {};
+          const { updatedAt: _ignored, codigo: _cod, ...cleanChanges } = data.changes || {};
           const { error: uErr } = await supabase.from(supaTable).update(toLowerCaseKeys(cleanChanges)).eq('id', data.id);
           if (uErr) throw uErr;
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro actualizado`);
@@ -282,6 +282,7 @@ async function pushAllLocal() {
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
+          delete rest.codigo;
           return rest;
         });
         console.log(`[Sync] ⬆ ${table} → ${supaTable}: subiendo ${cleaned.length} registros locales...`);
@@ -328,6 +329,7 @@ export async function forcePushAllLocal() {
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
+          delete rest.codigo;
           return rest;
         });
         console.log(`[Sync] ⬆ Forzando ${table} → ${supaTable}: ${cleaned.length} registros...`);
