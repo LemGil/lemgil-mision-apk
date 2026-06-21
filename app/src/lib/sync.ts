@@ -277,8 +277,6 @@ async function pushAllLocal() {
           const { _primKey, updatedAt: _u, ...rest } = r;
           if (table === 'dadores') delete (rest as any).base;
           if (table === 'colaboradores') {
-            delete (rest as any).planofrendatipo;
-            delete (rest as any).planOfrendaTipo;
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
@@ -324,8 +322,6 @@ export async function forcePushAllLocal() {
           const { _primKey, updatedAt: _u, ...rest } = r;
           if (table === 'dadores') delete (rest as any).base;
           if (table === 'colaboradores') {
-            delete (rest as any).planofrendatipo;
-            delete (rest as any).planOfrendaTipo;
             if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
