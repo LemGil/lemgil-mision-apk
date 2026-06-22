@@ -366,7 +366,12 @@ async function pullFromSupabase() {
         (await (db as any)[table].toArray()).map((r: any) => r.id)
       );
 
-      const toAdd = normalized.filter((r: any) => r.id && !existingIds.has(r.id));
+      const queue = getQueue();
+      const pendingDeletes = new Set(
+        queue.filter((op) => op.operation === 'delete' && op.table === table).map((op) => op.id)
+      );
+
+      const toAdd = normalized.filter((r: any) => r.id && !existingIds.has(r.id) && !pendingDeletes.has(r.id));
       const toUpdate = normalized.filter((r: any) => r.id && existingIds.has(r.id));
 
       if (toAdd.length > 0) {
