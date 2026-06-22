@@ -2,6 +2,32 @@ import { supabase } from './supabase';
 import { db } from './database';
 
 const SYNC_QUEUE_KEY = 'lemgil_sync_queue';
+const DELETED_IDS_KEY = 'lemgil_deleted_ids';
+const DELETED_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function getDeletedIds(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveDeletedIds(ids: Record<string, number>) {
+  const now = Date.now();
+  for (const [key, ts] of Object.entries(ids)) {
+    if (now - ts > DELETED_EXPIRY_MS) delete ids[key];
+  }
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(ids));
+}
+
+function markDeleted(id: string) {
+  const ids = getDeletedIds();
+  ids[id] = Date.now();
+  saveDeletedIds(ids);
+}
+
+function unmarkDeleted(id: string) {
+  const ids = getDeletedIds();
+  delete ids[id];
+  saveDeletedIds(ids);
+}
 const SYNC_TABLES = [
   'conversiones', 'grupos', 'evangelismos', 'cursos', 'lecciones',
   'estudiantes', 'certificados', 'dadores', 'aportes', 'beneficiarios',
@@ -167,6 +193,7 @@ async function processQueue() {
         case 'delete':
           const { error } = await supabase.from(toSupabase(op.table)).delete().eq('id', op.id);
           if (error) throw error;
+          unmarkDeleted(op.id);
           break;
       }
       queue.splice(i, 1);
@@ -216,6 +243,7 @@ function enqueueSync(table: string, operation: SyncOp['operation'], data: any) {
         case 'delete':
           const { error: dErr } = await supabase.from(supaTable).delete().eq('id', data);
           if (dErr) throw dErr;
+          unmarkDeleted(data);
           console.log(`[Sync] ✓ ${table} → ${supaTable}: registro eliminado`);
           break;
       }
@@ -259,6 +287,7 @@ function setupHooks() {
       enqueueSync(name, 'update', { id: _primKey, changes: modifications });
     });
     table.hook('deleting', (_primKey: any) => {
+      markDeleted(_primKey);
       enqueueSync(name, 'delete', _primKey);
     });
   }
@@ -366,12 +395,9 @@ async function pullFromSupabase() {
         (await (db as any)[table].toArray()).map((r: any) => r.id)
       );
 
-      const queue = getQueue();
-      const pendingDeletes = new Set(
-        queue.filter((op) => op.operation === 'delete' && op.table === table).map((op) => op.id)
-      );
+      const deletedIds = getDeletedIds();
 
-      const toAdd = normalized.filter((r: any) => r.id && !existingIds.has(r.id) && !pendingDeletes.has(r.id));
+      const toAdd = normalized.filter((r: any) => r.id && !existingIds.has(r.id) && !deletedIds[r.id]);
       const toUpdate = normalized.filter((r: any) => r.id && existingIds.has(r.id));
 
       if (toAdd.length > 0) {
