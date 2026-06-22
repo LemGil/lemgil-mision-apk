@@ -158,8 +158,8 @@ async function processQueue() {
           break;
         case 'update':
           if (op.changes) {
-            // Remove 'base' field for dadores (column doesn't exist in Supabase)
-            const changesPayload = op.table === 'dadores' ? (({ base, ...rest }) => rest)(op.changes) : op.changes;
+            const { updatedAt: _eu, codigo: _ec, ...cleaned } = op.changes;
+            const changesPayload = op.table === 'dadores' ? (({ base, ...rest }) => rest)(cleaned) : cleaned;
             const { error } = await supabase.from(toSupabase(op.table)).update(toLowerCaseKeys(changesPayload)).eq('id', op.id);
             if (error) throw error;
           }
@@ -277,7 +277,6 @@ async function pushAllLocal() {
           const { _primKey, updatedAt: _u, ...rest } = r;
           if (table === 'dadores') delete (rest as any).base;
           if (table === 'colaboradores') {
-            if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
           delete rest.codigo;
@@ -322,7 +321,6 @@ export async function forcePushAllLocal() {
           const { _primKey, updatedAt: _u, ...rest } = r;
           if (table === 'dadores') delete (rest as any).base;
           if (table === 'colaboradores') {
-            if (rest.planofrendamonto == null) rest.planofrendamonto = 0;
             if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
           }
           delete rest.codigo;
