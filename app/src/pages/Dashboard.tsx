@@ -6,6 +6,7 @@ import { Modal } from '../components/Modal';
 import { db } from '../lib/database';
 
 import { MS, monthKey } from '../lib/utils';
+import { showToast } from '../lib/notification';
 
 const fmtDate = (d: string) => {
   if (!d) return '—';
@@ -43,7 +44,6 @@ export default function Dashboard() {
 
   const [impactView, setImpactView] = useState<'familias' | 'personas'>('personas');
   const [editMetas, setEditMetas] = useState(false);
-  const [toast, setToast] = useState('');
   const [filterAno, setFilterAno] = useState('');
 
   const [mMembresia, setMMembresia] = useState('500');
@@ -177,13 +177,12 @@ export default function Dashboard() {
     const familias = parseInt(mFamilias) || 0;
     const personas = parseInt(mPersonas) || 0;
     if (membresia <= 0 || academia <= 0 || sostenimiento <= 0 || familias <= 0 || personas <= 0) {
-      return setToast('Todos los valores deben ser mayores a 0');
+      return showToast('Todos los valores deben ser mayores a 0');
     }
-    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas, actualizado: new Date().toISOString() });
+    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas, actualizado: new Date().toISOString(), version: 1 });
     setEditMetas(false);
-    setToast('Metas actualizadas');
-    setTimeout(() => setToast(''), 3200);
-  };
+    showToast('Metas actualizadas');
+      };
 
   return (
     <Layout title="Panel Principal">
@@ -232,6 +231,16 @@ export default function Dashboard() {
         />
       </div>
 
+      <div className="card" style={{ marginBottom: 18, borderLeft: '4px solid var(--oro-apostolico)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt)' }}>🚀 Acceso Rápido al Sistema</div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>Consulta el estado ministerial, genera reportes o gestiona métricas.</div>
+          </div>
+          <a href="/reportes" className="btn btn-gold">Generar Reporte</a>
+        </div>
+      </div>
+
       <div className="grid-2" style={{ marginBottom: 18 }}>
         <div className="card">
           <div className="card-header">
@@ -254,29 +263,6 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">🚦 Semáforo Ministerial</div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-            {[
-              { color: 'green', emoji: '🟢', count: kpis.activos, label: 'Grupos', bg: 'rgba(90,158,111,0.12)', border: 'rgba(90,158,111,0.3)' },
-              { color: 'yellow', emoji: '🟡', count: alerts.filter((a) => a.type === 'warn').length, label: 'Alerta', bg: 'rgba(245,215,122,0.12)', border: 'rgba(245,215,122,0.3)' },
-              { color: 'red', emoji: '🔴', count: alerts.filter((a) => a.type === 'danger').length, label: 'Críticos', bg: 'rgba(199,80,80,0.12)', border: 'rgba(199,80,80,0.3)' },
-            ].map((s) => (
-              <div key={s.color} style={{ borderRadius: 10, padding: 16, textAlign: 'center', background: s.bg, border: `1px solid ${s.border}` }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>{s.emoji}</div>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: 'var(--txt)' }}>{s.count}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: s.color === 'green' ? 'var(--green)' : s.color === 'yellow' ? 'var(--oro-luz)' : 'var(--red)' }}>{s.label}</div>
-                <div style={{ fontSize: 10, color: 'var(--dim)' }}>áreas</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid-2" style={{ marginBottom: 18 }}>
         <div className="card">
           <div className="card-header"><div className="card-title">⚡ Actividad Reciente</div></div>
           {activities.length === 0 ? (
@@ -286,32 +272,33 @@ export default function Dashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {activities.map((a, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 11, background: 'var(--surface)', borderRadius: 8, cursor: 'pointer', border: '1px solid transparent', transition: 'border-color .2s' }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, background: a.bg, flexShrink: 0 }}>{a.icon}</div>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: a.bg, flexShrink: 0 }}>{a.icon}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{a.title}</div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{a.meta}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', whiteSpace: 'nowrap' }}>{a.time}</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>{a.time}</div>
                 </div>
               ))}
             </div>
           )}
         </div>
+      </div>
 
-        <div className="card">
-          <div className="card-header"><div className="card-title">⚠️ Alertas del Sistema</div></div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {alerts.map((a, i) => (
-              <div key={i} style={{
-                padding: '11px 14px', borderRadius: 8, fontSize: 12.5,
-                background: a.type === 'danger' ? 'rgba(199,80,80,0.1)' : a.type === 'warn' ? 'rgba(245,215,122,0.1)' : 'rgba(74,127,212,0.1)',
-                borderLeft: `3px solid ${a.type === 'danger' ? 'var(--red)' : a.type === 'warn' ? 'var(--oro-luz)' : 'var(--blue)'}`,
-              }}>
-                {a.text}
-              </div>
-            ))}
-          </div>
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="card-header"><div className="card-title">⚠️ Alertas del Sistema</div></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {alerts.map((a, i) => (
+            <div key={i} style={{
+              padding: '12px 16px', borderRadius: 10, fontSize: 13,
+              background: a.type === 'danger' ? 'rgba(199,80,80,0.06)' : a.type === 'warn' ? 'rgba(245,215,122,0.06)' : 'rgba(74,127,212,0.06)',
+              borderLeft: `4px solid ${a.type === 'danger' ? 'var(--red)' : a.type === 'warn' ? 'var(--oro-luz)' : 'var(--blue)'}`,
+              color: 'var(--txt-2)'
+            }}>
+              {a.text}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -400,7 +387,6 @@ export default function Dashboard() {
         </div>
       </Modal>
 
-      {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
-    </Layout>
+        </Layout>
   );
 }

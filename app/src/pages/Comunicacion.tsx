@@ -9,8 +9,10 @@ import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Publicacion } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
+import { showToast } from '../lib/notification';
 
 const PLATAFORMAS: Publicacion['plataforma'][] = ['YouTube', 'Facebook', 'Instagram', 'WhatsApp', 'Web', 'Email', 'Otro'];
 const TIPOS: Publicacion['tipo'][] = ['Video', 'Reel', 'Imagen', 'Texto', 'Story', 'Live', 'Email', 'Artículo'];
@@ -33,7 +35,6 @@ export default function Comunicacion() {
   const [modal, setModal] = useState<null | ModalType>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
 
   const [pTitulo, setPTitulo] = useState('');
   const [pPlat, setPPlat] = useState<Publicacion['plataforma']>('Facebook');
@@ -45,11 +46,6 @@ export default function Comunicacion() {
   const [pUrl, setPUrl] = useState('');
   const [pResp, setPResp] = useState('');
   const [pNotas, setPNotas] = useState('');
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3200);
-  };
 
   const reset = () => {
     setEditId(null);
@@ -162,7 +158,7 @@ export default function Comunicacion() {
       await db.publicaciones.update(editId, data);
       showToast(`Publicación "${pTitulo}" actualizada`);
     } else {
-      await db.publicaciones.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.publicaciones.add(createBaseRecord({ id: uuid(), ...data }));
       showToast(`Publicación "${pTitulo}" registrada`);
     }
     reset();
@@ -508,8 +504,6 @@ export default function Comunicacion() {
             <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>¿Eliminar <strong style={{ color: 'var(--txt)' }}>{selPub?.titulo}</strong>?<br />Esta acción no se puede deshacer.</p>
           </div>
         </Modal>
-
-        {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
       </div>
     </Layout>
   );

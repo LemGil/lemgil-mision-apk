@@ -10,8 +10,10 @@ import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Negocio } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
+import { showToast } from '../lib/notification';
 
 const RUBROS = ['Alimentos', 'Tecnología', 'Ropa', 'Servicios', 'Educación', 'Construcción', 'Transporte', 'Salud', 'Belleza', 'Otro'];
 const ETAPAS: { key: 'Idea' | 'Planificación' | 'Lanzamiento' | 'Operación' | 'Crecimiento' | 'Cierre'; emoji: string; order: number }[] = [
@@ -41,8 +43,8 @@ export default function Negocios() {
   const [filterAnio, setFilterAnio] = useState(new Date().getFullYear().toString());
   const [modal, setModal] = useState<null | ModalType>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
+   const [selectedId, setSelectedId] = useState<string | null>(null);
+
 
   const [nNombre, setNNombre] = useState('');
   const [nEmprendedor, setNEmprendedor] = useState('');
@@ -55,11 +57,6 @@ export default function Negocios() {
   const [nMentor, setNMentor] = useState('');
   const [nDesc, setNDesc] = useState('');
   const [nNotas, setNNotas] = useState('');
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3200);
-  };
 
   const reset = () => {
     setEditId(null);
@@ -158,7 +155,7 @@ export default function Negocios() {
       await db.negocios.update(editId, data);
       showToast(`Negocio "${nNombre}" actualizado`);
     } else {
-      await db.negocios.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.negocios.add(createBaseRecord({ id: uuid(), creado: new Date().toISOString(), ...data, version: 1 }));
       showToast(`Negocio "${nNombre}" registrado`);
     }
     reset();
@@ -472,8 +469,6 @@ export default function Negocios() {
             <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>¿Eliminar el negocio <strong style={{ color: 'var(--txt)' }}>{selNegocio?.nombre}</strong>?<br />Esta acción no se puede deshacer.</p>
           </div>
         </Modal>
-
-        {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
       </div>
     </Layout>
   );

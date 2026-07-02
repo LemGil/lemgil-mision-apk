@@ -8,3 +8,4 @@ app/.env
 !.vscode/extensions.json
 .idea
 *.sw?
+.agents/loop-state/

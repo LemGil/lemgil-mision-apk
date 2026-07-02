@@ -9,9 +9,10 @@ import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Colaborador, Aporte } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
-
+import { showToast } from '../lib/notification';
 import { today, fmt, money, MS_SHORT, accentStyle } from '../lib/utils';
 
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Pausado: 'badge-yellow', Inactivo: 'badge-red' };
@@ -91,7 +92,6 @@ export default function Dadores() {
   const [editDadorId, setEditDadorId] = useState<string | null>(null);
   const [editAporteId, setEditAporteId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
 
   const [dNombre, setDNombre] = useState('');
   const [dApellido, setDApellido] = useState('');
@@ -111,10 +111,7 @@ export default function Dadores() {
   const [aMetodo, setAMetodo] = useState('Efectivo');
   const [aNotas, setANotas] = useState('');
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3200);
-  };
+  
 
   const resetDador = () => {
     setEditDadorId(null);
@@ -279,7 +276,7 @@ export default function Dadores() {
       showToast(`Colaborador "${dNombre} ${dApellido}" actualizado`);
     } else {
       const newId = uuid();
-      await db.colaboradores.add({ id: newId, creado: new Date().toISOString(), ...data });
+      await db.colaboradores.add(createBaseRecord({ id: newId, ...data }));
       showToast(`Colaborador "${dNombre} ${dApellido}" registrado`);
     }
     resetDador();
@@ -319,7 +316,7 @@ export default function Dadores() {
       await db.aportes.update(editAporteId, data);
       showToast('Aporte actualizado');
     } else {
-      await db.aportes.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.aportes.add(createBaseRecord({ id: uuid(), ...data }));
       showToast(`Aporte de ${money(monto)} registrado`);
     }
     resetAporte();
@@ -1060,8 +1057,7 @@ export default function Dadores() {
           </div>
         </Modal>
 
-        {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
-      </div>
+          </div>
     </Layout>
   );
 }

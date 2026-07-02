@@ -6,7 +6,9 @@ import { Modal } from '../components/Modal';
 import { exportCSV } from '../lib/csvExport';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { MS_FULL, fmt, monthKey, inRange, money } from '../lib/utils';
+import { showToast } from '../lib/notification';
 
 const num = (n: number) => n.toLocaleString('en-US');
 
@@ -46,8 +48,8 @@ export default function Reportes() {
   const [modal, setModal] = useState<null | 'gen' | 'ver' | 'del'>(null);
   const [genTitulo, setGenTitulo] = useState('');
   const [viewId, setViewId] = useState<string | null>(null);
-  const [delId, setDelId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
+   const [delId, setDelId] = useState<string | null>(null);
+
 
   const applyPreset = (p: PeriodoPreset) => {
     setPreset(p);
@@ -145,10 +147,6 @@ export default function Reportes() {
     };
   }, [convs, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta, ymNow]);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3200);
-  };
 
   const openGen = () => {
     setGenTitulo(`Reporte ${periodoLabel}`);
@@ -156,7 +154,7 @@ export default function Reportes() {
   };
   const saveReporte = async () => {
     if (!genTitulo.trim()) return showToast('El título es obligatorio');
-    await db.reportes.add({
+    await db.reportes.add(createBaseRecord({
       id: uuid(),
       titulo: genTitulo.trim(),
       periodo: periodoLabel,
@@ -165,7 +163,8 @@ export default function Reportes() {
       resumen: JSON.stringify(datos),
       generado: new Date().toISOString(),
       generadoPor: 'LemGil',
-    });
+      version: 1,
+    }));
     showToast('Reporte guardado');
     setModal(null);
     setTab('historial');
@@ -507,8 +506,6 @@ export default function Reportes() {
             <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>¿Eliminar este reporte guardado?<br />Esta acción no se puede deshacer.</p>
           </div>
         </Modal>
-
-        {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
       </div>
     </Layout>
   );

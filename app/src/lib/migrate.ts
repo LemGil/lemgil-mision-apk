@@ -1,4 +1,5 @@
 import { db } from './database';
+import { createBaseRecord } from './utils/recordHelpers';
 import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Metas, Miembro, Hito, Zona } from './types';
 import { v4 as uuid } from 'uuid';
 
@@ -28,16 +29,16 @@ export async function migrateFromLocalStorage() {
   const certs = loadOld<Certificado>('ac_certs');
 
   await db.transaction('rw', [db.conversiones, db.grupos, db.evangelismos, db.cursos, db.lecciones, db.estudiantes, db.certificados], async () => {
-    if (convs.length) await db.conversiones.bulkAdd(convs);
-    if (grupos.length) await db.grupos.bulkAdd(grupos);
-    if (evangels.length) await db.evangelismos.bulkAdd(evangels);
-    if (cursos.length) await db.cursos.bulkAdd(cursos);
-    if (lecciones.length) await db.lecciones.bulkAdd(lecciones);
-    if (estudiantes.length) await db.estudiantes.bulkAdd(estudiantes);
-    if (certs.length) await db.certificados.bulkAdd(certs);
+    if (convs.length) await db.conversiones.bulkAdd(convs.map(createBaseRecord));
+    if (grupos.length) await db.grupos.bulkAdd(grupos.map(createBaseRecord));
+    if (evangels.length) await db.evangelismos.bulkAdd(evangels.map(createBaseRecord));
+    if (cursos.length) await db.cursos.bulkAdd(cursos.map(createBaseRecord));
+    if (lecciones.length) await db.lecciones.bulkAdd(lecciones.map(createBaseRecord));
+    if (estudiantes.length) await db.estudiantes.bulkAdd(estudiantes.map(createBaseRecord));
+    if (certs.length) await db.certificados.bulkAdd(certs.map(createBaseRecord));
   });
 
-  await db.metas.put({
+  await db.metas.put(createBaseRecord({
     id: 'default',
     membresia: 500,
     academia: 150,
@@ -45,7 +46,7 @@ export async function migrateFromLocalStorage() {
     familias: 200,
     personas: 800,
     actualizado: new Date().toISOString(),
-  });
+  }));
 
   console.log('Migración localStorage → IndexedDB completada');
 }
@@ -89,6 +90,8 @@ export async function backfillIntegrados(): Promise<number> {
       notas: c.notas || '',
       creado: now,
       actualizado: now,
+      version: 1,
+      updatedAt: now,
     });
     hitos.push({
       id: uuid(),
@@ -97,6 +100,8 @@ export async function backfillIntegrados(): Promise<number> {
       tipo: 'Integración',
       descripcion: `Integrado a la iglesia${c.lider ? ` · Disciplinado por ${c.lider}` : ''}`,
       creado: now,
+      version: 1,
+      updatedAt: now,
     });
   }
   if (aCrear.length > 0) {
@@ -113,7 +118,7 @@ export async function backfillIntegrados(): Promise<number> {
 export async function ensureMetas(): Promise<Metas> {
   const existing = await db.metas.get('default');
   if (existing) return existing;
-  const created: Metas = {
+  const created = createBaseRecord({
     id: 'default',
     membresia: 500,
     academia: 150,
@@ -121,7 +126,7 @@ export async function ensureMetas(): Promise<Metas> {
     familias: 200,
     personas: 800,
     actualizado: new Date().toISOString(),
-  };
+  });
   await db.metas.put(created);
   return created;
 }
@@ -139,7 +144,7 @@ export async function desunificarBienComun(): Promise<void> {
       const m = todosLosMiembros.find(x => x.id === id);
       if (m) {
         const colabId = uuid();
-        await db.dadores.add({
+        await db.dadores.add(createBaseRecord({
           id: colabId,
           nombre: m.nombre,
           apellido: m.apellido,
@@ -152,7 +157,7 @@ export async function desunificarBienComun(): Promise<void> {
           planDiezmo: 0,
           notas: '',
           creado: new Date().toISOString()
-        });
+        }));
         await db.aportesComun.where('diezmadorId').equals(id || '').modify({ diezmadorId: colabId });
       }
     }
@@ -167,9 +172,9 @@ export async function ensureZonas(): Promise<Zona[]> {
   const existentes = await db.zonas.toArray();
   if (existentes.length > 0) return existentes;
   const now = new Date().toISOString();
-  const seeds: Zona[] = ZONAS_DEFAULT.map((nombre) => ({ id: uuid(), nombre, creado: now }));
-  await db.zonas.bulkAdd(seeds);
-  return seeds;
+  const zonas = ZONAS_DEFAULT.map((nombre) => createBaseRecord({ id: uuid(), nombre, creado: now, version: 1 }));
+  await db.zonas.bulkAdd(zonas);
+  return zonas;
 }
 
 

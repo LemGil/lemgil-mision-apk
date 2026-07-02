@@ -21,7 +21,8 @@ export interface Conversion {
   notas: string;
   historial: HistorialEntry[];
   creado: string;
-  updatedAt?: number;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface HistorialEntry {
@@ -41,6 +42,8 @@ export interface Grupo {
   lugar: string;
   miembros: number;
   planOfrendasMensual?: number;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Evangelismo {
@@ -54,6 +57,8 @@ export interface Evangelismo {
   conversiones: number;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Curso {
@@ -67,6 +72,8 @@ export interface Curso {
   estado: 'Activo' | 'Borrador' | 'Archivado';
   descripcion: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Leccion {
@@ -77,6 +84,8 @@ export interface Leccion {
   duracion: number | null;
   descripcion: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Estudiante {
@@ -102,6 +111,8 @@ export interface Estudiante {
   fechaBautismo: string;
   conyuge: string;
   hijos: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Certificado {
@@ -112,6 +123,8 @@ export interface Certificado {
   calificacion: 'Aprobado' | 'Sobresaliente' | 'Con Honores';
   observaciones: string;
   emitido: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Diezmador {
@@ -127,6 +140,8 @@ export interface Diezmador {
   planDiezmo: number;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Aporte {
@@ -139,6 +154,8 @@ export interface Aporte {
   referencia: string;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Beneficiario {
@@ -156,6 +173,8 @@ export interface Beneficiario {
   representativeName?: string;
   source: 'Convertido' | 'Miembro' | 'Manual';
   sourceId?: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Campana {
@@ -171,6 +190,8 @@ export interface Campana {
   estado: 'Planificada' | 'En curso' | 'Completada' | 'Cancelada';
   descripcion: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Entrega {
@@ -185,6 +206,8 @@ export interface Entrega {
   unidad: string;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Metas {
@@ -195,6 +218,8 @@ export interface Metas {
   familias: number;
   personas: number;
   actualizado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Negocio {
@@ -211,6 +236,8 @@ export interface Negocio {
   descripcion: string;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Publicacion {
@@ -226,6 +253,8 @@ export interface Publicacion {
   responsable: string;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Reporte {
@@ -237,6 +266,8 @@ export interface Reporte {
   resumen: string;
   generado: string;
   generadoPor: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Colaborador {
@@ -251,6 +282,8 @@ export interface Colaborador {
   planOfrendaMonto: number;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface AporteComun {
@@ -265,6 +298,8 @@ export interface AporteComun {
   referencia: string;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Miembro {
@@ -291,6 +326,8 @@ export interface Miembro {
   notas: string;
   creado: string;
   actualizado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Ministerio {
@@ -301,6 +338,8 @@ export interface Ministerio {
   color: string;
   emoji: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface MiembroMinisterio {
@@ -311,6 +350,8 @@ export interface MiembroMinisterio {
   desde: string;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Hito {
@@ -321,12 +362,16 @@ export interface Hito {
   tipo: 'Conversión' | 'Bautismo' | 'Discipulado' | 'Curso Completado' | 'Integración' | 'Liderazgo' | 'Matrimonio' | 'Otro';
   descripcion: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Zona {
   id: string;
   nombre: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface TipoPlan {
@@ -335,6 +380,8 @@ export interface TipoPlan {
   color: string;
   activo: boolean;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface PlanColaborador {
@@ -344,4 +391,6 @@ export interface PlanColaborador {
   montoMensual: number;
   notas: string;
   creado: string;
+  version: number;
+  updatedAt?: string | number;
 }

@@ -10,15 +10,15 @@ import {
 } from '../../lib/pdfExport';
 import { money, MS_SHORT, monthKey } from '../../lib/utils';
 import type { Diezmador, AporteComun, Grupo } from '../../lib/types';
+import { showToast } from '../../lib/notification';
 
 interface ResumenTabProps {
   aportes: AporteComun[];
   colaboradores: Diezmador[];
   grupos: Grupo[];
-  showToast: (msg: string) => void;
 }
 
-export function ResumenTab({ aportes, colaboradores, grupos, showToast }: ResumenTabProps) {
+export function ResumenTab({ aportes, colaboradores, grupos }: ResumenTabProps) {
   const [anioResumen, setAnioResumen] = useState(new Date().getFullYear().toString());
   const [subTab, setSubTab] = useState<'general' | 'mensual' | 'top' | 'metas' | 'cumplimiento'>('general');
 

@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
-import { ToastContainer } from './Toast';
 import { SyncIndicator } from './SyncIndicator';
 import { forcePushAllLocal } from '../lib/sync';
 import { useErrorNotification } from '../lib/errorNotifications';
@@ -40,7 +39,6 @@ export function Layout({ title, breadcrumb, right, children }: LayoutProps) {
         </button>
         <SyncIndicator />
       </div>
-      <ToastContainer />
     </div>
   );
 }

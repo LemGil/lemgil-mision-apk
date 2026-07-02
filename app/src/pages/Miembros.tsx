@@ -7,11 +7,13 @@ import { exportCSV } from '../lib/csvExport';
 import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Miembro, MiembroMinisterio, Hito } from '../lib/types';
 import { exportMiembrosPDF, exportMinisteriosPDF, exportHitosPDF } from '../lib/pdfExport';
 import { CsvImportButton } from '../components/CsvImportButton';
 
 import { today, fmt, accentStyle } from '../lib/utils';
+import { showToast } from '../lib/notification';
 const calcAge = (d: string) => {
   if (!d) return null;
   const n = new Date(d);
@@ -74,7 +76,6 @@ export default function Miembros() {
   const [editAId, setEditAId] = useState<string | null>(null);
   const [editHId, setEditHId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
 
   const [mNombre, setMNombre] = useState('');
   const [mApellido, setMApellido] = useState('');
@@ -115,11 +116,7 @@ export default function Miembros() {
   const [hTipo, setHTipo] = useState('Conversión');
   const [hDesc, setHDesc] = useState('');
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3200);
-  };
-
+  
   const resetM = () => {
     setEditMId(null);
     setMNombre(''); setMApellido(''); setMTel(''); setMEmail(''); setMDir(''); setMZona(''); setMGrupo('');
@@ -212,8 +209,7 @@ export default function Miembros() {
       await db.miembros.update(editMId, { ...data, actualizado: new Date().toISOString() });
       showToast(`Miembro "${mNombre} ${mApellido}" actualizado`);
     } else {
-      const now = new Date().toISOString();
-      await db.miembros.add({ id: uuid(), creado: now, actualizado: now, ...data });
+      await db.miembros.add(createBaseRecord({ id: uuid(), ...data, actualizado: new Date().toISOString() }));
       showToast(`Miembro "${mNombre} ${mApellido}" registrado`);
     }
     resetM(); setModal(null);
@@ -244,7 +240,7 @@ export default function Miembros() {
       await db.ministerios.update(editMinId, data);
       showToast(`Ministerio "${minNombre}" actualizado`);
     } else {
-      await db.ministerios.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.ministerios.add(createBaseRecord({ id: uuid(), ...data }));
       showToast(`Ministerio "${minNombre}" creado`);
     }
     resetMin(); setModal(null);
@@ -276,7 +272,7 @@ export default function Miembros() {
       await db.miembrosMinisterios.update(editAId, data);
       showToast('Asignación actualizada');
     } else {
-      await db.miembrosMinisterios.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.miembrosMinisterios.add(createBaseRecord({ id: uuid(), ...data }));
       const m = miembros.find((x) => x.id === asigMiembro);
       const mn = ministerios.find((x) => x.id === asigMinisterio);
       showToast(`${m?.nombre || 'Miembro'} → ${mn?.nombre || 'Ministerio'}`);
@@ -304,10 +300,10 @@ export default function Miembros() {
   const quickAddHito = async () => {
     if (!selMiembro) return;
     if (!qhDesc.trim()) return showToast('Describe el hito');
-    await db.hitos.add({
+    await db.hitos.add(createBaseRecord({
       id: uuid(), miembroId: selMiembro.id, fecha: qhFecha,
-      tipo: qhTipo as Hito['tipo'], descripcion: qhDesc.trim(), creado: new Date().toISOString(),
-    });
+      tipo: qhTipo as Hito['tipo'], descripcion: qhDesc.trim()
+    }));
     setQhDesc(''); setQhTipo('Conversión'); setQhFecha(today());
     showToast('Hito registrado');
   };
@@ -326,7 +322,7 @@ export default function Miembros() {
       await db.hitos.update(editHId, data);
       showToast('Hito actualizado');
     } else {
-      await db.hitos.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.hitos.add(createBaseRecord({ id: uuid(), ...data }));
       showToast('Hito registrado');
     }
     resetH(); setModal(null);
@@ -1135,8 +1131,6 @@ export default function Miembros() {
           <button className="btn btn-danger" onClick={delH}>Eliminar</button>
         </div>
       </Modal>
-
-      {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
     </Layout>
   );
 }

@@ -1,3 +1,4 @@
+import { createBaseRecord } from "../lib/utils/recordHelpers";
 import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -10,6 +11,7 @@ import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import type { Conversion } from '../lib/types';
 import { today, fmt, MS, accentStyle } from '../lib/utils';
+import { showToast } from '../lib/notification';
 import { 
   exportConversionesPDF, 
   exportGruposMisionPDF, 
@@ -23,7 +25,7 @@ const syncMemberFromConversion = async (c: Conversion): Promise<string | null> =
   if (existing) return null;
   const now = new Date().toISOString();
   const miembroId = uuid();
-  await db.miembros.add({
+  await db.miembros.add(createBaseRecord({
     id: miembroId,
     nombre: c.nombre,
     apellido: c.apellido,
@@ -47,15 +49,15 @@ const syncMemberFromConversion = async (c: Conversion): Promise<string | null> =
     notas: c.notas || '',
     creado: now,
     actualizado: now,
-  });
-  await db.hitos.add({
+  }));
+  await db.hitos.add(createBaseRecord({
     id: uuid(),
     miembroId,
     fecha: c.fecha || now.split('T')[0],
     tipo: 'Integración',
     descripcion: `Integrado a la iglesia${c.lider ? ` · Disciplinado por ${c.lider}` : ''}`,
     creado: now,
-  });
+  }));
   return miembroId;
 }
 
@@ -98,7 +100,6 @@ export default function MisionBiblica() {
   const [filterEMes, setFilterEMes] = useState('');
   const [modal, setModal] = useState<null | ModalType>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
 
   const [editConvId, setEditConvId] = useState<string | null>(null);
   const [editGrupoId, setEditGrupoId] = useState<string | null>(null);
@@ -146,7 +147,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   const [sHito, setSHito] = useState(false);
   const [tempEst, setTempEst] = useState<string | null>(null);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
+  // const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
   const resetForm = () => { setEditConvId(null); setFNombre(''); setFApellido(''); setFTelefono(''); setFEdad(''); setFDireccion(''); setFFamilia('No'); setFFecha(today()); setFZona(''); setFLider(''); setFLiderCustom(false); setFEstado('Nuevo'); setFGrupoId(''); setFNotas(''); setFEmail(''); setFProfesion(''); setFBautizado(false); setFFechaBautismo(''); setFConyuge(''); setFHijos(''); setFHistorial([]); };
   const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); setGMeta(''); };
   const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELider(''); setELiderCustom(false); setEParticipantes([]); setEPartCustom(''); setEContactos('0'); setEConvs('0'); setENotas(''); };
@@ -258,8 +259,8 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       showToast(`${fNombre} ${fApellido} actualizado/a`);
     } else {
       const id = uuid();
-      const nuevo: Conversion = { id, ...data, historial: data.estado && data.estado !== 'Nuevo' ? [{ fecha: data.fecha || today(), estado: data.estado, nota: 'Registro inicial' }] : [], creado: new Date().toISOString() };
-      await db.conversiones.add(nuevo);
+      const nuevo: Conversion = { id, ...data, historial: data.estado && data.estado !== 'Nuevo' ? [{ fecha: data.fecha || today(), estado: data.estado, nota: 'Registro inicial' }] : [], creado: new Date().toISOString(), version: 1 };
+      await db.conversiones.add(createBaseRecord(nuevo));
       const synced = await syncMemberFromConversion(nuevo);
       showToast(synced ? `🧑 ${fNombre} registrado e integrado → Miembros` : `${fNombre} ${fApellido} guardado/a correctamente`);
     }
@@ -293,14 +294,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     if (sHito && sNota.trim()) {
       const vinculado = await db.miembros.where('conversionId').equals(selConv.id).first();
       if (vinculado) {
-        await db.hitos.add({
+        await db.hitos.add(createBaseRecord({
           id: uuid(),
           miembroId: vinculado.id,
           fecha: today(),
           tipo: ESTADOS_TIPO_HITO[ne] || 'Otro',
           descripcion: sNota.trim(),
           creado: new Date().toISOString(),
-        });
+        }));
         hitoCreado = true;
       }
     }
@@ -335,7 +336,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       await db.grupos.update(editGrupoId, data);
       showToast(`Grupo "${gNombre}" actualizado`);
     } else {
-      await db.grupos.add({ id: uuid(), ...data, miembros: 0 });
+      await db.grupos.add(createBaseRecord({ id: uuid(), ...data, miembros: 0 }));
       showToast(`Grupo "${gNombre}" creado`);
     }
     resetGrupo(); setModal(null);
@@ -366,7 +367,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       await db.evangelismos.update(editEvangId, data);
       showToast('Actividad actualizada');
     } else {
-      await db.evangelismos.add({ id: uuid(), ...data, creado: new Date().toISOString() });
+      await db.evangelismos.add(createBaseRecord({ id: uuid(), ...data, creado: new Date().toISOString() }));
       showToast(`Evangelismo guardado — ${eConvs} conversión(es)`);
     }
     resetEvang(); setModal(null);
@@ -1080,8 +1081,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         </div>
       </Modal>
 
-      {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
-      </div>
+          </div>
     </Layout>
   );
 }

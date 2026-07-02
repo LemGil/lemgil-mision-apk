@@ -10,9 +10,10 @@ import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Beneficiario, Campana } from '../lib/types';
 import { CsvImportButton } from '../components/CsvImportButton';
-
+import { showToast } from '../lib/notification';
 import { today, fmt, money, monthKey } from '../lib/utils';
 
 const EST_BEN: Record<string, string> = { Activo: 'badge-green', Inactivo: 'badge-red' };
@@ -45,7 +46,6 @@ export default function ManosAbiertas() {
   const [editCampId, setEditCampId] = useState<string | null>(null);
   const [editEntId, setEditEntId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
 
   const [bNombre, setBNombre] = useState('');
   const [bApellido, setBApellido] = useState('');
@@ -121,11 +121,6 @@ export default function ManosAbiertas() {
   const [eCant, setECant] = useState('1');
   const [eUnidad, setEUnidad] = useState('unidad');
   const [eNotas, setENotas] = useState('');
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3200);
-  };
 
   const typeColors: Record<string, string> = { Persona: 'var(--blue)', 'Casa de Familia': 'var(--gold)', Grupo: 'var(--green)', Vulnerable: 'var(--red)' };
   const typeAccent = typeColors[benefType] || 'var(--gold)';
@@ -279,7 +274,7 @@ export default function ManosAbiertas() {
       await db.beneficiarios.update(editBenId, data);
       showToast(`Beneficiario "${bNombre} ${bApellido}" actualizado`);
     } else {
-      await db.beneficiarios.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.beneficiarios.add(createBaseRecord({ id: uuid(), ...data }));
       showToast(`Beneficiario "${bNombre} ${bApellido}" registrado`);
     }
     resetBen();
@@ -321,7 +316,7 @@ export default function ManosAbiertas() {
       await db.campanas.update(editCampId, data);
       showToast(`Campaña "${cNombre}" actualizada`);
     } else {
-      await db.campanas.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.campanas.add(createBaseRecord({ id: uuid(), ...data }));
       showToast(`Campaña "${cNombre}" creada`);
     }
     resetCamp();
@@ -389,7 +384,7 @@ export default function ManosAbiertas() {
       await db.entregas.update(editEntId, data);
       showToast('Entrega actualizada');
     } else {
-      await db.entregas.add({ id: uuid(), creado: new Date().toISOString(), ...data });
+      await db.entregas.add(createBaseRecord({ id: uuid(), ...data }));
       showToast('Entrega registrada');
     }
     resetEnt();
@@ -944,8 +939,6 @@ export default function ManosAbiertas() {
             <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>¿Eliminar este registro de entrega?<br />Esta acción no se puede deshacer.</p>
           </div>
         </Modal>
-
-        {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
       </div>
     </Layout>
   );

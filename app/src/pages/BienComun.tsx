@@ -6,13 +6,14 @@ import { Modal } from '../components/Modal';
 import { exportCSV } from '../lib/csvExport';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Diezmador, Grupo, Miembro, TipoPlan, PlanColaborador, AporteComun } from '../lib/types';
 import {
   exportRegistrosPDF,
   exportDiezmadoresPDF,
 } from '../lib/pdfExport';
 import { CsvImportButton } from '../components/CsvImportButton';
-import { ResumenTab } from '../components/biencomun/ResumenTab';
+import { showToast } from '../lib/notification';import { ResumenTab } from '../components/biencomun/ResumenTab';
 import { OfrendasGruposTab } from '../components/biencomun/OfrendasGruposTab';
 import { today, monthKey, money, MS_SHORT, accentStyle } from '../lib/utils';
 
@@ -33,7 +34,6 @@ export default function BienComun() {
   const [editDId, setEditDId] = useState<string | null>(null);
   const [editAId, setEditAId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
   const [viewDiezmador, setViewDiezmador] = useState<Diezmador | null>(null);
   const [viewGrupo, setViewGrupo] = useState<Grupo | null>(null);
 
@@ -83,8 +83,7 @@ export default function BienComun() {
   const [aServicio, setAServicio] = useState('General');
   const [aNotas, setANotas] = useState('');
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
-  const resetD = () => { setEditDId(null); setDNombre(''); setDApellido(''); setDTel(''); setDEmail(''); setDZona(''); setDGrupo(''); setDEstado('Activo'); setDPlanDiezmo(''); setDNotas(''); setPlanTipoId(''); setPlanMonto(''); };
+    const resetD = () => { setEditDId(null); setDNombre(''); setDApellido(''); setDTel(''); setDEmail(''); setDZona(''); setDGrupo(''); setDEstado('Activo'); setDPlanDiezmo(''); setDNotas(''); setPlanTipoId(''); setPlanMonto(''); };
   const resetA = () => { setEditAId(null); setAMiembro(''); setAGrupo(''); setAFecha(today()); setAMonto(''); setATipo('Diezmo'); setAMetodo('Efectivo'); setAServicio('General'); setANotas(''); };
 
   const saveD = async () => {
@@ -95,9 +94,9 @@ export default function BienComun() {
       showToast('Diezmador actualizado');
     } else {
       const newId = uuid();
-      await db.dadores.add({ id: newId, ...data });
+      await db.dadores.add(createBaseRecord({ id: newId, ...data }));
       if (planTipoId && parseFloat(planMonto) > 0) {
-        await db.planesColaborador.add({ id: uuid(), diezmadorId: newId, tipoPlanId: planTipoId, montoMensual: parseFloat(planMonto) || 0, notas: '', creado: new Date().toISOString() });
+        await db.planesColaborador.add(createBaseRecord({ id: uuid(), diezmadorId: newId, tipoPlanId: planTipoId, montoMensual: parseFloat(planMonto) || 0, notas: '', creado: new Date().toISOString() }));
       }
       showToast('Diezmador registrado');
     }
@@ -125,7 +124,7 @@ export default function BienComun() {
     if (editAId) {
       await db.aportesComun.update(editAId, data);
     } else {
-      await db.aportesComun.add({ id: uuid(), ...data });
+      await db.aportesComun.add(createBaseRecord({ id: uuid(), ...data }));
       showToast('Aporte registrado');
     }
     resetA(); setModal(null);
@@ -169,7 +168,7 @@ export default function BienComun() {
       await db.tiposPlanes.update(editTpId, { nombre: tpNombre.trim(), color: tpColor });
       showToast('Tipo de plan actualizado');
     } else {
-      await db.tiposPlanes.add({ id: uuid(), nombre: tpNombre.trim(), color: tpColor, activo: true, creado: new Date().toISOString() });
+      await db.tiposPlanes.add(createBaseRecord({ id: uuid(), nombre: tpNombre.trim(), color: tpColor, activo: true }));
       showToast('Tipo de plan creado');
     }
     resetTp(); setModal(null);
@@ -183,12 +182,12 @@ export default function BienComun() {
     if (!planTipoId) return showToast('Selecciona un tipo de plan');
     const monto = parseFloat(planMonto) || 0;
     if (monto <= 0) return showToast('El monto debe ser mayor a 0');
-    const data = { diezmadorId: planDiezmadorId, tipoPlanId: planTipoId, montoMensual: monto, notas: planNotas.trim(), creado: new Date().toISOString() };
+    const data = { diezmadorId: planDiezmadorId, tipoPlanId: planTipoId, montoMensual: monto, notas: planNotas.trim() };
     if (editPlanId) {
       await db.planesColaborador.update(editPlanId, data);
       showToast('Plan actualizado');
     } else {
-      await db.planesColaborador.add({ id: uuid(), ...data });
+      await db.planesColaborador.add(createBaseRecord({ id: uuid(), ...data }));
       showToast('Plan registrado');
     }
     resetPlan(); setModal(null);
@@ -507,15 +506,17 @@ export default function BienComun() {
             </div>
         )}
 
-        {tab === 'resumen' && <ResumenTab aportes={aportes} colaboradores={colaboradores} grupos={grupos} showToast={showToast} />}
-        {tab === 'ofrendasGrupos' && <OfrendasGruposTab
-          aportes={aportes} grupos={grupos} showToast={showToast}
-          searchG={searchG} setSearchG={setSearchG}
-          filterGZona={filterGZona} setFilterGZona={setFilterGZona}
-          filterGEstado={filterGEstado} setFilterGEstado={setFilterGEstado}
-          setViewGrupo={setViewGrupo} setModal={setModal}
-          resetA={resetA} setATipo={setATipo}
-        />}
+        {tab === 'resumen' &&             <ResumenTab aportes={aportes} colaboradores={colaboradores} grupos={grupos} />
+}
+         {tab === 'ofrendasGrupos' && <OfrendasGruposTab
+           aportes={aportes} grupos={grupos}
+           searchG={searchG} setSearchG={setSearchG}
+           filterGZona={filterGZona} setFilterGZona={setFilterGZona}
+           filterGEstado={filterGEstado} setFilterGEstado={setFilterGEstado}
+           setViewGrupo={setViewGrupo} setModal={setModal}
+           resetA={resetA} setATipo={setATipo}
+         />}
+
         {tab === 'planes' && (
             <div className="page-content">
                 <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'start'}}>
@@ -890,7 +891,6 @@ export default function BienComun() {
 
         <Modal open={modal === 'delPlanDiezmador'} onClose={() => setModal(null)} title="Eliminar Plan" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delPlan}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este plan?</Modal>
 
-        {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
-    </Layout>
+        </Layout>
   );
 }

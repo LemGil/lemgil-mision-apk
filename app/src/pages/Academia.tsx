@@ -8,12 +8,15 @@ import { Modal } from '../components/Modal';
 import { EmptyState } from '../components/EmptyState';
 import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Curso, Estudiante, Certificado } from '../lib/types';
-import { 
-  exportEstudiantesPDF, 
-  exportCursosPDF 
+import {
+  exportEstudiantesPDF,
+  exportCursosPDF
 } from '../lib/pdfExport';
 import { CsvImportButton } from '../components/CsvImportButton';
+import { showToast } from '../lib/notification';
+
 
 const NIVEL_BADGE: Record<string, string> = { Basico: 'badge-blue', Intermedio: 'badge-yellow', Avanzado: 'badge-red' };
 const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Completado: 'badge-purple', Pausado: 'badge-yellow' };
@@ -47,8 +50,7 @@ export default function Academia() {
   const [editEstId, setEditEstId] = useState<string | null>(null);
   const [editCertId, setEditCertId] = useState<string | null>(null);
   const [viewCursoId, setViewCursoId] = useState<string | null>(null);
-   const [viewEstId, setViewEstId] = useState<string | null>(null);
-   const [toast, setToast] = useState('');
+  const [viewEstId, setViewEstId] = useState<string | null>(null);
 
    const selEst = viewEstId ? estudiantes.find((e) => e.id === viewEstId) : null;
 
@@ -66,11 +68,10 @@ export default function Academia() {
      return { myCerts, myCurso, totalCursos, iniciales, studentHitos, origenConv, origenMiem, grupo, hermanoMayor };
    }, [selEst, certs, cursos, allHitos, conversiones, miembros, grupos]);
 
-   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
+  
+   const [cNombre, setCNombre] = useState('');
+   const [cNivel, setCNivel] = useState('Basico');
 
-
-  const [cNombre, setCNombre] = useState('');
-  const [cNivel, setCNivel] = useState('Basico');
   const [cDur, setCDur] = useState('');
   const [cInst, setCInst] = useState('');
   const [cEmoji, setCEmoji] = useState('📖');
@@ -134,7 +135,7 @@ export default function Academia() {
        descripcion: qhDesc.trim(), 
        creado: new Date().toISOString() 
      };
-     await db.hitos.add(data);
+     await db.hitos.add(createBaseRecord(data));
      showToast('Hito registrado');
      setQHDesc('');
      setQHFecha(today());
@@ -156,7 +157,7 @@ export default function Academia() {
     if (!cInst.trim()) return showToast('El instructor es obligatorio');
     const data = { nombre: cNombre.trim(), instructor: cInst.trim(), nivel: cNivel as Curso['nivel'], duracion: cDur, emoji: cEmoji || '📖', color: cColor, estado: cEstado as Curso['estado'], descripcion: cDesc.trim() };
     if (editCursoId) { await db.cursos.update(editCursoId, data); showToast(`Curso "${cNombre}" actualizado`); }
-    else { await db.cursos.add({ id: uuid(), creado: today(), ...data }); showToast(`Curso "${cNombre}" creado`); }
+    else { await db.cursos.add(createBaseRecord({ id: uuid(), creado: today(), ...data })); showToast(`Curso "${cNombre}" creado`); }
     setEditCursoId(null); resetCurso(); setModal(null);
   };
   const delCurso = async () => {
@@ -181,7 +182,7 @@ export default function Academia() {
     const leccCount = await db.lecciones.where('cursoId').equals(lCurso).count();
     const data = { cursoId: lCurso, titulo: lTitulo.trim(), numero: parseInt(lNum) || leccCount + 1, duracion: parseInt(lDur) || null, descripcion: lDesc.trim() };
     if (editLecId) { await db.lecciones.update(editLecId, data); showToast(`Lección "${lTitulo}" actualizada`); }
-    else { await db.lecciones.add({ id: uuid(), creado: today(), ...data }); showToast(`Lección "${lTitulo}" agregada`); }
+    else { await db.lecciones.add(createBaseRecord({ id: uuid(), creado: today(), ...data })); showToast(`Lección "${lTitulo}" agregada`); }
     setEditLecId(null); resetLeccion(); setModal(null);
   };
   const delLeccion = async () => {
@@ -217,7 +218,7 @@ export default function Academia() {
       conyuge: eConyuge.trim(), hijos: eHijos.trim(),
     };
     if (editEstId) { await db.estudiantes.update(editEstId, data); showToast(`${eNombre} ${eApellido} actualizado/a`); }
-    else { await db.estudiantes.add({ id: uuid(), creado: today(), ...data }); showToast(`${eNombre} ${eApellido} matriculado/a`); }
+    else { await db.estudiantes.add(createBaseRecord({ id: uuid(), creado: today(), ...data })); showToast(`${eNombre} ${eApellido} matriculado/a`); }
     setEditEstId(null); resetEst(); setModal(null);
   };
   const delEst = async () => {
@@ -274,7 +275,7 @@ export default function Academia() {
     if (editCertId) { await db.certificados.update(editCertId, data); showToast('Certificado actualizado'); }
     else {
       await db.estudiantes.update(certEst, { estado: 'Completado' as const });
-      await db.certificados.add({ id: uuid(), emitido: today(), ...data });
+      await db.certificados.add(createBaseRecord({ id: uuid(), emitido: today(), ...data }));
       showToast('¡Certificado emitido!');
     }
     setEditCertId(null); resetCert(); setModal(null);
@@ -837,8 +838,7 @@ export default function Academia() {
         <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Observaciones</label><textarea className="form-textarea" value={certObs} onChange={(e) => setCertObs(e.target.value)} placeholder="Logros destacados, menciones especiales…" style={{ minHeight: 55 }} /></div>
       </Modal>
 
-      {toast && <div className="toast-container"><div className="toast success">{toast}</div></div>}
-      </div>
+          </div>
     </Layout>
   );
 }

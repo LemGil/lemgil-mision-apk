@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 
 interface Notification {
   id: number;
@@ -14,6 +14,16 @@ interface NotificationContextValue {
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
+let _addNotification: ((message: string, type: Notification['type']) => void) | null = null;
+
+export function setGlobalNotificationFn(fn: typeof _addNotification) {
+  _addNotification = fn;
+}
+
+export function showToast(message: string, type: Notification['type'] = 'success') {
+  _addNotification?.(message, type);
+}
+
 let globalId = 0;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -26,6 +36,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 4000);
   }, []);
+
+  useEffect(() => {
+    setGlobalNotificationFn(addNotification);
+    return () => setGlobalNotificationFn(null);
+  }, [addNotification]);
 
   const removeNotification = useCallback((id: number) => {
     setNotifications(prev => prev.filter(n => n.id !== id));

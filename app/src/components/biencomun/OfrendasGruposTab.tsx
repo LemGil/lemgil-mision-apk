@@ -3,6 +3,7 @@ import { exportCSV } from '../../lib/csvExport';
 import { exportGruposPDF } from '../../lib/pdfExport';
 import { money, MS_SHORT, monthKey } from '../../lib/utils';
 import { CsvImportButton } from '../CsvImportButton';
+import { showToast } from '../../lib/notification';
 import type { Grupo, AporteComun } from '../../lib/types';
 
 type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoPlan' | 'delTipoPlan' | 'planDiezmador' | 'delPlanDiezmador';
@@ -10,7 +11,6 @@ type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoP
 interface OfrendasGruposTabProps {
   aportes: AporteComun[];
   grupos: Grupo[];
-  showToast: (msg: string) => void;
   searchG: string;
   setSearchG: (v: string) => void;
   filterGZona: string;
@@ -24,7 +24,7 @@ interface OfrendasGruposTabProps {
 }
 
 export function OfrendasGruposTab({
-  aportes, grupos, showToast,
+  aportes, grupos,
   searchG, setSearchG, filterGZona, setFilterGZona, filterGEstado, setFilterGEstado,
   setViewGrupo, setModal, resetA, setATipo,
 }: OfrendasGruposTabProps) {

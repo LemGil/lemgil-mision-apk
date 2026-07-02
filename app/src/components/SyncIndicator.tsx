@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { onSyncStatus, type SyncStatus } from '../lib/sync';
+import { onSyncStatus } from '../lib/sync/status';
+import { type SyncStatus } from '../lib/sync/types';
 
 export function SyncIndicator() {
   const [status, setStatus] = useState<SyncStatus>({ connected: false, lastSync: 'Nunca', pendingOps: 0, error: '' });

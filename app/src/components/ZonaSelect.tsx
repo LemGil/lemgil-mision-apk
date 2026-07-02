@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../lib/database';
 import { Modal } from './Modal';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
 
 interface ZonaSelectProps {
   value: string;
@@ -30,7 +31,7 @@ export function ZonaSelect({ value, onChange, className, required, allowEmpty = 
       setNuevo('');
       return;
     }
-    await db.zonas.add({ id: uuid(), nombre, creado: new Date().toISOString() });
+    await db.zonas.add(createBaseRecord({ id: uuid(), nombre, creado: new Date().toISOString() }));
     onChange(nombre);
     setAdding(false);
     setNuevo('');
