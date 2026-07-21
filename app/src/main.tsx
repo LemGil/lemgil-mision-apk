@@ -7,6 +7,7 @@ import { migrateFromLocalStorage, ensureMetas, backfillIntegrados, ensureZonas, 
 import { initSync } from './lib/sync';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotificationProvider } from './lib/notification';
+import { AuthProvider } from './lib/auth';
 
 registerSW({ immediate: true });
 
@@ -15,22 +16,26 @@ Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ens
   try { await initSync(); } catch (e) { console.warn('[Sync] init failed (offline?):', e); }
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <NotificationProvider>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
-      </NotificationProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </NotificationProvider>
+      </AuthProvider>
     </StrictMode>,
   );
 }).catch(err => {
   console.error('[Main] Error crítico en migraciones:', err);
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <NotificationProvider>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
-      </NotificationProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </NotificationProvider>
+      </AuthProvider>
     </StrictMode>,
   );
 });

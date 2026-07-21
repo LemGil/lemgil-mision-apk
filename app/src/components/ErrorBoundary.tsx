@@ -31,16 +31,16 @@ export class ErrorBoundary extends Component<Props, State> {
           justifyContent: "center",
           alignItems: "center",
           minHeight: "100vh",
-          background: "#1a1d26",
-          color: "white",
+          background: "#F5F1E8",
+          color: "#1C1C1C",
           padding: "20px",
           fontFamily: "system-ui, sans-serif"
         }}>
           <div style={{ textAlign: "center", maxWidth: "500px" }}>
             <h1 style={{ fontSize: "24px", marginBottom: "12px" }}>⚠️ Error del Sistema</h1>
-            <p style={{ marginBottom: "8px", color: "#ccc" }}>Lo sentimos, ha ocurrido un error inesperado.</p>
+            <p style={{ marginBottom: "8px", color: "#8A7A60" }}>Lo sentimos, ha ocurrido un error inesperado.</p>
             {this.state.error && (
-              <p style={{ fontSize: "12px", color: "#888", marginBottom: "20px", wordBreak: "break-all" }}>
+              <p style={{ fontSize: "12px", color: "#8A7A60", marginBottom: "20px", wordBreak: "break-all" }}>
                 {this.state.error.message}
               </p>
             )}
@@ -48,8 +48,8 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               style={{
                 padding: "10px 20px",
-                background: "#c9a24a",
-                color: "#1a1d26",
+                background: "#C9A24A",
+                color: "#FFFFFF",
                 border: "none",
                 borderRadius: "6px",
                 cursor: "pointer",

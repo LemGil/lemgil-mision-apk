@@ -1,6 +1,8 @@
--- LemGilDB - Esquema y Migraciones de Seguridad
+-- LemGilDB - Seguridad: RLS y Políticas de Acceso
+-- Requiere: usuario creado en Authentication > Users con email y PIN
+-- Configurar en .env: VITE_SUPABASE_EMAIL, VITE_SUPABASE_PASSWORD
 
--- 1. Crear una función genérica para actualizar el timestamp
+-- 1. Función para actualizar timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -9,37 +11,61 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- 2. Migración: Añadir version y updated_at a tablas críticas
+-- 2. Agregar columnas version y updated_at donde falten
+DO $$
+DECLARE
+  tables TEXT[] := ARRAY[
+    'conversiones', 'grupos', 'evangelismos', 'cursos', 'lecciones',
+    'estudiantes', 'certificados', 'dadores', 'aportes', 'beneficiarios',
+    'campanas', 'entregas', 'metas', 'negocios', 'publicaciones',
+    'reportes', 'miembroscomun', 'colaboradores', 'aportescomun',
+    'miembros', 'ministerios', 'miembrosministerios', 'hitos', 'zonas'
+  ];
+  t TEXT;
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1', t);
+    EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()', t);
+  END LOOP;
+END;
+$$;
 
--- Estudiantes
-ALTER TABLE estudiantes 
-ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1,
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+-- 3. Habilitar RLS en TODAS las tablas
+DO $$
+DECLARE
+  tables TEXT[] := ARRAY[
+    'conversiones', 'grupos', 'evangelismos', 'cursos', 'lecciones',
+    'estudiantes', 'certificados', 'dadores', 'aportes', 'beneficiarios',
+    'campanas', 'entregas', 'metas', 'negocios', 'publicaciones',
+    'reportes', 'miembroscomun', 'colaboradores', 'aportescomun',
+    'miembros', 'ministerios', 'miembrosministerios', 'hitos', 'zonas'
+  ];
+  t TEXT;
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+  END LOOP;
+END;
+$$;
 
-DROP TRIGGER IF EXISTS update_estudiantes_updated_at ON estudiantes;
-CREATE TRIGGER update_estudiantes_updated_at
-BEFORE UPDATE ON estudiantes
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Miembros
-ALTER TABLE miembros 
-ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1,
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-
-DROP TRIGGER IF EXISTS update_miembros_updated_at ON miembros;
-CREATE TRIGGER update_miembros_updated_at
-BEFORE UPDATE ON miembros
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- 3. Habilitar RLS y políticas de acceso público (anon)
-
-ALTER TABLE estudiantes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE miembros ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Acceso público CRUD en estudiantes" ON estudiantes;
-CREATE POLICY "Acceso público CRUD en estudiantes" ON estudiantes
-FOR ALL TO anon USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Acceso público CRUD en miembros" ON miembros;
-CREATE POLICY "Acceso público CRUD en miembros" ON miembros
-FOR ALL TO anon USING (true) WITH CHECK (true);
+-- 4. Políticas: solo usuarios autenticados pueden hacer CRUD
+DO $$
+DECLARE
+  tables TEXT[] := ARRAY[
+    'conversiones', 'grupos', 'evangelismos', 'cursos', 'lecciones',
+    'estudiantes', 'certificados', 'dadores', 'aportes', 'beneficiarios',
+    'campanas', 'entregas', 'metas', 'negocios', 'publicaciones',
+    'reportes', 'miembroscomun', 'colaboradores', 'aportescomun',
+    'miembros', 'ministerios', 'miembrosministerios', 'hitos', 'zonas'
+  ];
+  t TEXT;
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    EXECUTE format('DROP POLICY IF EXISTS accion_autenticado ON %I', t);
+    EXECUTE format(
+      'CREATE POLICY accion_autenticado ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true)',
+      t
+    );
+  END LOOP;
+END;
+$$;

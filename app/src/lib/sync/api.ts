@@ -25,7 +25,7 @@ function toSupabase(name: string): string {
   return DEXIE_TO_SUPABASE[name] || name;
 }
 
-function toLowerCaseKeys(obj: any): any {
+export function toLowerCaseKeys(obj: any): any {
   if (Array.isArray(obj)) return obj.map(toLowerCaseKeys);
   if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
     return Object.keys(obj).reduce((acc, key) => {
@@ -36,7 +36,7 @@ function toLowerCaseKeys(obj: any): any {
   return obj;
 }
 
-const SUPABASE_TO_DEXIE: Record<string, string> = {
+export const SUPABASE_TO_DEXIE: Record<string, string> = {
   grupoid: 'grupoId',
   diezmadorid: 'diezmadorId',
   campanaid: 'campanaId',
@@ -216,10 +216,12 @@ export async function enqueueSync(table: string, operation: SyncOp['operation'],
   fn();
 }
 
-export async function pushAllLocal() {
+async function bulkUpsertAll(force: boolean) {
   skipSync = true;
   try {
-    let totalPushed = 0;
+    await processQueue();
+
+    let total = 0;
     for (const table of SYNC_TABLES) {
       const supaTable = toSupabase(table);
       try {
@@ -234,42 +236,36 @@ export async function pushAllLocal() {
           delete rest.codigo;
           return rest;
         });
-        const { error } = await supabase.from(supaTable).upsert(toLowerCaseKeys(cleaned));
-        if (error) continue;
-        totalPushed += cleaned.length;
+
+        if (force) {
+          const { error } = await supabase.from(supaTable).upsert(toLowerCaseKeys(cleaned));
+          if (error) continue;
+        } else {
+          for (const record of cleaned) {
+            const version = record.version || 1;
+            const { error } = await supabase
+              .from(supaTable)
+              .upsert(toLowerCaseKeys({ ...record, version }))
+              .eq('id', record.id)
+              .eq('version', version);
+            if (error) continue;
+          }
+        }
+        total += cleaned.length;
       } catch (err: any) { console.warn(`[Sync] ✗ Excepción en ${table}:`, err.message); }
     }
+    console.log(`[Sync] ✓ Push ${force ? 'forzado' : 'normal'}: ${total} registros`);
   } finally {
     skipSync = false;
   }
 }
 
+export async function pushAllLocal() {
+  return bulkUpsertAll(false);
+}
+
 export async function forcePushAllLocal() {
-  skipSync = true;
-  try {
-    let totalUpserted = 0;
-    for (const table of SYNC_TABLES) {
-      const supaTable = toSupabase(table);
-      try {
-        const localData = await (db as any)[table].toArray();
-        if (localData.length === 0) continue;
-        const cleaned = localData.map((r: any) => {
-          const { _primKey, updatedAt: _u, ...rest } = r;
-          if (table === 'dadores') delete (rest as any).base;
-          if (table === 'colaboradores') {
-            if (rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
-          }
-          delete rest.codigo;
-          return rest;
-        });
-        const { error } = await supabase.from(supaTable).upsert(toLowerCaseKeys(cleaned));
-        if (error) continue;
-        totalUpserted += cleaned.length;
-      } catch (err: any) { console.warn(`[Sync] ✗ Excepción Force ${table}:`, err.message); }
-    }
-  } finally {
-    skipSync = false;
-  }
+  return bulkUpsertAll(true);
 }
 
 export async function pullFromSupabase() {
