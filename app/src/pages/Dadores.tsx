@@ -84,6 +84,9 @@ export default function Dadores() {
   const [filterEstado, setFilterEstado] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
   const [filterPlan, setFilterPlan] = useState('');
+  const [filterPlanTipo, setFilterPlanTipo] = useState('');
+  const [filterMontoMin, setFilterMontoMin] = useState('');
+  const [filterMontoMax, setFilterMontoMax] = useState('');
   const [filterTipoAporte, setFilterTipoAporte] = useState('');
   const [filterMetodo, setFilterMetodo] = useState('');
   const [filterMes, setFilterMes] = useState('');
@@ -153,14 +156,19 @@ export default function Dadores() {
 
   const dadoresFiltrados = useMemo(() => {
     const s = search.toLowerCase();
+    const min = parseFloat(filterMontoMin) || 0;
+    const max = parseFloat(filterMontoMax) || Infinity;
     return dadores.filter((d) => {
       const full = `${d.nombre} ${d.apellido} ${d.telefono} ${d.email}`.toLowerCase();
+      const planMonto = d.planOfrendaMonto || 0;
       return (!s || full.includes(s))
         && (!filterEstado || d.estado === filterEstado)
         && (!filterTipo || d.tipo === filterTipo)
-        && (!filterPlan || (filterPlan === 'con' ? (d.planOfrendaMonto || 0) > 0 : !(d.planOfrendaMonto || 0)));
+        && (!filterPlan || (filterPlan === 'con' ? planMonto > 0 : planMonto === 0))
+        && (!filterPlanTipo || d.planOfrendaTipo === filterPlanTipo)
+        && (planMonto >= min && planMonto <= max);
     });
-  }, [dadores, search, filterEstado, filterTipo, filterPlan]);
+  }, [dadores, search, filterEstado, filterTipo, filterPlan, filterPlanTipo, filterMontoMin, filterMontoMax]);
 
   const aportesFiltrados = useMemo(() => {
     const s = search.toLowerCase();
@@ -468,7 +476,7 @@ export default function Dadores() {
 
         {tab === 'diezmadores' && (
           <>
-            <div className="search-bar">
+             <div className="search-bar">
               <input className="search-input" placeholder="🔍 Buscar nombre, teléfono, email…" value={search} onChange={(e) => setSearch(e.target.value)} />
               <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
                 <option value="">Todos los estados</option>
@@ -482,11 +490,15 @@ export default function Dadores() {
                 <option>Empresa</option>
                 <option>Iglesia</option>
               </select>
-              <select className="filter-select" value={filterPlan} onChange={(e) => setFilterPlan(e.target.value)}>
+              <select className="filter-select" value={filterPlanTipo} onChange={(e) => setFilterPlanTipo(e.target.value)}>
                 <option value="">Todos los planes</option>
-                <option value="con">Con plan</option>
-                <option value="sin">Sin plan</option>
+                {tiposPlanes.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
               </select>
+              <input className="search-input" style={{maxWidth: 100}} type="number" placeholder="Mín ($)" value={filterMontoMin} onChange={(e) => setFilterMontoMin(e.target.value)} />
+              <input className="search-input" style={{maxWidth: 100}} type="number" placeholder="Máx ($)" value={filterMontoMax} onChange={(e) => setFilterMontoMax(e.target.value)} />
+              {(search || filterEstado || filterTipo || filterPlanTipo || filterMontoMin || filterMontoMax) && (
+                <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterEstado(''); setFilterTipo(''); setFilterPlanTipo(''); setFilterMontoMin(''); setFilterMontoMax(''); }}>✕ Limpiar</button>
+              )}
             </div>
 
             <div className="card">
@@ -620,7 +632,7 @@ export default function Dadores() {
 
         {tab === 'resumen' && (
           <div className="page-content">
-            <div className="actions-row" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px'}}>
+            <div className="actions-row between">
               <div style={{display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap'}}>
                 <span style={{fontSize: '18px', fontWeight: 700}}>📅 Año:</span>
                 <select className="filter-select" value={anioResumen} onChange={e => setAnioResumen(e.target.value)} style={{fontWeight: 600}}>

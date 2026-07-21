@@ -179,7 +179,9 @@ export default function Dashboard() {
     if (membresia <= 0 || academia <= 0 || sostenimiento <= 0 || familias <= 0 || personas <= 0) {
       return showToast('Todos los valores deben ser mayores a 0');
     }
-    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas, actualizado: new Date().toISOString(), version: 1 });
+    const existing = await db.metas.get('default');
+    const nextVersion = (existing?.version || 0) + 1;
+    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas, actualizado: new Date().toISOString(), version: nextVersion });
     setEditMetas(false);
     showToast('Metas actualizadas');
       };
@@ -231,8 +233,8 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="card" style={{ marginBottom: 18, borderLeft: '4px solid var(--oro-apostolico)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt)' }}>🚀 Acceso Rápido al Sistema</div>
             <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>Consulta el estado ministerial, genera reportes o gestiona métricas.</div>

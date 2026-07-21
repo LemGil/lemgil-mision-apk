@@ -172,7 +172,7 @@ export function ResumenTab({ aportes, colaboradores, grupos }: ResumenTabProps) 
 
   return (
     <div className="page-content">
-      <div className="actions-row" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px'}}>
+      <div className="actions-row between">
         <div style={{display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap'}}>
           <span style={{fontSize: '18px', fontWeight: 700}}>📅 Año:</span>
           <select className="filter-select" value={anioResumen} onChange={e => setAnioResumen(e.target.value)} style={{fontWeight: 600}}>

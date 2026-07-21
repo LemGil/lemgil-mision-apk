@@ -7,16 +7,21 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png', 'icons.svg'],
       manifest: {
         name: 'LemGil — Ministerio Apostólico',
         short_name: 'LemGil',
         description: 'Sistema de gestión eclesial',
         start_url: '/',
         display: 'standalone',
-        background_color: '#0f1117',
-        theme_color: '#d4a843',
-        icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }]
+        background_color: '#F5F1E8',
+        theme_color: '#C9A24A',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
+        ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],

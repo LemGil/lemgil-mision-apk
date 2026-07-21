@@ -40,8 +40,13 @@ export default function BienComun() {
   const [filterTipo, setFilterTipo] = useState('');
   const [filterMes, setFilterMes] = useState('');
   const [filterDiezmador, setFilterDiezmador] = useState('');
+  const [filterGrupo, setFilterGrupo] = useState('');
   const [filterAnio, setFilterAnio] = useState(new Date().getFullYear().toString());
   const [filterMetodo, setFilterMetodo] = useState('');
+  const [filterMontoMin, setFilterMontoMin] = useState('');
+  const [filterMontoMax, setFilterMontoMax] = useState('');
+  const [filterFechaDesde, setFilterFechaDesde] = useState('');
+  const [filterFechaHasta, setFilterFechaHasta] = useState('');
   const [searchReg, setSearchReg] = useState('');
 
   const [searchDz, setSearchDz] = useState('');
@@ -198,14 +203,20 @@ export default function BienComun() {
   const registrosFiltrados = useMemo(() => {
     return aportes.filter(a => {
       const full = `${a.diezmadorId} ${a.tipo} ${a.notas}`.toLowerCase();
+      const monto = a.monto || 0;
       return (!searchReg || full.includes(searchReg.toLowerCase())) &&
              (!filterTipo || a.tipo === filterTipo) &&
              (!filterMes || monthKey(a.fecha) === filterMes) &&
              (!filterDiezmador || a.diezmadorId === filterDiezmador) &&
+             (!filterGrupo || a.grupoId === filterGrupo) &&
              (!filterAnio || a.fecha?.startsWith(filterAnio)) &&
-             (!filterMetodo || a.metodo === filterMetodo);
+             (!filterMetodo || a.metodo === filterMetodo) &&
+             (filterMontoMin === '' || monto >= parseFloat(filterMontoMin)) &&
+             (filterMontoMax === '' || monto <= parseFloat(filterMontoMax)) &&
+             (!filterFechaDesde || a.fecha >= filterFechaDesde) &&
+             (!filterFechaHasta || a.fecha <= filterFechaHasta);
     });
-  }, [aportes, searchReg, filterTipo, filterMes, filterDiezmador, filterAnio, filterMetodo]);
+  }, [aportes, searchReg, filterTipo, filterMes, filterDiezmador, filterGrupo, filterAnio, filterMetodo, filterMontoMin, filterMontoMax, filterFechaDesde, filterFechaHasta]);
 
   const totalesReg = useMemo(() => {
     const total = registrosFiltrados.reduce((s, a) => s + (a.monto || 0), 0);
@@ -340,6 +351,14 @@ export default function BienComun() {
                         <option>Otro</option>
                     </select>
                     <select className="filter-select" value={filterDiezmador} onChange={e => setFilterDiezmador(e.target.value)}><option value="">Todos los diezmadores</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select>
+                    <select className="filter-select" value={filterGrupo} onChange={e => setFilterGrupo(e.target.value)}><option value="">Todos los grupos</option>{grupos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}</select>
+                    <input className="search-input" style={{maxWidth: 100}} type="number" placeholder="Mín ($)" value={filterMontoMin} onChange={(e) => setFilterMontoMin(e.target.value)} />
+                    <input className="search-input" style={{maxWidth: 100}} type="number" placeholder="Máx ($)" value={filterMontoMax} onChange={(e) => setFilterMontoMax(e.target.value)} />
+                    <input className="search-input" style={{maxWidth: 140}} type="date" value={filterFechaDesde} onChange={(e) => setFilterFechaDesde(e.target.value)} />
+                    <input className="search-input" style={{maxWidth: 140}} type="date" value={filterFechaHasta} onChange={(e) => setFilterFechaHasta(e.target.value)} />
+                    {(searchReg || filterTipo || filterMes || filterDiezmador || filterGrupo || filterAnio || filterMetodo || filterMontoMin || filterMontoMax || filterFechaDesde || filterFechaHasta) && (
+                        <button className="btn btn-secondary btn-sm" onClick={() => { setSearchReg(''); setFilterTipo(''); setFilterMes(''); setFilterDiezmador(''); setFilterGrupo(''); setFilterAnio(''); setFilterMetodo(''); setFilterMontoMin(''); setFilterMontoMax(''); setFilterFechaDesde(''); setFilterFechaHasta(''); }}>✕ Limpiar</button>
+                    )}
                 </div>
                 <div className="card">
                     <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
@@ -389,7 +408,7 @@ export default function BienComun() {
 
         {tab === 'diezmadores' && (
             <div className="page-content">
-                <div className="actions-row" style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                <div className="actions-row">
                     <button className="btn btn-gold" onClick={() => { resetD(); setModal('dador'); }}>➕ Nuevo Diezmador</button>
                     <button className="btn btn-secondary" onClick={() => exportDiezmadoresPDF({ colaboradores, aportes, anio: new Date().getFullYear().toString() })}>📄 Exportar PDF</button>
                     <button className="btn btn-secondary" onClick={() => {
@@ -453,8 +472,7 @@ export default function BienComun() {
                                              <div style={{color: 'var(--gold)', fontSize: '13px'}}>{d.zona || 'Sin zona'}</div>
                                          </div>
                                          <span className={`badge ${d.estado === 'Activo' ? 'badge-green' : 'badge-red'}`} style={{fontSize: '11px', padding: '4px 12px'}}>{d.estado}</span>
-                                         <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
-                                    <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
+                                          <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
                                      </div>
                                      <div style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginBottom: '8px', color: 'var(--dim)'}}>
                                          <span>💰 Total: <span style={{color: 'var(--gold)', fontWeight: 700}}>{money(total)}</span></span>

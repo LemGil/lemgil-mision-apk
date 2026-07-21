@@ -35,6 +35,8 @@ export default function ManosAbiertas() {
   const [filterEstado, setFilterEstado] = useState('');
   const [filterZona, setFilterZona] = useState('');
   const [filterFamilia, setFilterFamilia] = useState('');
+  const [filterTipo, setFilterTipo] = useState('');
+  const [filterSource, setFilterSource] = useState('');
   const [filterTipoCamp, setFilterTipoCamp] = useState('');
   const [filterEstadoCamp, setFilterEstadoCamp] = useState('');
   const [filterAnio, setFilterAnio] = useState(new Date().getFullYear().toString());
@@ -191,9 +193,11 @@ export default function ManosAbiertas() {
       return (!s || full.includes(s))
         && (!filterEstado || b.estado === filterEstado)
         && (!filterZona || b.zona === filterZona)
-        && matchFamilia;
+        && matchFamilia
+        && (!filterTipo || b.tipo === filterTipo)
+        && (!filterSource || b.source === filterSource);
     });
-  }, [beneficiarios, search, filterEstado, filterZona, filterFamilia]);
+  }, [beneficiarios, search, filterEstado, filterZona, filterFamilia, filterTipo, filterSource]);
 
   const campFiltradas = useMemo(() => {
     const s = search.toLowerCase();
@@ -571,7 +575,7 @@ export default function ManosAbiertas() {
               </select>
               <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
                 <option value="">Todas las zonas</option>
-                {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id}>{z.nombre}</option>)}
+                {zonas.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
               </select>
               <select className="filter-select" value={filterFamilia} onChange={(e) => setFilterFamilia(e.target.value)}>
                 <option value="">Todas las familias</option>
@@ -579,6 +583,22 @@ export default function ManosAbiertas() {
                 <option value="2-4">2-4 personas</option>
                 <option value="5+">5+ personas</option>
               </select>
+              <select className="filter-select" value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)}>
+                  <option value="">Todos los tipos</option>
+                  <option value="Persona">Persona</option>
+                  <option value="Casa de Familia">Casa de Familia</option>
+                  <option value="Grupo">Grupo</option>
+                  <option value="Vulnerable">Vulnerable</option>
+              </select>
+              <select className="filter-select" value={filterSource} onChange={(e) => setFilterSource(e.target.value)}>
+                  <option value="">Todos los orígenes</option>
+                  <option value="Convertido">Converso</option>
+                  <option value="Miembro">Miembro</option>
+                  <option value="Manual">Manual</option>
+              </select>
+              {(search || filterEstado || filterZona || filterFamilia || filterTipo || filterSource) && (
+                <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterEstado(''); setFilterZona(''); setFilterFamilia(''); setFilterTipo(''); setFilterSource(''); }}>✕ Limpiar</button>
+              )}
             </div>
 
             <div className="card">
