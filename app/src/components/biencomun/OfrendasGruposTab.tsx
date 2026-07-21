@@ -46,7 +46,7 @@ export function OfrendasGruposTab({
 
   return (
     <div className="page-content">
-      <div className="actions-row" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap'}}>
+      <div className="actions-row between">
         <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
           <button className="btn btn-gold" onClick={() => { resetA(); setATipo('Ofrenda'); setModal('aporte'); }}>➕ Registrar Ofrenda Grupo</button>
           <button className="btn btn-secondary" onClick={() => exportGruposPDF({ grupos, aportes, anio: new Date().getFullYear().toString() })}>📄 Exportar PDF</button>

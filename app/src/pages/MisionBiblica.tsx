@@ -84,6 +84,9 @@ export default function MisionBiblica() {
   const [filterZona, setFilterZona] = useState('');
   const [filterAnoConv, setFilterAnoConv] = useState('');
   const [filterMesConv, setFilterMesConv] = useState('');
+  const [filterGrupo, setFilterGrupo] = useState('');
+  const [filterLider, setFilterLider] = useState('');
+  const [filterBautizado, setFilterBautizado] = useState('');
 
   const [globalAno, setGlobalAno] = useState('');
   const [globalMes, setGlobalMes] = useState('');
@@ -185,7 +188,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
 
   const filtered = convs.filter((c) => {
     const s = `${c.nombre} ${c.apellido} ${c.zona} ${c.lider}`.toLowerCase();
-    const byLocal = (!search || s.includes(search.toLowerCase())) && (!filterEstado || c.estado === filterEstado) && (!filterZona || c.zona === filterZona) && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) && (!filterMesConv || c.fecha?.slice(5, 7) === filterMesConv);
+    const byLocal = (!search || s.includes(search.toLowerCase())) 
+      && (!filterEstado || c.estado === filterEstado) 
+      && (!filterZona || c.zona === filterZona) 
+      && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) 
+      && (!filterMesConv || c.fecha?.slice(5, 7) === filterMesConv)
+      && (!filterGrupo || c.grupoId === filterGrupo)
+      && (!filterLider || c.lider === filterLider)
+      && (!filterBautizado || (filterBautizado === 'si' ? c.bautizado : !c.bautizado));
     const byGlobal = (!globalAno || c.fecha?.startsWith(globalAno)) && (!globalMes || c.fecha?.slice(5, 7) === globalMes);
     return byLocal && byGlobal;
   });
@@ -464,41 +474,108 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         )}
       </div>
 
-       {/* TAB: Conversiones */}
-       {dataTab === 'conv' && (
-         <div className="card">
-            <div className="card-header">
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div className="card-title">📋 Registro de Conversiones</div>
-                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{convs.length} registros</div>
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv } })}>📄 Exportar PDF</button>
-            </div>
-            <div className="search-bar">
-              <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder…" value={search} onChange={(e) => setSearch(e.target.value)} />
-              <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
-                <option value="">Todos los estados</option>
-                {ESTADOS.map((e) => <option key={e}>{e}</option>)}
-                <option>Apartado</option>
-                <option>Fallecido</option>
-              </select>
-              <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
-                <option value="">Todas las zonas</option>
-                {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
-              </select>
-              <select className="filter-select" value={filterAnoConv} onChange={(e) => setFilterAnoConv(e.target.value)}>
-                <option value="">Todos los años</option>
-                {anos.map((ano) => (
-                  <option key={ano} value={ano}>{ano}</option>
-                ))}
-              </select>
-              <select className="filter-select" value={filterMesConv} onChange={(e) => setFilterMesConv(e.target.value)}>
-                <option value="">Todos los meses</option>
-                {meses.map((mes) => (
-                  <option key={mes} value={mes}>{MS[parseInt(mes) - 1]}</option>
-                ))}
-              </select>
-            </div>
+      {/* FILTROS POR TAB - Posición unificada después de Actions Row */}
+      {dataTab === 'conv' && (
+        <div className="search-bar">
+          <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
+            <option value="">Todos los estados</option>
+            {ESTADOS.map((e) => <option key={e}>{e}</option>)}
+            <option>Apartado</option>
+            <option>Fallecido</option>
+          </select>
+          <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
+            <option value="">Todas las zonas</option>
+            {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={filterAnoConv} onChange={(e) => setFilterAnoConv(e.target.value)}>
+            <option value="">Todos los años</option>
+            {anos.map((ano) => (
+              <option key={ano} value={ano}>{ano}</option>
+            ))}
+          </select>
+          <select className="filter-select" value={filterMesConv} onChange={(e) => setFilterMesConv(e.target.value)}>
+            <option value="">Todos los meses</option>
+            {meses.map((mes) => (
+              <option key={mes} value={mes}>{MS[parseInt(mes) - 1]}</option>
+            ))}
+          </select>
+          <select className="filter-select" value={filterGrupo} onChange={(e) => setFilterGrupo(e.target.value)}>
+            <option value="">Todos los grupos</option>
+            {grupos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={filterLider} onChange={(e) => setFilterLider(e.target.value)}>
+            <option value="">Todos los líderes</option>
+            {[...new Set(convs.map(c => c.lider).filter(Boolean))].sort().map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <select className="filter-select" value={filterBautizado} onChange={(e) => setFilterBautizado(e.target.value)}>
+            <option value="">Bautizado?</option>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
+          {(search || filterEstado || filterZona || filterAnoConv || filterMesConv || filterGrupo || filterLider || filterBautizado) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterEstado(''); setFilterZona(''); setFilterAnoConv(''); setFilterMesConv(''); setFilterGrupo(''); setFilterLider(''); setFilterBautizado(''); }}>✕ Limpiar</button>
+          )}
+        </div>
+      )}
+      {dataTab === 'grupo' && (
+        <div className="search-bar">
+          <input className="search-input" placeholder="🔍 Buscar grupo o mentor…" value={searchG} onChange={(e) => setSearchG(e.target.value)} />
+          <select className="filter-select" value={filterGZona} onChange={(e) => setFilterGZona(e.target.value)}>
+            <option value="">Todas las zonas</option>
+            {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={filterGDia} onChange={(e) => setFilterGDia(e.target.value)}>
+            <option value="">Todos los días</option>
+            {['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select className="filter-select" value={filterGEstado} onChange={(e) => setFilterGEstado(e.target.value)}>
+            <option value="">Todos los estados</option>
+            <option value="disponible">🟢 Disponible</option>
+            <option value="casi-lleno">🟡 Casi Lleno</option>
+            <option value="saturado">🔴 Saturado</option>
+            <option value="sin-meta">⚪ Sin meta</option>
+          </select>
+          {(searchG || filterGZona || filterGDia || filterGEstado) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => { setSearchG(''); setFilterGZona(''); setFilterGDia(''); setFilterGEstado(''); }}>✕ Limpiar</button>
+          )}
+        </div>
+      )}
+      {dataTab === 'evang' && (
+        <div className="search-bar">
+          <input className="search-input" placeholder="🔍 Buscar ministro, notas…" value={searchE} onChange={(e) => setSearchE(e.target.value)} />
+          <select className="filter-select" value={filterETipo} onChange={(e) => setFilterETipo(e.target.value)}>
+            <option value="">Todos los tipos</option>
+            {['Visita domiciliaria','Campaña en plaza','Evangelismo en calle','Reunión de célula','Invitación personal'].map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="filter-select" value={filterEZona} onChange={(e) => setFilterEZona(e.target.value)}>
+            <option value="">Todas las zonas</option>
+            {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={filterEMinistro} onChange={(e) => setFilterEMinistro(e.target.value)}>
+            <option value="">Todos los ministros</option>
+            {[...new Set(evangels.map(e => e.lider).filter(Boolean))].sort().map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select className="filter-select" value={filterEMes} onChange={(e) => setFilterEMes(e.target.value)}>
+            <option value="">Todos los meses</option>
+            {[...new Set(evangels.map(e => e.fecha.slice(0, 7)))].sort().reverse().map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          {(searchE || filterETipo || filterEZona || filterEMinistro || filterEMes) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => { setSearchE(''); setFilterETipo(''); setFilterEZona(''); setFilterEMinistro(''); setFilterEMes(''); }}>✕ Limpiar</button>
+          )}
+        </div>
+      )}
+
+      {/* TAB: Conversiones */}
+      {dataTab === 'conv' && (
+        <div className="card">
+           <div className="card-header">
+             <div style={{ display: 'flex', flexDirection: 'column' }}>
+               <div className="card-title">📋 Registro de Conversiones</div>
+               <div style={{ fontSize: 12, color: 'var(--dim)' }}>{convs.length} registros</div>
+             </div>
+             <button className="btn btn-secondary btn-sm" onClick={() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv } })}>📄 Exportar PDF</button>
+           </div>
            {filtered.length === 0 ? (
              <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />
            ) : (
@@ -527,10 +604,10 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
                    );
                  })}
                </tbody>
-             </table>
-           )}
-         </div>
-       )}
+</table>
+        )}
+      </div>
+      )}
 
       {/* TAB: Grupos */}
       {dataTab === 'grupo' && (
@@ -566,32 +643,11 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
                 />
               </div>
            </div>
-          {grupos.length === 0 ? (
-            <EmptyState icon="👥" title="Sin grupos aún" sub="Crea el primer grupo" />
-          ) : (
-            <>
-            <div className="search-bar">
-              <input className="search-input" placeholder="🔍 Buscar grupo o mentor…" value={searchG} onChange={(e) => setSearchG(e.target.value)} />
-              <select className="filter-select" value={filterGZona} onChange={(e) => setFilterGZona(e.target.value)}>
-                <option value="">Todas las zonas</option>
-                {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
-              </select>
-              <select className="filter-select" value={filterGDia} onChange={(e) => setFilterGDia(e.target.value)}>
-                <option value="">Todos los días</option>
-                {['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <select className="filter-select" value={filterGEstado} onChange={(e) => setFilterGEstado(e.target.value)}>
-                <option value="">Todos los estados</option>
-                <option value="disponible">🟢 Disponible</option>
-                <option value="casi-lleno">🟡 Casi Lleno</option>
-                <option value="saturado">🔴 Saturado</option>
-                <option value="sin-meta">⚪ Sin meta</option>
-              </select>
-              {(searchG || filterGZona || filterGDia || filterGEstado) && (
-                <button className="btn btn-secondary btn-sm" onClick={() => { setSearchG(''); setFilterGZona(''); setFilterGDia(''); setFilterGEstado(''); }}>✕ Limpiar</button>
-              )}
-            </div>
-            {gruposFiltrados.length === 0 ? (
+           {grupos.length === 0 ? (
+             <EmptyState icon="👥" title="Sin grupos aún" sub="Crea el primer grupo" />
+           ) : (
+             <>
+             {gruposFiltrados.length === 0 ? (
               <EmptyState icon="🔍" title="Sin resultados" sub="Ajusta los filtros para ver grupos" />
             ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
@@ -659,7 +715,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
             )}
             </>
           )}
-        </div>
+      </div>
       )}
 
       {/* TAB: Evangelismo */}
@@ -696,33 +752,11 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
                 />
               </div>
            </div>
-          {evangels.length === 0 ? (
-            <EmptyState icon="📢" title="Sin actividades aún" sub='Presiona "📋 Registrar Evangelismo" para comenzar' />
-          ) : (
-            <>
-            <div className="search-bar">
-              <input className="search-input" placeholder="🔍 Buscar ministro, notas…" value={searchE} onChange={(e) => setSearchE(e.target.value)} />
-              <select className="filter-select" value={filterETipo} onChange={(e) => setFilterETipo(e.target.value)}>
-                <option value="">Todos los tipos</option>
-                {['Visita domiciliaria','Campaña en plaza','Evangelismo en calle','Reunión de célula','Invitación personal'].map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <select className="filter-select" value={filterEZona} onChange={(e) => setFilterEZona(e.target.value)}>
-                <option value="">Todas las zonas</option>
-                {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
-              </select>
-              <select className="filter-select" value={filterEMinistro} onChange={(e) => setFilterEMinistro(e.target.value)}>
-                <option value="">Todos los ministros</option>
-                {[...new Set(evangels.map(e => e.lider).filter(Boolean))].sort().map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <select className="filter-select" value={filterEMes} onChange={(e) => setFilterEMes(e.target.value)}>
-                <option value="">Todos los meses</option>
-                {[...new Set(evangels.map(e => e.fecha.slice(0, 7)))].sort().reverse().map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-              {(searchE || filterETipo || filterEZona || filterEMinistro || filterEMes) && (
-                <button className="btn btn-secondary btn-sm" onClick={() => { setSearchE(''); setFilterETipo(''); setFilterEZona(''); setFilterEMinistro(''); setFilterEMes(''); }}>✕ Limpiar</button>
-              )}
-            </div>
-            {evangelsFiltrados.length === 0 ? (
+           {evangels.length === 0 ? (
+             <EmptyState icon="📢" title="Sin actividades aún" sub='Presiona "📋 Registrar Evangelismo" para comenzar' />
+           ) : (
+             <>
+             {evangelsFiltrados.length === 0 ? (
               <EmptyState icon="🔍" title="Sin resultados" sub="Ajusta los filtros para ver actividades" />
             ) : (
             <table className="data-table">

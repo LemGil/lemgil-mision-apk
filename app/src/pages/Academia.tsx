@@ -38,12 +38,18 @@ export default function Academia() {
    const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
    const conversiones = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
    const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
+   const zonas = useLiveQuery(() => db.zonas.toArray(), []) ?? [];
 
   const [tab, setTab] = useState<Tab>('cursos');
   const [search, setSearch] = useState('');
   const [filterNivel, setFilterNivel] = useState('');
+  const [filterCursoEstado, setFilterCursoEstado] = useState('');
   const [filterCursoEst, setFilterCursoEst] = useState('');
   const [filterEstadoEst, setFilterEstadoEst] = useState('');
+  const [filterOrigenEst, setFilterOrigenEst] = useState('');
+  const [filterZonaEst, setFilterZonaEst] = useState('');
+  const [filterGrupoEst, setFilterGrupoEst] = useState('');
+  const [filterBautizadoEst, setFilterBautizadoEst] = useState('');
   const [modal, setModal] = useState<null | 'curso' | 'leccion' | 'ver' | 'est' | 'cert' | 'estDetail'>(null);
   const [editCursoId, setEditCursoId] = useState<string | null>(null);
   const [editLecId, setEditLecId] = useState<string | null>(null);
@@ -289,12 +295,12 @@ export default function Academia() {
 
   const filteredCursos = cursos.filter((c) => {
     const s = search.toLowerCase();
-    return (!s || c.nombre.toLowerCase().includes(s) || c.instructor.toLowerCase().includes(s)) && (!filterNivel || c.nivel === filterNivel);
+    return (!s || c.nombre.toLowerCase().includes(s) || c.instructor.toLowerCase().includes(s)) && (!filterNivel || c.nivel === filterNivel) && (!filterCursoEstado || c.estado === filterCursoEstado);
   });
 
   const filteredEst = estudiantes.filter((e) => {
     const full = `${e.nombre} ${e.apellido} ${e.telefono}`.toLowerCase();
-    return (!q(search, full)) && (!filterCursoEst || e.cursoId === filterCursoEst) && (!filterEstadoEst || e.estado === filterEstadoEst);
+    return (!q(search, full)) && (!filterCursoEst || e.cursoId === filterCursoEst) && (!filterEstadoEst || e.estado === filterEstadoEst) && (!filterOrigenEst || e.origen === filterOrigenEst) && (!filterZonaEst || e.zona === filterZonaEst) && (!filterGrupoEst || e.grupoId === filterGrupoEst) && (!filterBautizadoEst || (filterBautizadoEst === 'si' ? e.bautizado : !e.bautizado));
   });
 
   const viewCurso = viewCursoId ? cursos.find((c) => c.id === viewCursoId) : null;
@@ -358,6 +364,10 @@ export default function Academia() {
             <option value="">Todos los niveles</option>
             <option>Basico</option><option>Intermedio</option><option>Avanzado</option>
           </select>
+          <select className="filter-select" value={filterCursoEstado} onChange={(e) => setFilterCursoEstado(e.target.value)}>
+            <option value="">Todos los estados</option>
+            <option>Activo</option><option>Borrador</option><option>Archivado</option>
+          </select>
         </div>
         {filteredCursos.length === 0 ? (
           <EmptyState icon="📚" title={cursos.length ? 'Sin resultados' : 'Sin cursos aún'} sub={cursos.length ? 'Prueba otros filtros' : 'Crea el primer curso de la Academia'} />
@@ -409,6 +419,28 @@ export default function Academia() {
             <option value="">Todos los estados</option>
             <option>Activo</option><option>Completado</option><option>Pausado</option>
           </select>
+          <select className="filter-select" value={filterOrigenEst} onChange={(e) => setFilterOrigenEst(e.target.value)}>
+            <option value="">Todos los orígenes</option>
+            <option value="convertido">Convertido</option>
+            <option value="miembro">Miembro</option>
+            <option value="manual">Manual</option>
+          </select>
+          <select className="filter-select" value={filterZonaEst} onChange={(e) => setFilterZonaEst(e.target.value)}>
+            <option value="">Todas las zonas</option>
+            {zonas.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={filterGrupoEst} onChange={(e) => setFilterGrupoEst(e.target.value)}>
+            <option value="">Todos los grupos</option>
+            {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={filterBautizadoEst} onChange={(e) => setFilterBautizadoEst(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
+          {(search || filterCursoEst || filterEstadoEst || filterOrigenEst || filterZonaEst || filterGrupoEst || filterBautizadoEst) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterCursoEst(''); setFilterEstadoEst(''); setFilterOrigenEst(''); setFilterZonaEst(''); setFilterGrupoEst(''); setFilterBautizadoEst(''); }}>✕ Limpiar</button>
+          )}
         </div>
         <div className="card">
            <div className="card-header">

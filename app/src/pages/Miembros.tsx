@@ -70,6 +70,8 @@ export default function Miembros() {
   const [filterEstado, setFilterEstado] = useState('');
   const [filterZona, setFilterZona] = useState('');
   const [filterContacto, setFilterContacto] = useState('');
+  const [filterGrupo, setFilterGrupo] = useState('');
+  const [filterEstadoCivil, setFilterEstadoCivil] = useState('');
   const [modal, setModal] = useState<null | ModalType>(null);
   const [editMId, setEditMId] = useState<string | null>(null);
   const [editMinId, setEditMinId] = useState<string | null>(null);
@@ -166,10 +168,15 @@ export default function Miembros() {
         const asigs = asignaciones.filter((a) => a.miembroId === m.id);
         const mints = asigs.map((a) => ministerios.find((x) => x.id === a.ministerioId)?.nombre).filter(Boolean).join(' ');
         const full = `${m.nombre} ${m.apellido} ${m.telefono} ${m.email} ${m.profesion} ${mints}`.toLowerCase();
-        return (!s || full.includes(s)) && (!filterEstado || m.estado === filterEstado) && (!filterZona || m.zona === filterZona) && (!filterContacto || m.contactoPreferido === filterContacto);
+        return (!s || full.includes(s)) 
+          && (!filterEstado || m.estado === filterEstado) 
+          && (!filterZona || m.zona === filterZona) 
+          && (!filterContacto || m.contactoPreferido === filterContacto)
+          && (!filterGrupo || m.grupoId === filterGrupo)
+          && (!filterEstadoCivil || m.estadoCivil === filterEstadoCivil);
       })
       .sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`));
-  }, [miembros, asignaciones, ministerios, search, filterEstado, filterZona, filterContacto]);
+  }, [miembros, asignaciones, ministerios, search, filterEstado, filterZona, filterContacto, filterGrupo, filterEstadoCivil]);
 
   const selMiembro = miembros.find((m) => m.id === selectedId);
   const selMinisterio = ministerios.find((x) => x.id === selectedId);
@@ -468,6 +475,14 @@ export default function Miembros() {
             <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
               <option value="">Todas las zonas</option>
               {zonas.map((z) => <option key={z} value={z}>{z}</option>)}
+            </select>
+            <select className="filter-select" value={filterGrupo} onChange={(e) => setFilterGrupo(e.target.value)}>
+              <option value="">Todos los grupos</option>
+              {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+            </select>
+            <select className="filter-select" value={filterEstadoCivil} onChange={(e) => setFilterEstadoCivil(e.target.value)}>
+              <option value="">Estado Civil</option>
+              <option>Soltero</option><option>Casado</option><option>Viudo</option><option>Divorciado</option><option>Unión</option>
             </select>
             <select className="filter-select" value={filterContacto} onChange={(e) => setFilterContacto(e.target.value)}>
               <option value="">Cualquier contacto</option>
