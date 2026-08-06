@@ -1,7 +1,7 @@
-import type { SyncStatus } from './types';
+import type { SyncStatus } from "./types";
 
 let _statusListeners: ((s: SyncStatus) => void)[] = [];
-let _currentStatus: SyncStatus = { connected: false, lastSync: 'Nunca', pendingOps: 0, error: '' };
+let _currentStatus: SyncStatus = { connected: false, lastSync: "Nunca", error: "" };
 
 export function onSyncStatus(fn: (s: SyncStatus) => void) {
   _statusListeners.push(fn);
@@ -15,5 +15,5 @@ export function emitStatus(update: Partial<SyncStatus>) {
 }
 
 export function getCurrentStatus(): SyncStatus {
-    return _currentStatus;
+  return _currentStatus;
 }

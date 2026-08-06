@@ -1,6 +1,6 @@
-import { db } from '../database';
-import { enqueueSync, SYNC_TABLES } from './api';
-import { markDeleted } from './queue';
+import { db } from "../database";
+import { SYNC_TABLES } from "./api";
+import { markDeleted } from "./queue";
 
 export function setupHooks() {
   const tableMap = {
@@ -18,16 +18,8 @@ export function setupHooks() {
   for (const table of SYNC_TABLES) {
     const dbTable = (tableMap as any)[table];
     if (!dbTable) continue;
-
-    dbTable.hook('creating', (_primKey: any, obj: any) => {
-      enqueueSync(table, 'create', obj);
-    });
-    dbTable.hook('updating', (modifications: any, _primKey: any) => {
-      enqueueSync(table, 'update', { id: _primKey, changes: modifications });
-    });
-    dbTable.hook('deleting', (_primKey: any) => {
-      markDeleted(_primKey);
-      enqueueSync(table, 'delete', _primKey);
+    dbTable.hook("deleting", (_primKey: any) => {
+      markDeleted(table, _primKey);
     });
   }
 }
