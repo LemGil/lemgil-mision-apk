@@ -3,6 +3,18 @@ import { db } from "../database";
 import { emitStatus } from "./status";
 import { getDeletedIds, unmarkDeleted } from "./queue";
 
+const PULL_TIMEOUT_MS = 15000;
+
+function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timeout (${ms}ms)`)), ms);
+    Promise.resolve(p).then(
+      v => { clearTimeout(timer); resolve(v); },
+      e => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
 export const SYNC_TABLES = [
   "conversiones", "grupos", "evangelismos", "cursos", "lecciones",
   "estudiantes", "certificados", "dadores", "aportes", "beneficiarios",
@@ -112,7 +124,14 @@ export async function forcePushAllLocal() {
 export async function pullFromSupabase() {
   for (const table of SYNC_TABLES) {
     const supaTable = toSupabase(table);
-    const { data, error } = await supabase.from(supaTable).select("*");
+    let fetched;
+    try {
+      fetched = await withTimeout(supabase.from(supaTable).select("*"), PULL_TIMEOUT_MS);
+    } catch {
+      console.warn(`[Sync] ⏱ Pull de ${supaTable} agotó el tiempo (${PULL_TIMEOUT_MS}ms); se omite`);
+      continue;
+    }
+    const { data, error } = fetched;
     if (error || !data || data.length === 0) continue;
 
     const normalized = toCamelCaseKeys(data);

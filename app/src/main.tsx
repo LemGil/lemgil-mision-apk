@@ -11,9 +11,10 @@ import { AuthProvider } from './lib/auth';
 
 registerSW({ immediate: true });
 
-Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ensureZonas(), desunificarBienComun()]).then(async () => {
-  console.log('[Main] Migraciones completadas, iniciando sync...');
-  try { await initSync(); } catch (e) { console.warn('[Sync] init failed (offline?):', e); }
+Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ensureZonas(), desunificarBienComun()]).then(() => {
+  console.log('[Main] Migraciones completadas, renderizando...');
+  // El render no debe esperar a la red: si el sync se cuelga (p.ej. una tabla que
+  // nunca responde), la app igualmente abre. El sync corre en paralelo.
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <AuthProvider>
@@ -25,6 +26,7 @@ Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ens
       </AuthProvider>
     </StrictMode>,
   );
+  initSync().catch(e => console.warn('[Sync] init failed (offline?):', e));
 }).catch(err => {
   console.error('[Main] Error crítico en migraciones:', err);
   createRoot(document.getElementById('root')!).render(
