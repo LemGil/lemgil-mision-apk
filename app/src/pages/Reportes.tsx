@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
 import { exportCSV } from '../lib/csvExport';
+import { exportReporteGeneralPDF } from '../lib/pdfExport';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
@@ -222,7 +223,10 @@ export default function Reportes() {
 
             <div className="actions-row">
               <button className="btn btn-gold" onClick={openGen}>💾 Guardar Reporte</button>
-              <button className="btn btn-secondary" onClick={() => window.print()}>🖨 Imprimir / PDF</button>
+              <button className="btn btn-secondary" onClick={() => {
+                exportReporteGeneralPDF({ datos, periodo: periodoLabel, desde, hasta });
+                showToast('PDF exportado');
+              }}>🖨 Imprimir / PDF</button>
               <button className="btn btn-secondary" onClick={() => {
                 const lines: string[] = [];
                 lines.push(`REPORTE LEMGIL — ${periodoLabel}`);

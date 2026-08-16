@@ -969,3 +969,93 @@ export function exportEvangelismoPDF(opts: { evangelismos: any[] }) {
   footer(doc);
   doc.save(`mision-evangelismo-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+
+export function exportReporteGeneralPDF(opts: { datos: any; periodo: string; desde: string; hasta: string }) {
+  const { datos, periodo, desde, hasta } = opts;
+  const doc = new jsPDF();
+  header(doc, 'Reporte General', `${periodo} · ${fmt(desde)} → ${fmt(hasta)}`);
+
+  const pctMeta = datos.finanzas.planMensual ? Math.round((datos.finanzas.totalFinal / datos.finanzas.planMensual) * 100) : 0;
+  const pctColor = pctMeta >= 100 ? COLORS.gold : pctMeta >= 70 ? COLORS.green : COLORS.red;
+  kpiBox(doc, 14, 34, 44, 18, 'Total Final', money(datos.finanzas.totalFinal), COLORS.gold);
+  kpiBox(doc, 62, 34, 44, 18, 'Bien Común', money(datos.finanzas.bienComunTotal), COLORS.green);
+  kpiBox(doc, 110, 34, 44, 18, 'Colaboradores', money(datos.finanzas.colaboradoresTotal), COLORS.yellow);
+  kpiBox(doc, 158, 34, 44, 18, '% de Meta', `${pctMeta}%`, pctColor);
+
+  let y = 58;
+  const section = (title: string, rows: [string, string][]) => {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(12);
+    doc.setTextColor(...COLORS.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, 14, y);
+    autoTable(doc, {
+      startY: y + 4,
+      head: [['Indicador', 'Valor']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: COLORS.gold, textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  };
+
+  section('Misión Bíblica', [
+    ['Conversiones (período)', datos.conv.total.toString()],
+    ['Mes actual', datos.conv.mesActual.toString()],
+    ['Integrados', datos.conv.integrados.toString()],
+    ['Grupos activos', datos.conv.grupos.toString()],
+    ['Evangelismos', datos.evang.total.toString()],
+    ['Contactos alcanzados', datos.evang.contactos.toLocaleString('en-US')],
+    ['Conversiones evangelísticas', datos.evang.conversiones.toString()],
+  ]);
+
+  section('Academia', [
+    ['Cursos totales', datos.academia.cursos.toString()],
+    ['Cursos activos', datos.academia.cursosActivos.toString()],
+    ['Estudiantes matriculados', datos.academia.estudiantes.toString()],
+    ['Certificados emitidos', datos.academia.certificados.toString()],
+  ]);
+
+  section('Finanzas', [
+    ['Diezmos (Bien Común)', money(datos.finanzas.bienComunDiezmos)],
+    ['Ofrendas (Bien Común)', money(datos.finanzas.bienComunOfrendas)],
+    ['Total Bien Común', money(datos.finanzas.bienComunTotal)],
+    ['Plan mensual Bien Común', money(datos.finanzas.bienComunPlan)],
+    ['Ayuda / Ofrendas (Colab.)', money(datos.finanzas.colaboradoresAyuda)],
+    ['Misiones (Colab.)', money(datos.finanzas.colaboradoresMisiones)],
+    ['Manos Abiertas (Colab.)', money(datos.finanzas.colaboradoresManosAbiertas)],
+    ['Construcción (Colab.)', money(datos.finanzas.colaboradoresConstruccion)],
+    ['Otros (Colab.)', money(datos.finanzas.colaboradoresOtro)],
+    ['Total Colaboradores', money(datos.finanzas.colaboradoresTotal)],
+    ['Plan mensual Colaboradores', money(datos.finanzas.colaboradoresPlan)],
+    ['TOTAL FINAL', money(datos.finanzas.totalFinal)],
+    ['Plan mensual global', money(datos.finanzas.planMensual)],
+    ['% de meta', `${pctMeta}%`],
+  ]);
+
+  section('Manos Abiertas', [
+    ['Beneficiarios registrados', datos.manos.beneficiarios.toString()],
+    ['Campañas (período)', datos.manos.campanas.toString()],
+    ['Entregas (período)', datos.manos.entregas.toString()],
+    ['Familias impactadas', datos.manos.familias.toString()],
+    ['Personas alcanzadas', datos.manos.personas.toString()],
+  ]);
+
+  section('Negocios Adonay', [
+    ['Proyectos activos', datos.negocios.activos.toString()],
+    ['Emprendedores únicos', datos.negocios.emprendedores.toString()],
+    ['Ingresos mensuales', money(datos.negocios.ingresos)],
+  ]);
+
+  section('Comunicación', [
+    ['Publicaciones', datos.comunicacion.publicaciones.toString()],
+    ['Alcance total', datos.comunicacion.alcance.toLocaleString('en-US')],
+    ['Engagement total', datos.comunicacion.engagement.toLocaleString('en-US')],
+    ['Engagement rate', `${datos.comunicacion.alcance ? ((datos.comunicacion.engagement / datos.comunicacion.alcance) * 100).toFixed(1) : '0.0'}%`],
+  ]);
+
+  footer(doc);
+  doc.save(`reporte-lemgil-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
