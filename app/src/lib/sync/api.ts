@@ -91,6 +91,7 @@ async function bulkUpsertAll(force: boolean) {
         if (table === "dadores") delete (rest as any).base;
         if (table === "colaboradores" && rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
         delete rest.codigo;
+        if (table === "aportesComun") delete (rest as any).version;
         return rest;
       });
       if (force) {
