@@ -19,13 +19,13 @@ export const SYNC_TABLES = [
   "conversiones", "grupos", "evangelismos", "cursos", "lecciones",
   "estudiantes", "certificados", "dadores", "aportes", "beneficiarios",
   "campanas", "entregas", "metas", "negocios", "publicaciones",
-  "reportes", "miembrosComun", "aportesComun", "miembros",
+  "reportes", "miembros",
   "ministerios", "miembrosMinisterios", "hitos", "zonas", "colaboradores",
   "tiposPlanes", "planesColaborador",
+  "aportesComun",
 ] as const;
 
 const DEXIE_TO_SUPABASE: Record<string, string> = {
-  miembrosComun: "miembroscomun",
   aportesComun: "aportescomun",
   miembrosMinisterios: "miembrosministerios",
   tiposPlanes: "tiposplanes",
