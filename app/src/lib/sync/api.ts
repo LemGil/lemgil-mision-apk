@@ -102,7 +102,7 @@ async function bulkUpsertAll(force: boolean) {
           const version = record.version || 1;
           const { error } = await supabase
             .from(supaTable)
-            .upsert(toLowerCaseKeys({ ...record, version }))
+            .upsert(toLowerCaseKeys(table === "aportesComun" ? record : { ...record, version }))
             .eq("id", record.id)
             .eq("version", version);
           if (error) continue;
