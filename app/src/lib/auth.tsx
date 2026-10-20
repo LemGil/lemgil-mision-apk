@@ -23,20 +23,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s) setSession(s.access_token);
       setLoading(false);
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s?.access_token ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = useCallback(async (pin: string): Promise<boolean> => {
     setError('');
-    const { data, error: err } = await supabase.auth.signInWithPassword({
-      email: AUTH_EMAIL,
-      password: pin,
-    });
-    if (err || !data.session) {
-      setError('PIN incorrecto');
+    try {
+      const { data, error: err } = await supabase.auth.signInWithPassword({
+        email: AUTH_EMAIL,
+        password: pin,
+      });
+      if (err || !data.session) {
+        setError('PIN incorrecto');
+        return false;
+      }
+      setSession(data.session.access_token);
+      return true;
+    } catch {
+      setError('Sin conexión — verifica tu internet para el primer acceso');
       return false;
     }
-    setSession(data.session.access_token);
-    return true;
   }, []);
 
   const logout = useCallback(async () => {

@@ -2,6 +2,8 @@ import { supabase } from "../supabase";
 import { db } from "../database";
 import { emitStatus } from "./status";
 import { getDeletedIds, unmarkDeleted } from "./queue";
+import type { SyncTableName } from "./types";
+import type { Table } from "dexie";
 
 const PULL_TIMEOUT_MS = 15000;
 
@@ -22,27 +24,49 @@ export const SYNC_TABLES = [
   "reportes", "miembros",
   "ministerios", "miembrosMinisterios", "hitos", "zonas", "colaboradores",
   "tiposPlanes", "planesColaborador",
-  "aportesComun",
-] as const;
+  "aportesComun", "miembrosComun",
+] as const satisfies readonly SyncTableName[];
 
-const DEXIE_TO_SUPABASE: Record<string, string> = {
+const DEXIE_TO_SUPABASE: Record<SyncTableName, string> = {
   aportesComun: "aportescomun",
+  miembrosComun: "miembroscomun",
   miembrosMinisterios: "miembrosministerios",
   tiposPlanes: "tiposplanes",
   planesColaborador: "planescolaborador",
+  conversiones: "conversiones",
+  grupos: "grupos",
+  evangelismos: "evangelismos",
+  cursos: "cursos",
+  lecciones: "lecciones",
+  estudiantes: "estudiantes",
+  certificados: "certificados",
+  dadores: "dadores",
+  aportes: "aportes",
+  beneficiarios: "beneficiarios",
+  campanas: "campanas",
+  entregas: "entregas",
+  metas: "metas",
+  negocios: "negocios",
+  publicaciones: "publicaciones",
+  reportes: "reportes",
+  miembros: "miembros",
+  ministerios: "ministerios",
+  hitos: "hitos",
+  zonas: "zonas",
+  colaboradores: "colaboradores",
 };
 
-function toSupabase(name: string): string {
+function toSupabase(name: SyncTableName): string {
   return DEXIE_TO_SUPABASE[name] || name;
 }
 
-export function toLowerCaseKeys(obj: any): any {
+export function toLowerCaseKeys(obj: unknown): unknown {
   if (Array.isArray(obj)) return obj.map(toLowerCaseKeys);
   if (obj !== null && typeof obj === "object" && !(obj instanceof Date)) {
-    return Object.keys(obj).reduce((acc, key) => {
-      acc[key.toLowerCase()] = toLowerCaseKeys(obj[key]);
+    return Object.keys(obj as Record<string, unknown>).reduce((acc, key) => {
+      (acc as Record<string, unknown>)[key.toLowerCase()] = toLowerCaseKeys((obj as Record<string, unknown>)[key]);
       return acc;
-    }, {} as any);
+    }, {} as Record<string, unknown>);
   }
   return obj;
 }
@@ -63,53 +87,88 @@ const SUPABASE_TO_DEXIE: Record<string, string> = {
   ingresosmensuales: "ingresosMensuales", generadopor: "generadoPor", generated: "generado",
 };
 
-function toCamelCaseKeys(obj: any): any {
+export function toCamelCaseKeys(obj: unknown): unknown {
   if (Array.isArray(obj)) return obj.map(toCamelCaseKeys);
   if (obj !== null && typeof obj === "object" && !(obj instanceof Date)) {
-    return Object.keys(obj).reduce((acc, key) => {
+    return Object.keys(obj as Record<string, unknown>).reduce((acc, key) => {
       const camelKey = SUPABASE_TO_DEXIE[key] || key;
-      acc[camelKey] = toCamelCaseKeys(obj[key]);
+      (acc as Record<string, unknown>)[camelKey] = toCamelCaseKeys((obj as Record<string, unknown>)[key]);
       return acc;
-    }, {} as any);
+    }, {} as Record<string, unknown>);
   }
   return obj;
 }
 
+const tableMap: Record<SyncTableName, Table<any, string>> = {
+  conversiones: db.conversiones,
+  grupos: db.grupos,
+  evangelismos: db.evangelismos,
+  cursos: db.cursos,
+  lecciones: db.lecciones,
+  estudiantes: db.estudiantes,
+  certificados: db.certificados,
+  dadores: db.dadores,
+  aportes: db.aportes,
+  beneficiarios: db.beneficiarios,
+  campanas: db.campanas,
+  entregas: db.entregas,
+  metas: db.metas,
+  negocios: db.negocios,
+  publicaciones: db.publicaciones,
+  reportes: db.reportes,
+  miembrosComun: db.miembrosComun as Table<any, string>,
+  aportesComun: db.aportesComun,
+  miembros: db.miembros,
+  ministerios: db.ministerios,
+  miembrosMinisterios: db.miembrosMinisterios,
+  hitos: db.hitos,
+  zonas: db.zonas,
+  colaboradores: db.colaboradores,
+  tiposPlanes: db.tiposPlanes,
+  planesColaborador: db.planesColaborador,
+};
+
 async function bulkUpsertAll(force: boolean) {
   for (const [key, entry] of Object.entries(getDeletedIds())) {
-    const { error } = await supabase.from(toSupabase(entry.table)).delete().eq("id", key.split(":")[1]);
-    if (!error) unmarkDeleted(entry.table, key.split(":")[1]);
+    const recordId = key.split(":")[1];
+    if (!recordId) continue;
+    const { error } = await supabase.from(toSupabase(entry.table)).delete().eq("id", recordId);
+    if (!error) unmarkDeleted(entry.table, recordId);
   }
   let total = 0;
   for (const table of SYNC_TABLES) {
     const supaTable = toSupabase(table);
     try {
-      const localData = await (db as any)[table].toArray();
+      const tableInstance = tableMap[table];
+      const localData = await tableInstance.toArray();
       if (localData.length === 0) continue;
-      const cleaned = localData.map((r: any) => {
-        const { _primKey, updatedAt: _u, ...rest } = r;
-        if (table === "dadores") delete (rest as any).base;
+      const cleaned = localData.map((r: Record<string, unknown>) => {
+        const { _primKey: _p, updatedAt: _u, ...rest } = r;
+        if (table === "dadores") delete rest.base;
         if (table === "colaboradores" && rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
         delete rest.codigo;
-        if (table === "aportesComun") delete (rest as any).version;
+        if (table === "aportesComun") delete rest.version;
         return rest;
       });
       if (force) {
-        const { error } = await supabase.from(supaTable).upsert(toLowerCaseKeys(cleaned));
+        const lowerData = toLowerCaseKeys(cleaned);
+        const { error } = await supabase.from(supaTable).upsert(lowerData as Record<string, unknown>[]);
         if (error) continue;
       } else {
         for (const record of cleaned) {
-          const version = record.version || 1;
+          const { version: _v, ...recordClean } = record;
+          const lowerRecord = toLowerCaseKeys(recordClean);
           const { error } = await supabase
             .from(supaTable)
-            .upsert(toLowerCaseKeys(table === "aportesComun" ? record : { ...record, version }))
-            .eq("id", record.id)
-            .eq("version", version);
+            .upsert(lowerRecord as Record<string, unknown>);
           if (error) continue;
         }
       }
       total += cleaned.length;
-    } catch (err: any) { console.warn(`[Sync] ✗ Excepción en ${table}:`, err.message); }
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Sync] ✗ Excepción en ${table}:`, errorMsg);
+    }
   }
   console.log(`[Sync] ✓ Push ${force ? "forzado" : "normal"}: ${total} registros`);
 }
@@ -135,23 +194,26 @@ export async function pullFromSupabase() {
     const { data, error } = fetched;
     if (error || !data || data.length === 0) continue;
 
-    const normalized = toCamelCaseKeys(data);
-    const existingIds = new Set((await (db as any)[table].toArray()).map((r: any) => r.id));
+    const normalized = toCamelCaseKeys(data) as Array<Record<string, unknown>>;
+    const tableInstance = tableMap[table];
+    const existingRecords = await tableInstance.toArray();
+    const existingIds = new Set(existingRecords.map((r: Record<string, unknown>) => r.id));
     const deletedIds = getDeletedIds();
 
-    const toAdd = normalized.filter((r: any) => r.id && !existingIds.has(r.id) && !deletedIds[table + ":" + r.id]);
-    const toUpdate = normalized.filter((r: any) => r.id && existingIds.has(r.id));
+    const toAdd = normalized.filter((r) => typeof r.id === "string" && !existingIds.has(r.id) && !deletedIds[table + ":" + r.id]);
+    const toUpdate = normalized.filter((r) => typeof r.id === "string" && existingIds.has(r.id));
 
-    if (toAdd.length > 0) await (db as any)[table].bulkAdd(toAdd as any[]);
+    if (toAdd.length > 0) await tableInstance.bulkAdd(toAdd);
 
     for (const record of toUpdate) {
       try {
-        const existing = await (db as any)[table].get(record.id);
+        const recordId = record.id as string;
+        const existing = await tableInstance.get(recordId);
         if (existing) {
-          const localVersion = existing.version || 0;
-          const remoteVersion = record.version || 0;
+          const localVersion = (existing.version as number) || 0;
+          const remoteVersion = (record.version as number) || 0;
           if (remoteVersion <= localVersion) continue;
-          await (db as any)[table].update(record.id, record);
+          await tableInstance.update(recordId, record);
         }
       } catch { }
     }
@@ -167,8 +229,9 @@ export async function testConnection(): Promise<boolean> {
     }
     emitStatus({ connected: true, error: "" });
     return true;
-  } catch (err: any) {
-    emitStatus({ connected: false, error: err.message });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    emitStatus({ connected: false, error: errorMsg });
     return false;
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
@@ -34,6 +34,23 @@ export default function Reportes() {
   const metasDoc = useLiveQuery(() => db.metas.get('default'), []);
   const reportes = useLiveQuery(() => db.reportes.toArray(), []) ?? [];
 
+  const pageSize = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [reportes.length]);
+
+  const sortedReportes = useMemo(() => {
+    return [...reportes].sort((a, b) => b.generado.localeCompare(a.generado));
+  }, [reportes]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedReportes.length / pageSize));
+  const paginatedReportes = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedReportes.slice(start, start + pageSize);
+  }, [sortedReportes, currentPage, pageSize]);
+
   const today = new Date();
   const ymNow = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   const ymPrev = (() => {
@@ -48,8 +65,7 @@ export default function Reportes() {
   const [modal, setModal] = useState<null | 'gen' | 'ver' | 'del'>(null);
   const [genTitulo, setGenTitulo] = useState('');
   const [viewId, setViewId] = useState<string | null>(null);
-   const [delId, setDelId] = useState<string | null>(null);
-
+  const [delId, setDelId] = useState<string | null>(null);
 
   const applyPreset = (p: PeriodoPreset) => {
     setPreset(p);
@@ -146,7 +162,6 @@ export default function Reportes() {
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
     };
   }, [convs, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta, ymNow]);
-
 
   const openGen = () => {
     setGenTitulo(`Reporte ${periodoLabel}`);
@@ -379,26 +394,27 @@ export default function Reportes() {
           <div className="card">
             <div className="card-header">
               <div className="card-title">📁 Reportes Guardados</div>
-              <div style={{ fontSize: 12, color: 'var(--dim)' }}>{reportes.length} reportes</div>
+              <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+                Mostrando {paginatedReportes.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–{(currentPage - 1) * pageSize + paginatedReportes.length} de {reportes.length} reportes
+              </div>
             </div>
             {reportes.length === 0 ? (
               <EmptyState icon="📁" title="Sin reportes guardados" sub='Usa "💾 Guardar Reporte" en la pestaña Reporte Actual para crear el primero' />
             ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Título</th>
-                    <th>Período</th>
-                    <th>Rango</th>
-                    <th>Generado</th>
-                    <th>Por</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportes
-                    .sort((a, b) => b.generado.localeCompare(a.generado))
-                    .map((r) => (
+              <>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Título</th>
+                      <th>Período</th>
+                      <th>Rango</th>
+                      <th>Generado</th>
+                      <th>Por</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedReportes.map((r) => (
                       <tr key={r.id}>
                         <td><strong>{r.titulo}</strong></td>
                         <td>{r.periodo}</td>
@@ -413,8 +429,31 @@ export default function Reportes() {
                         </td>
                       </tr>
                     ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, padding: '0 4px' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    >
+                      ← Anterior
+                    </button>
+                    <span style={{ fontSize: 13, color: 'var(--dim)' }}>
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Siguiente →
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
