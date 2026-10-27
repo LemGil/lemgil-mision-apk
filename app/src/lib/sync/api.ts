@@ -1,8 +1,12 @@
 import { supabase } from "../supabase";
 import { db } from "../database";
 import { emitStatus } from "./status";
-import { getDeletedIds, unmarkDeleted } from "./queue";
-import type { SyncTableName } from "./types";
+import {
+  getOutbox, clearOutbox, getTombstones, removeTombstone,
+  enqueueAllRecords, setApplyingRemote,
+} from "./queue";
+import type { SyncTableName, SyncError } from "./types";
+import { summarizeErrors } from "./types";
 import type { Table } from "dexie";
 
 const PULL_TIMEOUT_MS = 15000;
@@ -64,7 +68,9 @@ export function toLowerCaseKeys(obj: unknown): unknown {
   if (Array.isArray(obj)) return obj.map(toLowerCaseKeys);
   if (obj !== null && typeof obj === "object" && !(obj instanceof Date)) {
     return Object.keys(obj as Record<string, unknown>).reduce((acc, key) => {
-      (acc as Record<string, unknown>)[key.toLowerCase()] = toLowerCaseKeys((obj as Record<string, unknown>)[key]);
+      // La columna en Postgres es updated_at (no «updatedat»).
+      const outKey = key === "updatedAt" ? "updated_at" : key.toLowerCase();
+      (acc as Record<string, unknown>)[outKey] = toLowerCaseKeys((obj as Record<string, unknown>)[key]);
       return acc;
     }, {} as Record<string, unknown>);
   }
@@ -85,6 +91,7 @@ const SUPABASE_TO_DEXIE: Record<string, string> = {
   fechabautismo: "fechaBautismo", beneficiarionombre: "beneficiarioNombre",
   beneficiariotipo: "beneficiarioTipo", metatipo: "metaTipo", metafamilias: "metaFamilias",
   ingresosmensuales: "ingresosMensuales", generadopor: "generadoPor", generated: "generado",
+  updated_at: "updatedAt",
 };
 
 export function toCamelCaseKeys(obj: unknown): unknown {
@@ -99,124 +106,254 @@ export function toCamelCaseKeys(obj: unknown): unknown {
   return obj;
 }
 
-const tableMap: Record<SyncTableName, Table<any, string>> = {
-  conversiones: db.conversiones,
-  grupos: db.grupos,
-  evangelismos: db.evangelismos,
-  cursos: db.cursos,
-  lecciones: db.lecciones,
-  estudiantes: db.estudiantes,
-  certificados: db.certificados,
-  dadores: db.dadores,
-  aportes: db.aportes,
-  beneficiarios: db.beneficiarios,
-  campanas: db.campanas,
-  entregas: db.entregas,
-  metas: db.metas,
-  negocios: db.negocios,
-  publicaciones: db.publicaciones,
-  reportes: db.reportes,
+export const tableMap: Record<SyncTableName, Table<any, string>> = {
+  conversiones: db.conversiones as Table<any, string>,
+  grupos: db.grupos as Table<any, string>,
+  evangelismos: db.evangelismos as Table<any, string>,
+  cursos: db.cursos as Table<any, string>,
+  lecciones: db.lecciones as Table<any, string>,
+  estudiantes: db.estudiantes as Table<any, string>,
+  certificados: db.certificados as Table<any, string>,
+  dadores: db.dadores as Table<any, string>,
+  aportes: db.aportes as Table<any, string>,
+  beneficiarios: db.beneficiarios as Table<any, string>,
+  campanas: db.campanas as Table<any, string>,
+  entregas: db.entregas as Table<any, string>,
+  metas: db.metas as Table<any, string>,
+  negocios: db.negocios as Table<any, string>,
+  publicaciones: db.publicaciones as Table<any, string>,
+  reportes: db.reportes as Table<any, string>,
   miembrosComun: db.miembrosComun as Table<any, string>,
-  aportesComun: db.aportesComun,
-  miembros: db.miembros,
-  ministerios: db.ministerios,
-  miembrosMinisterios: db.miembrosMinisterios,
-  hitos: db.hitos,
-  zonas: db.zonas,
-  colaboradores: db.colaboradores,
-  tiposPlanes: db.tiposPlanes,
-  planesColaborador: db.planesColaborador,
+  aportesComun: db.aportesComun as Table<any, string>,
+  miembros: db.miembros as Table<any, string>,
+  ministerios: db.ministerios as Table<any, string>,
+  miembrosMinisterios: db.miembrosMinisterios as Table<any, string>,
+  hitos: db.hitos as Table<any, string>,
+  zonas: db.zonas as Table<any, string>,
+  colaboradores: db.colaboradores as Table<any, string>,
+  tiposPlanes: db.tiposPlanes as Table<any, string>,
+  planesColaborador: db.planesColaborador as Table<any, string>,
 };
 
-async function bulkUpsertAll(force: boolean) {
-  for (const [key, entry] of Object.entries(getDeletedIds())) {
-    const recordId = key.split(":")[1];
-    if (!recordId) continue;
-    const { error } = await supabase.from(toSupabase(entry.table)).delete().eq("id", recordId);
-    if (!error) unmarkDeleted(entry.table, recordId);
+/**
+ * Prepara un registro local para subirlo a Supabase.
+ * - Quita campos internos de Dexie.
+ * - Conserva version y updatedAt (antes se quitaban: por eso los conflictos
+ *   nunca se resolvían y la versión remota quedaba siempre en 1).
+ * - aportesComun NO lleva version (la tabla remota rechaza esa columna; es el
+ *   arreglo histórico de los commits «excluir campo version de aportesComun»).
+ */
+export function cleanForPush(table: SyncTableName, record: Record<string, unknown>): Record<string, unknown> {
+  const { _primKey: _p, ...rest } = { ...record };
+  if (table === "dadores") delete rest.base;
+  if (table === "colaboradores" && rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
+  delete rest.codigo;
+  if (table === "aportesComun") delete rest.version;
+  return rest;
+}
+
+/** ¿Trae la fila remota cambios más nuevos que la copia local? (función pura, probada). */
+export function isRemoteNewer(
+  table: SyncTableName,
+  local: Record<string, unknown>,
+  remote: Record<string, unknown>,
+): boolean {
+  if (table === "aportesComun") {
+    // Sin columna version utilizable: se compara por fecha de actualización.
+    return String(remote.updatedAt || "") > String(local.updatedAt || "");
   }
-  let total = 0;
-  for (const table of SYNC_TABLES) {
-    const supaTable = toSupabase(table);
+  return ((remote.version as number) || 0) > ((local.version as number) || 0);
+}
+
+async function pushTombstones(): Promise<SyncError[]> {
+  const errors: SyncError[] = [];
+  const tombs = await getTombstones();
+  for (const t of tombs) {
+    const { error } = await supabase.from(toSupabase(t.table)).delete().eq("id", t.recordId);
+    if (error) {
+      errors.push({ table: t.table, message: `borrado de ${t.recordId}: ${error.message}` });
+    } else {
+      await removeTombstone(t.table, t.recordId);
+    }
+  }
+  return errors;
+}
+
+async function upsertOne(table: SyncTableName, record: Record<string, unknown>): Promise<string | null> {
+  const payload = toLowerCaseKeys(cleanForPush(table, record)) as Record<string, unknown>;
+  const { error } = await supabase.from(toSupabase(table)).upsert(payload);
+  if (!error) return null;
+  // Red de seguridad: si la tabla remota no tiene la columna updated_at,
+  // se reintenta sin ella y se recuerda la tabla para esta sesión.
+  if (/updated_at/i.test(error.message) && "updated_at" in payload) {
+    const retry = { ...payload };
+    delete retry.updated_at;
+    const second = await supabase.from(toSupabase(table)).upsert(retry);
+    if (!second.error) {
+      tablesWithoutUpdatedAt.add(table);
+      return null;
+    }
+    return second.error.message;
+  }
+  return error.message;
+}
+
+const tablesWithoutUpdatedAt = new Set<SyncTableName>();
+
+/**
+ * Sube SOLO los registros que cambiaron desde el último sync (bandeja de salida).
+ * Antes se subían las 26 tablas completas en cada ciclo. Los fallos se DEVUELVEN,
+ * nunca se tragan: el llamador los muestra en el indicador.
+ */
+export async function pushOutbox(): Promise<SyncError[]> {
+  const errors: SyncError[] = [...(await pushTombstones())];
+
+  const entries = await getOutbox();
+  const done: number[] = [];
+  for (const entry of entries) {
+    const table = entry.table as SyncTableName;
     try {
-      const tableInstance = tableMap[table];
-      const localData = await tableInstance.toArray();
+      const record = await tableMap[table].get(entry.recordId);
+      if (!record) {
+        // El registro ya no existe localmente (se borró): su tumba cubre la nube.
+        if (entry.id != null) done.push(entry.id);
+        continue;
+      }
+      const payloadRecord = tablesWithoutUpdatedAt.has(table)
+        ? { ...record, updatedAt: undefined }
+        : record;
+      const errMsg = await upsertOne(table, payloadRecord);
+      if (errMsg) {
+        errors.push({ table, message: `subida de ${entry.recordId}: ${errMsg}` });
+      } else if (entry.id != null) {
+        done.push(entry.id);
+      }
+    } catch (err: unknown) {
+      errors.push({ table, message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  await clearOutbox(done);
+  return errors;
+}
+
+/** Nombre histórico: ahora hace la subida incremental de la bandeja. */
+export async function pushAllLocal(): Promise<SyncError[]> {
+  return pushOutbox();
+}
+
+/** Sube TODAS las tablas completas (lo que promete el botón «Forzar Sync Total»). */
+export async function forceFullPush(): Promise<SyncError[]> {
+  const errors: SyncError[] = [...(await pushTombstones())];
+  for (const table of SYNC_TABLES) {
+    try {
+      const localData = await tableMap[table].toArray();
       if (localData.length === 0) continue;
-      const cleaned = localData.map((r: Record<string, unknown>) => {
-        const { _primKey: _p, updatedAt: _u, ...rest } = r;
-        if (table === "dadores") delete rest.base;
-        if (table === "colaboradores" && rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
-        delete rest.codigo;
-        if (table === "aportesComun") delete rest.version;
-        return rest;
-      });
-      if (force) {
-        const lowerData = toLowerCaseKeys(cleaned);
-        const { error } = await supabase.from(supaTable).upsert(lowerData as Record<string, unknown>[]);
-        if (error) continue;
-      } else {
-        for (const record of cleaned) {
-          const { version: _v, ...recordClean } = record;
-          const lowerRecord = toLowerCaseKeys(recordClean);
-          const { error } = await supabase
-            .from(supaTable)
-            .upsert(lowerRecord as Record<string, unknown>);
-          if (error) continue;
+      const cleaned = localData.map((r) =>
+        tablesWithoutUpdatedAt.has(table) ? { ...cleanForPush(table, r), updatedAt: undefined } : cleanForPush(table, r),
+      );
+      const lowerData = toLowerCaseKeys(cleaned) as Record<string, unknown>[];
+      const { error } = await supabase.from(toSupabase(table)).upsert(lowerData);
+      if (error) {
+        if (/updated_at/i.test(error.message)) {
+          const retry = lowerData.map((r) => {
+            const c = { ...r };
+            delete c.updated_at;
+            return c;
+          });
+          const second = await supabase.from(toSupabase(table)).upsert(retry);
+          if (second.error) errors.push({ table, message: second.error.message });
+          else tablesWithoutUpdatedAt.add(table);
+        } else {
+          errors.push({ table, message: error.message });
         }
       }
-      total += cleaned.length;
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[Sync] ✗ Excepción en ${table}:`, errorMsg);
+      errors.push({ table, message: err instanceof Error ? err.message : String(err) });
     }
   }
-  console.log(`[Sync] ✓ Push ${force ? "forzado" : "normal"}: ${total} registros`);
+  // Todo quedó subido: la bandeja ya no tiene nada que reclamar.
+  if (errors.length === 0) {
+    const entries = await getOutbox();
+    await clearOutbox(entries.map((e) => e.id).filter((id): id is number => id != null));
+  }
+  return errors;
 }
 
-export async function pushAllLocal() {
-  return bulkUpsertAll(false);
-}
-
-export async function forcePushAllLocal() {
-  return bulkUpsertAll(true);
-}
-
-export async function pullFromSupabase() {
-  for (const table of SYNC_TABLES) {
-    const supaTable = toSupabase(table);
-    let fetched;
-    try {
-      fetched = await withTimeout(supabase.from(supaTable).select("*"), PULL_TIMEOUT_MS);
-    } catch {
-      console.warn(`[Sync] ⏱ Pull de ${supaTable} agotó el tiempo (${PULL_TIMEOUT_MS}ms); se omite`);
-      continue;
-    }
-    const { data, error } = fetched;
-    if (error || !data || data.length === 0) continue;
-
-    const normalized = toCamelCaseKeys(data) as Array<Record<string, unknown>>;
-    const tableInstance = tableMap[table];
-    const existingRecords = await tableInstance.toArray();
-    const existingIds = new Set(existingRecords.map((r: Record<string, unknown>) => r.id));
-    const deletedIds = getDeletedIds();
-
-    const toAdd = normalized.filter((r) => typeof r.id === "string" && !existingIds.has(r.id) && !deletedIds[table + ":" + r.id]);
-    const toUpdate = normalized.filter((r) => typeof r.id === "string" && existingIds.has(r.id));
-
-    if (toAdd.length > 0) await tableInstance.bulkAdd(toAdd);
-
-    for (const record of toUpdate) {
+export async function pullFromSupabase(): Promise<SyncError[]> {
+  const errors: SyncError[] = [];
+  const tombs = new Set((await getTombstones()).map((t) => `${t.table}:${t.recordId}`));
+  setApplyingRemote(true);
+  try {
+    for (const table of SYNC_TABLES) {
+      const supaTable = toSupabase(table);
+      let fetched;
       try {
-        const recordId = record.id as string;
-        const existing = await tableInstance.get(recordId);
-        if (existing) {
-          const localVersion = (existing.version as number) || 0;
-          const remoteVersion = (record.version as number) || 0;
-          if (remoteVersion <= localVersion) continue;
-          await tableInstance.update(recordId, record);
+        fetched = await withTimeout(supabase.from(supaTable).select("*"), PULL_TIMEOUT_MS);
+      } catch {
+        console.warn(`[Sync] ⏱ Pull de ${supaTable} agotó el tiempo (${PULL_TIMEOUT_MS}ms); se omite`);
+        continue;
+      }
+      const { data, error } = fetched;
+      if (error) {
+        errors.push({ table, message: `descarga: ${error.message}` });
+        continue;
+      }
+      if (!data || data.length === 0) continue;
+
+      const normalized = toCamelCaseKeys(data) as Array<Record<string, unknown>>;
+      const tableInstance = tableMap[table];
+      const existingRecords = await tableInstance.toArray();
+      const byId = new Map(existingRecords.map((r) => [r.id as string, r]));
+
+      const toAdd: Record<string, unknown>[] = [];
+      for (const record of normalized) {
+        if (typeof record.id !== "string") continue;
+        // Un registro borrado localmente con la tumba pendiente NO resucita.
+        if (tombs.has(`${table}:${record.id}`)) continue;
+        const local = byId.get(record.id);
+        if (!local) {
+          toAdd.push(record);
+        } else if (isRemoteNewer(table, local, record)) {
+          try {
+            await tableInstance.update(record.id, record);
+          } catch (err: unknown) {
+            errors.push({ table, message: err instanceof Error ? err.message : String(err) });
+          }
         }
-      } catch { }
+      }
+      if (toAdd.length > 0) {
+        try {
+          await tableInstance.bulkAdd(toAdd);
+        } catch (err: unknown) {
+          errors.push({ table, message: err instanceof Error ? err.message : String(err) });
+        }
+      }
     }
+  } finally {
+    setApplyingRemote(false);
+  }
+  return errors;
+}
+
+/** Encola todos los registros locales (primera vez tras la actualización incremental). */
+export async function enqueueAllLocalRecords(): Promise<void> {
+  await enqueueAllRecords(
+    SYNC_TABLES.map((name) => ({
+      name,
+      ids: async () => (await tableMap[name].toArray()).map((r) => r.id as string),
+    })),
+  );
+}
+
+/**
+ * Sincronización total forzada (botón «Forzar Sync Total»): sube todas las
+ * tablas completas y luego baja lo que haya en la nube. Lanza un Error con el
+ * resumen si algo falló — el éxito que anuncia la interfaz es real.
+ */
+export async function forcePushAllLocal(): Promise<void> {
+  const errors = [...(await forceFullPush()), ...(await pullFromSupabase())];
+  if (errors.length > 0) {
+    throw new Error(summarizeErrors(errors));
   }
 }
 

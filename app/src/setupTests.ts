@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import 'fake-indexeddb/auto';
 
 // Mock localStorage para los tests
 const localStorageMock = (() => {

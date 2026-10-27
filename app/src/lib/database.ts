@@ -1,5 +1,22 @@
 import Dexie, { type EntityTable } from 'dexie';
+import type { SyncTableName } from './sync/types';
 import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Diezmador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, Colaborador, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador } from './types';
+
+/** Entrada de la bandeja de salida: un registro local cambió y falta subirlo. */
+export interface SyncOutboxEntry {
+  id?: number;
+  table: SyncTableName;
+  recordId: string;
+  ts: number;
+}
+
+/** Marca de borrado: un registro se eliminó localmente y falta borrarlo en la nube. Nunca caduca. */
+export interface SyncTombstone {
+  id: string;
+  table: SyncTableName;
+  recordId: string;
+  ts: number;
+}
 
 const database = new Dexie('LemGilDB') as Dexie & {
   conversiones: EntityTable<Conversion, 'id'>;
@@ -28,6 +45,10 @@ const database = new Dexie('LemGilDB') as Dexie & {
   colaboradores: EntityTable<Colaborador, 'id'>;
   tiposPlanes: EntityTable<TipoPlan, 'id'>;
   planesColaborador: EntityTable<PlanColaborador, 'id'>;
+  // Infraestructura de sincronización (Fase 1): bandeja de salida de cambios
+  // y registro de borrados. No caducan: todo cambio se sube a la nube.
+  syncQueue: EntityTable<SyncOutboxEntry, 'id'>;
+  syncTombstones: EntityTable<SyncTombstone, 'id'>;
 };
 
 database.version(1).stores({
@@ -232,6 +253,11 @@ database.version(19).stores({
   await tx.table('colaboradores').clear();
   if (tempColabs.length) await tx.table('dadores').bulkAdd(tempColabs);
   if (tempDadores.length) await tx.table('colaboradores').bulkAdd(tempDadores);
+});
+
+database.version(20).stores({
+  syncQueue: '++id, table, [table+recordId]',
+  syncTombstones: 'id, table, recordId',
 });
 
 export { database as db };

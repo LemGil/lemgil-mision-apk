@@ -1,35 +1,52 @@
 import { useEffect, useState } from "react";
-import { onSyncStatus } from "../lib/sync/status";
+import { onSyncStatus, getCurrentStatus } from "../lib/sync/status";
 import { type SyncStatus } from "../lib/sync/types";
-import { getDeletedCount } from "../lib/sync/queue";
 
+/**
+ * Indicador de sincronización (Fase 1): refleja el estado REAL.
+ * - «⟳ N pendientes»: hay cambios locales aún sin subir.
+ * - «✗ Sync»: el último ciclo tuvo errores (el detalle va en el título).
+ * - «✓ Synced»: solo cuando no queda nada pendiente y no hubo errores.
+ * Antes decía «Synced» aunque la subida hubiera fallado en silencio.
+ */
 export function SyncIndicator() {
-  const [status, setStatus] = useState<SyncStatus>({ connected: false, lastSync: "Nunca", error: "" });
-  const [deletedCount, setDeletedCount] = useState<number>(0);
+  const [status, setStatus] = useState<SyncStatus>(() => getCurrentStatus());
 
-  useEffect(() => {
-    const unsub = onSyncStatus(setStatus);
-    const updateCount = () => setDeletedCount(getDeletedCount());
-    updateCount();
-    const interval = setInterval(updateCount, 5000);
-    return () => {
-      unsub();
-      clearInterval(interval);
-    };
-  }, []);
+  useEffect(() => onSyncStatus(setStatus), []);
 
-  if (status.error && !status.connected) {
+  const base: React.CSSProperties = {
+    position: "fixed", bottom: 12, right: 12, color: "white", padding: "6px 12px",
+    borderRadius: 8, fontSize: 11, fontWeight: 700, zIndex: 9999,
+  };
+
+  if (status.syncing) {
     return (
-      <div style={{ position: "fixed", bottom: 12, right: 12, background: "var(--red)", color: "white", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, zIndex: 9999, cursor: "pointer", opacity: 0.9 }} title={status.error}>
-        ✗ Sync Error {deletedCount > 0 && `(${deletedCount} pendientes)`}
+      <div style={{ ...base, background: "var(--yellow)", color: "var(--d1, #222)", opacity: 0.95 }}>
+        ⟳ Sincronizando…
+      </div>
+    );
+  }
+
+  if (status.error) {
+    return (
+      <div style={{ ...base, background: "var(--red)", cursor: "pointer", opacity: 0.95 }} title={status.error}>
+        ✗ Sync{status.pending > 0 ? ` (${status.pending} pendientes)` : ""} — toca para detalle
+      </div>
+    );
+  }
+
+  if (status.pending > 0) {
+    return (
+      <div style={{ ...base, background: "var(--yellow)", color: "var(--d1, #222)", opacity: 0.95 }} title="Cambios locales esperando conexión para subirse">
+        ⟳ {status.pending} pendiente{status.pending !== 1 ? "s" : ""}
       </div>
     );
   }
 
   if (status.connected) {
     return (
-      <div style={{ position: "fixed", bottom: 12, right: 12, background: "var(--green)", color: "white", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, zIndex: 9999, opacity: 0.7 }} title={`Último sync: ${status.lastSync}`}>
-        ✓ Synced {deletedCount > 0 && `(${deletedCount} pendientes)`}
+      <div style={{ ...base, background: "var(--green)", opacity: 0.85 }} title={`Último sync: ${status.lastSync}`}>
+        ✓ Synced
       </div>
     );
   }

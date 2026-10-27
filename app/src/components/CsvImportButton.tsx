@@ -28,7 +28,7 @@ export function CsvImportButton<T extends Record<string, any>>({
   const fileRef = useRef<HTMLInputElement>(null);
   const [modal, setModal] = useState<'preview' | 'result' | null>(null);
   const [parsed, setParsed] = useState<{ headers: string[]; rows: string[][] }>({ headers: [], rows: [] });
-  const [result, setResult] = useState<{ imported: number; errors: { row: number; message: string }[] } | null>(null);
+  const [result, setResult] = useState<{ imported: number; duplicates: number; errors: { row: number; message: string }[] } | null>(null);
   const [processing, setProcessing] = useState(false);
 
   const config: ImportConfig<T> = {
@@ -65,24 +65,27 @@ export function CsvImportButton<T extends Record<string, any>>({
       );
 
       if (records.length === 0 && mapErrors.length > 0) {
-        setResult({ imported: 0, errors: mapErrors });
+        setResult({ imported: 0, duplicates: 0, errors: mapErrors });
         setModal('result');
         return;
       }
 
       let imported = 0;
+      let duplicates = 0;
       if (records.length > 0) {
-        imported = await importRecords(records, table);
+        const res = await importRecords(records, table);
+        imported = res.imported;
+        duplicates = res.duplicates;
       }
 
       const allErrors = mapErrors;
-      setResult({ imported, errors: allErrors });
+      setResult({ imported, duplicates, errors: allErrors });
       setModal('result');
       if (imported > 0) onImport?.(imported);
     } catch (err: any) {
       const msg = err?.message || 'Error desconocido al importar';
       onError?.(msg);
-      setResult({ imported: 0, errors: [{ row: 0, message: msg }] });
+      setResult({ imported: 0, duplicates: 0, errors: [{ row: 0, message: msg }] });
       setModal('result');
     } finally {
       setProcessing(false);
@@ -170,7 +173,7 @@ export function CsvImportButton<T extends Record<string, any>>({
         <Modal
           open
           onClose={() => setModal(null)}
-          title={result.imported > 0 ? 'Importación completada' : 'Error en la importación'}
+          title={result.imported > 0 || result.duplicates > 0 ? 'Importación completada' : 'Error en la importación'}
           footer={
             <button className="btn btn-gold btn-sm" onClick={() => setModal(null)}>Cerrar</button>
           }
@@ -179,6 +182,11 @@ export function CsvImportButton<T extends Record<string, any>>({
             {result.imported > 0 && (
               <div style={{ color: 'var(--green)', marginBottom: 8 }}>
                 ✅ {result.imported} registro(s) importado(s) correctamente
+              </div>
+            )}
+            {result.duplicates > 0 && (
+              <div style={{ color: 'var(--yellow-dark, #9a7b1c)', marginBottom: 8 }}>
+                ⏭️ {result.duplicates} registro(s) omitido(s) por ya existir (duplicados)
               </div>
             )}
             {result.errors.length > 0 && (

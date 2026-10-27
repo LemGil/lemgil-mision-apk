@@ -15,9 +15,53 @@ export type ImportResult = {
   total: number;
   imported: number;
   skipped: number;
+  /** Registros omitidos por ya existir (Fase 3: la importación no duplica). */
+  duplicates: number;
   errors: { row: number; message: string }[];
   preview: Record<string, string>[];
 };
+
+/**
+ * Claves de duplicado por tabla (Fase 3): si una fila del CSV produce la misma
+ * clave que un registro ya guardado, se omite en vez de crear un duplicado.
+ * (De ahí salían los Mercedes Delgado ×3: cada importación creaba IDs nuevos.)
+ */
+const DEDUPE_KEYS: Record<string, string[]> = {
+  conversiones: ["nombre", "apellido", "telefono"],
+  miembros: ["nombre", "apellido", "telefono"],
+  colaboradores: ["nombre", "apellido", "telefono"],
+  dadores: ["nombre", "apellido", "telefono"],
+  beneficiarios: ["nombre", "apellido", "telefono"],
+  estudiantes: ["nombre", "apellido", "telefono"],
+  grupos: ["nombre", "zona"],
+  cursos: ["titulo"],
+  zonas: ["nombre"],
+  ministerios: ["nombre"],
+  campanas: ["nombre", "zona"],
+  aportes: ["colaboradorId", "fecha", "monto", "tipo"],
+  aportesComun: ["diezmadorId", "fecha", "monto", "tipo"],
+  evangelismos: ["tipo", "fecha", "zona", "lider"],
+  negocios: ["nombre", "emprendedor"],
+};
+
+/** Normaliza un campo para comparar (minúsculas, sin tildes, teléfonos a dígitos). */
+export function normalizeField(value: unknown): string {
+  if (value == null) return "";
+  let s = String(value).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/^\+?[\d\s().-]+$/.test(s) && /\d/.test(s)) {
+    s = s.replace(/\D/g, ""); // los teléfonos se comparan por dígitos
+  }
+  return s;
+}
+
+/** Clave de duplicado de un registro; null si la tabla no define claves. */
+export function dedupeKey(table: string, record: Record<string, unknown>): string | null {
+  const fields = DEDUPE_KEYS[table];
+  if (!fields) return null;
+  const parts = fields.map((f) => normalizeField(record[f]));
+  if (parts.every((p) => p === "")) return null;
+  return parts.join("|");
+}
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -228,10 +272,35 @@ const TABLE_DB_MAP: Record<string, any> = {
 export async function importRecords<T extends Record<string, any>>(
   records: T[],
   table: string,
-): Promise<number> {
+): Promise<{ imported: number; duplicates: number }> {
   const getTable = TABLE_DB_MAP[table];
   if (!getTable) throw new Error(`Tabla desconocida: ${table}`);
   const tbl = getTable();
-  await tbl.bulkAdd(records as any[]);
-  return records.length;
+
+  // Fase 3: se filtra contra lo ya guardado Y contra el propio lote.
+  let duplicates = 0;
+  if (DEDUPE_KEYS[table]) {
+    const existing = (await tbl.toArray()) as Record<string, unknown>[];
+    const seen = new Set(
+      existing.map((r) => dedupeKey(table, r)).filter((k): k is string => !!k),
+    );
+    const fresh: T[] = [];
+    for (const r of records) {
+      const key = dedupeKey(table, r as Record<string, unknown>);
+      if (key) {
+        if (seen.has(key)) {
+          duplicates++;
+          continue;
+        }
+        seen.add(key);
+      }
+      fresh.push(r);
+    }
+    records = fresh;
+  }
+
+  if (records.length > 0) {
+    await tbl.bulkAdd(records as any[]);
+  }
+  return { imported: records.length, duplicates };
 }
