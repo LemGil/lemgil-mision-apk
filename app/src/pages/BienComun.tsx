@@ -2,23 +2,25 @@ import { useState, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
-import { Modal } from '../components/Modal';
-import { exportCSV } from '../lib/csvExport';
-import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Diezmador, Grupo, Miembro, TipoPlan, PlanColaborador, AporteComun } from '../lib/types';
-import {
-  exportRegistrosPDF,
-  exportDiezmadoresPDF,
-} from '../lib/pdfExport';
-import { CsvImportButton } from '../components/CsvImportButton';
-import { showToast } from '../lib/notification';import { ResumenTab } from '../components/biencomun/ResumenTab';
+import { showToast } from '../lib/notification';
+import { ResumenTab } from '../components/biencomun/ResumenTab';
 import { OfrendasGruposTab } from '../components/biencomun/OfrendasGruposTab';
-import { today, monthKey, money, MS_SHORT, accentStyle } from '../lib/utils';
-
-type Tab = 'registros' | 'diezmadores' | 'resumen' | 'ofrendasGrupos' | 'planes';
-type ModalType = 'dador' | 'aporte' | 'delD' | 'delA' | 'verD' | 'verG' | 'tipoPlan' | 'delTipoPlan' | 'planDiezmador' | 'delPlanDiezmador';
+import { today, monthKey, money, accentStyle } from '../lib/utils';
+import type { ModalType, Tab } from './bien-comun/constants';
+import { ResumenAniosCard } from './bien-comun/ResumenAniosCard';
+import { RegistrosTab } from './bien-comun/RegistrosTab';
+import { DiezmadoresTab } from './bien-comun/DiezmadoresTab';
+import { PlanesTab } from './bien-comun/PlanesTab';
+import { DiezmadorFormModal } from './bien-comun/DiezmadorFormModal';
+import { AporteFormModal } from './bien-comun/AporteFormModal';
+import { DiezmadorDetailModal } from './bien-comun/DiezmadorDetailModal';
+import { GrupoDetailModal } from './bien-comun/GrupoDetailModal';
+import { TipoPlanFormModal } from './bien-comun/TipoPlanFormModal';
+import { PlanDiezmadorFormModal } from './bien-comun/PlanDiezmadorFormModal';
+import { DeleteModals } from './bien-comun/DeleteModals';
 
 export default function BienComun() {
   const colaboradores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
@@ -279,249 +281,48 @@ export default function BienComun() {
         </div>
 
         {anosDatos.length > 1 && (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: 'var(--oro-apostolico)' }}>📊 Resumen por Años</div>
-                <table className="data-table" style={{ fontSize: 12 }}>
-                    <thead><tr><th>Año</th><th style={{ textAlign: 'right' }}>Diezmos</th><th style={{ textAlign: 'right' }}>Ofrendas</th><th style={{ textAlign: 'right' }}>Total</th><th style={{ textAlign: 'center' }}>Registros</th></tr></thead>
-                    <tbody>
-                        {anosDatos.map(d => (
-                            <tr key={d.ano} style={{ cursor: 'pointer', background: filterAnio === d.ano ? 'var(--gold-glow)' : undefined }} onClick={() => setFilterAnio(filterAnio === d.ano ? '' : d.ano)}>
-                                <td style={{ fontWeight: 700 }}>{d.ano}</td>
-                                <td style={{ textAlign: 'right', color: 'var(--green)' }}>{money(d.diezmos)}</td>
-                                <td style={{ textAlign: 'right', color: 'var(--purple)' }}>{money(d.ofrendas)}</td>
-                                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--gold)' }}>{money(d.total)}</td>
-                                <td style={{ textAlign: 'center', color: 'var(--dim)' }}>{d.count}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+          <ResumenAniosCard
+            anosDatos={anosDatos}
+            filterAnio={filterAnio} setFilterAnio={setFilterAnio}
+          />
         )}
 
         {tab === 'registros' && (
-            <div className="page-content">
-                <div className="actions-row">
-                    <button className="btn btn-gold" onClick={() => { resetA(); setModal('aporte'); }}>➕ Registrar Aporte</button>
-                    <button className="btn btn-secondary" onClick={() => exportRegistrosPDF({ aportes: registrosFiltrados, colaboradores, grupos, filters: { tipo: filterTipo, mes: filterMes, dador: filterDiezmador } })}>📄 Exportar PDF</button>
-                    <button className="btn btn-secondary" onClick={() => {
-                        if (!registrosFiltrados.length) return showToast('No hay registros para exportar');
-                        const h = ['Fecha', 'Colaborador', 'Tipo', 'Monto', 'Método', 'Referencia', 'Notas'];
-                        const r = registrosFiltrados.map(a => {
-                            const c = colaboradores.find(x => x.id === a.diezmadorId);
-                            return [a.fecha, c ? `${c.nombre} ${c.apellido}` : '—', a.tipo, a.monto, a.metodo, a.referencia || '', (a.notas || '').replace(/,/g, ';')];
-                        });
-                        exportCSV(h, r, 'lemgil-registros.csv');
-                        showToast('CSV exportado');
-                    }}>📥 Exportar CSV</button>
-                    <CsvImportButton
-                      table="aportesComun"
-                      fieldMapping={{
-                        'Fecha': 'fecha',
-                        'Colaborador': 'diezmadorId',
-                        'Grupo': 'grupoId',
-                        'Tipo': 'tipo',
-                        'Monto': 'monto',
-                        'Método': 'metodo',
-                        'Mes': 'mesCorrespondiente',
-                        'Referencia': 'referencia',
-                        'Notas': 'notas',
-                      }}
-                      requiredFields={['fecha', 'monto']}
-                      defaults={{ fecha: () => new Date().toISOString().split('T')[0], tipo: 'Diezmo', metodo: 'Efectivo' }}
-                      onImport={(n) => showToast(`${n} registro(s) importado(s)`)}
-                    />
-                </div>
-                <div className="search-bar">
-                    <input className="search-input" placeholder="🔍 Buscar..." value={searchReg} onChange={e => setSearchReg(e.target.value)} />
-                    <select className="filter-select" value={filterAnio} onChange={e => { setFilterAnio(e.target.value); setFilterMes(''); }}>
-                        <option value="">Todos los años</option>
-                        {[...new Set(aportes.map(a => a.fecha?.slice(0, 4)).filter(Boolean))].sort().reverse().map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                    <select className="filter-select" value={filterMes} onChange={e => setFilterMes(e.target.value)}>
-                        <option value="">Todos los meses</option>
-                        {MS_SHORT.map((m, i) => <option key={m} value={`${filterAnio || new Date().getFullYear()}-${String(i+1).padStart(2, '0')}`}>{m}</option>)}
-                    </select>
-                    <select className="filter-select" value={filterTipo} onChange={e => setFilterTipo(e.target.value)}><option value="">Todos los tipos</option><option>Diezmo</option><option>Ofrenda</option></select>
-                    <select className="filter-select" value={filterMetodo} onChange={e => setFilterMetodo(e.target.value)}>
-                        <option value="">Todos los métodos</option>
-                        <option>Efectivo</option>
-                        <option>Transferencia</option>
-                        <option>Cheque</option>
-                        <option>Tarjeta</option>
-                        <option>Otro</option>
-                    </select>
-                    <select className="filter-select" value={filterDiezmador} onChange={e => setFilterDiezmador(e.target.value)}><option value="">Todos los diezmadores</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select>
-                    <select className="filter-select" value={filterGrupo} onChange={e => setFilterGrupo(e.target.value)}><option value="">Todos los grupos</option>{grupos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}</select>
-                    <input className="search-input" style={{maxWidth: 100}} type="number" placeholder="Mín ($)" value={filterMontoMin} onChange={(e) => setFilterMontoMin(e.target.value)} />
-                    <input className="search-input" style={{maxWidth: 100}} type="number" placeholder="Máx ($)" value={filterMontoMax} onChange={(e) => setFilterMontoMax(e.target.value)} />
-                    <input className="search-input" style={{maxWidth: 140}} type="date" value={filterFechaDesde} onChange={(e) => setFilterFechaDesde(e.target.value)} />
-                    <input className="search-input" style={{maxWidth: 140}} type="date" value={filterFechaHasta} onChange={(e) => setFilterFechaHasta(e.target.value)} />
-                    {(searchReg || filterTipo || filterMes || filterDiezmador || filterGrupo || filterAnio || filterMetodo || filterMontoMin || filterMontoMax || filterFechaDesde || filterFechaHasta) && (
-                        <button className="btn btn-secondary btn-sm" onClick={() => { setSearchReg(''); setFilterTipo(''); setFilterMes(''); setFilterDiezmador(''); setFilterGrupo(''); setFilterAnio(''); setFilterMetodo(''); setFilterMontoMin(''); setFilterMontoMax(''); setFilterFechaDesde(''); setFilterFechaHasta(''); }}>✕ Limpiar</button>
-                    )}
-                </div>
-                <div className="card">
-                    <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
-                        <h3 className="card-title">📋 Historial de Diezmos y Ofrendas</h3>
-                        <span style={{fontSize: '12px', color: 'var(--dim)'}}>{registrosFiltrados.length} registros</span>
-                    </div>
-                    <div className="totales-row" style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', padding: '12px', background: 'var(--bg-input)', borderRadius: '8px', marginBottom: '20px', border: '1px solid var(--border)'}}>
-                        <div className="total-item" style={{textAlign: 'center'}}>
-                            <div className="total-label">TOTAL</div><div className="total-val" style={{color: 'var(--gold)'}}>{money(totalesReg.total)}</div>
-                        </div>
-                        <div className="total-item" style={{textAlign: 'center'}}>
-                            <div className="total-label">DIEZMOS</div><div className="total-val" style={{color: 'var(--green)'}}>{money(totalesReg.diezmos)}</div>
-                        </div>
-                        <div className="total-item" style={{textAlign: 'center'}}>
-                            <div className="total-label">OFRENDAS</div><div className="total-val" style={{color: 'var(--yellow)'}}>{money(totalesReg.ofrendas)}</div>
-                        </div>
-                        <div className="total-item" style={{textAlign: 'center'}}>
-                            <div className="total-label">REGISTROS</div><div className="total-val" style={{color: 'var(--blue)'}}>{registrosFiltrados.length}</div>
-                        </div>
-                    </div>
-                    <table className="data-table">
-                        <thead><tr><th>#</th><th>Diezmador</th><th>Tipo</th><th>Monto</th><th>Fecha</th><th>Servicio</th><th>Método</th><th>Acciones</th></tr></thead>
-                        <tbody>
-                                 {registrosFiltrados.map((a) => (
-                                     <tr key={a.id}>
-                                         <td style={{color: 'var(--dim)'}}>{aportes.indexOf(a) + 1}</td>
-                                         <td style={{fontWeight: 600}}>{colaboradores.find(c => c.id === a.diezmadorId)?.nombre || grupos.find(g => g.id === a.grupoId)?.nombre || 'Anónimo'}</td>
-                                         <td><span className={`badge ${a.tipo === 'Diezmo' ? 'badge-purple' : 'badge-blue'}`}>{a.tipo}</span></td>
-                                         <td style={{fontWeight: 700, color: 'var(--gold)'}}>{money(a.monto)}</td>
-                                         <td>{a.fecha}</td>
-                                         <td style={{color: 'var(--dim)'}}>{a.notas.split('|')[0]?.trim() || 'General'}</td>
-                                         <td style={{color: 'var(--dim)'}}>{a.metodo || '—'}</td>
-                                          <td>
-                                             <div style={{display: 'flex', gap: '5px'}}>
-                                                 <button className="btn btn-secondary btn-sm" onClick={() => handleEditAporte(a)}>✏️</button>
-                                                 <button className="btn btn-danger btn-sm" onClick={() => { setSelectedId(a.id); setModal('delA'); }}>🗑</button>
-                                             </div>
-                                         </td>
-                                     </tr>
-                                 ))}
-
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+          <RegistrosTab
+            registrosFiltrados={registrosFiltrados}
+            aportes={aportes}
+            colaboradores={colaboradores}
+            grupos={grupos}
+            totalesReg={totalesReg}
+            onNuevoAporte={() => { resetA(); setModal('aporte'); }}
+            handleEditAporte={handleEditAporte}
+            onDeleteAporte={(id) => { setSelectedId(id); setModal('delA'); }}
+            searchReg={searchReg} setSearchReg={setSearchReg}
+            filterAnio={filterAnio} setFilterAnio={setFilterAnio}
+            filterMes={filterMes} setFilterMes={setFilterMes}
+            filterTipo={filterTipo} setFilterTipo={setFilterTipo}
+            filterMetodo={filterMetodo} setFilterMetodo={setFilterMetodo}
+            filterDiezmador={filterDiezmador} setFilterDiezmador={setFilterDiezmador}
+            filterGrupo={filterGrupo} setFilterGrupo={setFilterGrupo}
+            filterMontoMin={filterMontoMin} setFilterMontoMin={setFilterMontoMin}
+            filterMontoMax={filterMontoMax} setFilterMontoMax={setFilterMontoMax}
+            filterFechaDesde={filterFechaDesde} setFilterFechaDesde={setFilterFechaDesde}
+            filterFechaHasta={filterFechaHasta} setFilterFechaHasta={setFilterFechaHasta}
+          />
         )}
 
         {tab === 'diezmadores' && (
-            <div className="page-content">
-                <div className="actions-row">
-                    <button className="btn btn-gold" onClick={() => { resetD(); setModal('dador'); }}>➕ Nuevo Diezmador</button>
-                    <button className="btn btn-secondary" onClick={() => exportDiezmadoresPDF({ colaboradores, aportes, anio: new Date().getFullYear().toString() })}>📄 Exportar PDF</button>
-                    <button className="btn btn-secondary" onClick={() => {
-                        if (!colaboradores.length) return showToast('No hay diezmadores para exportar');
-                        const h = ['#', 'Nombre', 'Apellido', 'Zona', 'Estado', 'Plan Diezmo', 'Total Aportado'];
-                        const r = colaboradores.map((c, i) => {
-                            const regs = aportes.filter(a => a.diezmadorId === c.id);
-                            const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-                            return [i + 1, c.nombre, c.apellido, c.zona || '', c.estado, c.planDiezmo || 0, total];
-                        });
-                        exportCSV(h, r, 'lemgil-diezmadores.csv');
-                        showToast('CSV exportado');
-                    }}>📥 Exportar CSV</button>
-                    <CsvImportButton
-                      table="dadores"
-                      fieldMapping={{
-                        'Nombre': 'nombre',
-                        'Apellido': 'apellido',
-                        'Teléfono': 'telefono',
-                        'Email': 'email',
-                        'Zona': 'zona',
-                        'Grupo': 'grupo',
-                        'Estado': 'estado',
-                        'Plan Diezmo': 'planDiezmo',
-                        'Notas': 'notas',
-                      }}
-                      requiredFields={['nombre', 'apellido']}
-                      defaults={{ estado: 'Activo', planDiezmo: 0 }}
-                      onImport={(n) => showToast(`${n} diezmador(es) importado(s)`)}
-                    />
-                </div>
-                <div className="search-bar">
-                    <input className="search-input" placeholder="🔍 Buscar diezmador..." value={searchDz} onChange={e => setSearchDz(e.target.value)} />
-                    <select className="filter-select" value={filterZona} onChange={e => setFilterZona(e.target.value)}><option value="">Todas las zonas</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Centro</option></select>
-                    <select className="filter-select" value={filterEstado} onChange={e => setFilterEstado(e.target.value)}><option value="">Todos</option><option>Activo</option><option>Irregular</option><option>Inactivo</option></select>
-                    <select className="filter-select" value={filterPlanDz} onChange={e => setFilterPlanDz(e.target.value)}>
-                        <option value="">Todos los planes</option>
-                        <option value="con">Con plan diezmo</option>
-                        <option value="sin">Sin plan diezmo</option>
-                    </select>
-                </div>
-                <div className="dz-grid">
-                    {colaboradores.filter(d => {
-                        if (searchDz && !`${d.nombre} ${d.apellido}`.toLowerCase().includes(searchDz.toLowerCase())) return false;
-                        if (filterZona && d.zona !== filterZona) return false;
-                        if (filterEstado && d.estado !== filterEstado) return false;
-                        if (filterPlanDz === 'con' && !(d.planDiezmo > 0)) return false;
-                        if (filterPlanDz === 'sin' && (d.planDiezmo > 0)) return false;
-                        return true;
-                    }).map(d => {
-                        const regs = aportes.filter(a => a.diezmadorId === d.id);
-                        const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-                        const mesK = new Date().toISOString().slice(0, 7);
-                        const alDia = regs.some(a => monthKey(a.fecha) === mesK);
-                        return (
-                                 <div key={d.id} className="card" onClick={() => { setViewDiezmador(d); setModal('verD'); }} style={{cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--bg)', padding: '16px', borderRadius: '16px', position: 'relative', overflow: 'hidden'}}>
-                                     <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px'}}>
-                                         <div style={{width: '50px', height: '50px', borderRadius: '50%', background: 'var(--gold-glow)', border: '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: '16px'}}>{d.nombre[0]}{d.apellido[0]}</div>
-                                         <div style={{flex: 1}}>
-                                             <div style={{fontWeight: 800, fontSize: '18px', lineHeight: '1.2'}}>{d.nombre} {d.apellido}</div>
-                                             <div style={{color: 'var(--gold)', fontSize: '13px'}}>{d.zona || 'Sin zona'}</div>
-                                         </div>
-                                         <span className={`badge ${d.estado === 'Activo' ? 'badge-green' : 'badge-red'}`} style={{fontSize: '11px', padding: '4px 12px'}}>{d.estado}</span>
-                                          <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setModal('delD'); }} style={{fontSize: '11px', padding: '4px 8px'}}>🗑️</button>
-                                     </div>
-                                     <div style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginBottom: '8px', color: 'var(--dim)'}}>
-                                         <span>💰 Total: <span style={{color: 'var(--gold)', fontWeight: 700}}>{money(total)}</span></span>
-                                         <span style={{opacity: 0.5}}>•</span>
-                                         <span>📋 {regs.length} registros</span>
-                                         <span style={{opacity: 0.5}}>•</span>
-                                         <span>Plan: <span style={{color: 'var(--dim)'}}>{money(d.planDiezmo || 0)}</span></span>
-                                     </div>
-                                     {(() => {
-                                         const planDiezmo = d.planDiezmo || 0;
-                                         const metaAnual = planDiezmo * 12;
-                                         if (metaAnual <= 0) return null;
-                                         const pctCump = Math.min((total / metaAnual) * 100, 100);
-                                         const semaforo = pctCump >= 100 ? 'var(--gold)' : pctCump >= 70 ? 'var(--green)' : 'var(--red)';
-                                         return (
-                                             <div style={{marginBottom: '14px'}}>
-                                                 <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--dim)', marginBottom: '3px'}}>
-                                                     <span>🎯 Meta anual: {money(metaAnual)}</span>
-                                                     <span style={{color: semaforo, fontWeight: 700}}>{pctCump.toFixed(0)}%</span>
-                                                 </div>
-                                                 <div style={{height: '5px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden'}}>
-                                                     <div style={{height: '100%', width: `${pctCump}%`, background: semaforo, transition: 'width 0.5s'}}></div>
-                                                 </div>
-                                             </div>
-                                         );
-                                     })()}
-                                     <div className="grid-meses" style={{display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px', marginBottom: '16px'}}>
-                                         {MS_SHORT.map((m, i) => {
-                                             const mk = `${new Date().getFullYear()}-${String(i+1).padStart(2, '0')}`;
-                                             const hasAporte = regs.some(a => monthKey(a.fecha) === mk);
-                                             const isCurrent = new Date().getMonth() === i;
-                                             return <div key={m} style={{fontSize: '10px', textAlign: 'center', background: hasAporte ? 'var(--green)' : 'var(--border)', color: hasAporte ? 'white' : 'var(--dim)', borderRadius: '4px', padding: '4px 0', border: isCurrent ? '1px solid var(--gold)' : 'none', fontWeight: isCurrent ? 700 : 400}}>{m}</div>;
-                                         })}
-                                     </div>
-                                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: 'var(--dim)'}}>
-                                         <div style={{display: 'flex', gap: '10px'}}>
-                                             <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}><div style={{width: '8px', height: '8px', borderRadius: '50%', background: 'var(--green)'}}></div>Con aporte</div>
-                                             <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}><div style={{width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)'}}></div>Sin aporte</div>
-                                         </div>
-                                         <div style={{display: 'flex', alignItems: 'center', gap: '4px', color: alDia ? 'var(--green)' : 'var(--dim)'}}>
-                                             {alDia && <span style={{fontSize: '12px'}}>✅</span>} Al día
-                                         </div>
-                                     </div>
-                                 </div>
-
-                        );
-                    })}
-                </div>
-            </div>
+          <DiezmadoresTab
+            colaboradores={colaboradores}
+            aportes={aportes}
+            onNuevoDiezmador={() => { resetD(); setModal('dador'); }}
+            onVerDiezmador={(d) => { setViewDiezmador(d); setModal('verD'); }}
+            onDeleteDiezmador={(id) => { setSelectedId(id); setModal('delD'); }}
+            searchDz={searchDz} setSearchDz={setSearchDz}
+            filterZona={filterZona} setFilterZona={setFilterZona}
+            filterEstado={filterEstado} setFilterEstado={setFilterEstado}
+            filterPlanDz={filterPlanDz} setFilterPlanDz={setFilterPlanDz}
+          />
         )}
 
         {tab === 'resumen' &&             <ResumenTab aportes={aportes} colaboradores={colaboradores} grupos={grupos} />
@@ -536,379 +337,110 @@ export default function BienComun() {
          />}
 
         {tab === 'planes' && (
-            <div className="page-content">
-                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'start'}}>
-                    <div>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
-                            <h3 style={{margin: 0, fontSize: '16px', fontWeight: 700}}>📋 Tipos de Plan</h3>
-                            <button className="btn btn-gold" onClick={() => { resetTp(); setModal('tipoPlan'); }}>➕ Nuevo Tipo</button>
-                        </div>
-                        <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                            {todosTiposPlanes.map(tp => (
-                                <div key={tp.id} style={{display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', opacity: tp.activo ? 1 : 0.5}}>
-                                    <div style={{width: '14px', height: '14px', borderRadius: '50%', background: tp.color, flexShrink: 0}}></div>
-                                    <span style={{flex: 1, fontWeight: 600, fontSize: '14px'}}>{tp.nombre}</span>
-                                    {!tp.activo && <span style={{fontSize: '11px', color: 'var(--dim)'}}>Inactivo</span>}
-                                    {tp.activo && (
-                                        <div style={{display: 'flex', gap: '6px'}}>
-                                            <button className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '12px'}} onClick={() => openEditTp(tp)}>✏️</button>
-                                            <button className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '12px', color: 'var(--red)'}} onClick={() => { setDelTpId(tp.id); setModal('delTipoPlan'); }}>🗑️</button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                            {todosTiposPlanes.length === 0 && <div style={{textAlign: 'center', padding: '30px', color: 'var(--dim)'}}>No hay tipos de plan creados</div>}
-                        </div>
-                    </div>
-                    <div>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
-                            <h3 style={{margin: 0, fontSize: '16px', fontWeight: 700}}>🤝 Planes por Diezmador</h3>
-                            <button className="btn btn-gold" onClick={() => { resetPlan(); setModal('planDiezmador'); }}>➕ Nuevo Plan</button>
-                        </div>
-                        <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                            {planesColaborador.map(p => {
-                                const colab = colaboradores.find(c => c.id === p.diezmadorId);
-                                const tipo = todosTiposPlanes.find(t => t.id === p.tipoPlanId);
-                                return (
-                                    <div key={p.id} style={{display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px'}}>
-                                        <div style={{width: '14px', height: '14px', borderRadius: '50%', background: tipo?.color || '#999', flexShrink: 0}}></div>
-                                        <div style={{flex: 1}}>
-                                            <div style={{fontWeight: 600, fontSize: '14px'}}>{colab ? `${colab.nombre} ${colab.apellido}` : '—'}</div>
-                                            <div style={{fontSize: '12px', color: 'var(--dim)'}}>{tipo?.nombre || '—'} — {money(p.montoMensual)}/mes</div>
-                                        </div>
-                                        <div style={{display: 'flex', gap: '6px'}}>
-                                            <button className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '12px'}} onClick={() => openEditPlan(p)}>✏️</button>
-                                            <button className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '12px', color: 'var(--red)'}} onClick={() => { setDelPlanId(p.id); setModal('delPlanDiezmador'); }}>🗑️</button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {planesColaborador.length === 0 && <div style={{textAlign: 'center', padding: '30px', color: 'var(--dim)'}}>No hay planes asignados</div>}
-                        </div>
-                    </div>
-                </div>
-            </div>
+          <PlanesTab
+            todosTiposPlanes={todosTiposPlanes}
+            planesColaborador={planesColaborador}
+            colaboradores={colaboradores}
+            openEditTp={openEditTp}
+            openEditPlan={openEditPlan}
+            onNuevoTipo={() => { resetTp(); setModal('tipoPlan'); }}
+            onNuevoPlan={() => { resetPlan(); setModal('planDiezmador'); }}
+            onDeleteTipo={(id) => { setDelTpId(id); setModal('delTipoPlan'); }}
+            onDeletePlan={(id) => { setDelPlanId(id); setModal('delPlanDiezmador'); }}
+          />
         )}
 
+        <DiezmadorFormModal
+          open={modal === 'dador'}
+          onClose={() => setModal(null)}
+          editDId={editDId}
+          saveD={saveD}
+          miembros={miembros}
+          selectMiembro={selectMiembro}
+          tiposPlanes={tiposPlanes}
+          todosTiposPlanes={todosTiposPlanes}
+          planesColaborador={planesColaborador}
+          openEditPlan={openEditPlan}
+          onAgregarPlan={() => { setPlanDiezmadorId(editDId); setPlanTipoId(''); setPlanMonto(''); setPlanNotas(''); setEditPlanId(null); setModal('planDiezmador'); }}
+          onDeletePlan={(id) => { setDelPlanId(id); setModal('delPlanDiezmador'); }}
+          dNombre={dNombre} setDNombre={setDNombre}
+          dApellido={dApellido} setDApellido={setDApellido}
+          dTel={dTel} setDTel={setDTel}
+          dEmail={dEmail} setDEmail={setDEmail}
+          dZona={dZona} setDZona={setDZona}
+          dGrupo={dGrupo} setDGrupo={setDGrupo}
+          dEstado={dEstado} setDEstado={setDEstado}
+          dPlanDiezmo={dPlanDiezmo} setDPlanDiezmo={setDPlanDiezmo}
+          dNotas={dNotas} setDNotas={setDNotas}
+          planTipoId={planTipoId} setPlanTipoId={setPlanTipoId}
+          planMonto={planMonto} setPlanMonto={setPlanMonto}
+        />
 
-        <Modal open={modal === 'dador'} onClose={() => setModal(null)} title={editDId ? '✏️ Editar Diezmador' : '🤝 Nuevo Diezmador'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveD}>💾 Registrar Diezmador</button></>}>
-            <div className="form-grid">
-                {!editDId && (
-                    <div className="form-group" style={{marginBottom: '15px', padding: '10px', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border)'}}>
-                        <label className="form-label">🔍 Buscar en Miembros de Misión</label>
-                        <select className="form-select" onChange={e => {
-                            const m = miembros.find(mi => mi.id === e.target.value);
-                            if (m) selectMiembro(m);
-                        }}>
-                            <option value="">Seleccionar un miembro...</option>
-                            {miembros.map(m => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}
-                        </select>
-                    </div>
-                )}
-                <div className="form-row">
-                    <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={dNombre} onChange={e => setDNombre(e.target.value)} /></div>
-                    <div className="form-group"><label className="form-label">Apellido *</label><input className="form-input" value={dApellido} onChange={e => setDApellido(e.target.value)} /></div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group"><label className="form-label">Teléfono</label><input className="form-input" value={dTel} onChange={e => setDTel(e.target.value)} /></div>
-                    <div className="form-group"><label className="form-label">Email</label><input className="form-input" value={dEmail} onChange={e => setDEmail(e.target.value)} /></div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group"><label className="form-label">Zona</label><ZonaSelect value={dZona} onChange={setDZona} emptyLabel="Seleccionar..." /></div>
-                    <div className="form-group"><label className="form-label">Grupo</label><input className="form-input" value={dGrupo} onChange={e => setDGrupo(e.target.value)} /></div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group"><label className="form-label">Estado</label><select className="form-select" value={dEstado} onChange={e => setDEstado(e.target.value)}><option>Activo</option><option>Irregular</option><option>Inactivo</option></select></div>
-                    <div className="form-group"><label className="form-label">Plan de Diezmo</label><input className="form-input" type="number" value={dPlanDiezmo} onChange={e => setDPlanDiezmo(e.target.value)} /></div>
-                </div>
-                {!editDId && tiposPlanes.length > 0 && (
-                    <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--border)', marginTop: '8px'}}>
-                        <label className="form-label" style={{fontSize: '13px', fontWeight: 700, marginBottom: '8px', display: 'block'}}>📋 Plan de Ofrenda (Opcional)</label>
-                        <div className="form-row">
-                            <div className="form-group"><label className="form-label" style={{fontSize: '12px'}}>Tipo</label><select className="form-select" value={planTipoId} onChange={e => setPlanTipoId(e.target.value)}><option value="">Sin plan</option>{tiposPlanes.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select></div>
-                            <div className="form-group"><label className="form-label" style={{fontSize: '12px'}}>Monto mensual ($)</label><input className="form-input" type="number" value={planMonto} onChange={e => setPlanMonto(e.target.value)} min="0" disabled={!planTipoId} placeholder={planTipoId ? 'Ej: 100' : 'Selecciona tipo primero'} /></div>
-                        </div>
-                    </div>
-                )}
-                <div className="form-group"><label className="form-label">Notas</label><textarea className="form-textarea" value={dNotas} onChange={e => setDNotas(e.target.value)} /></div>
-                {editDId && (
-                    <div style={{marginTop: '16px', padding: '14px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--border)'}}>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
-                            <label className="form-label" style={{margin: 0, fontSize: '13px', fontWeight: 700}}>📋 Planes de Ofrenda</label>
-                            <button className="btn btn-gold" style={{padding: '4px 10px', fontSize: '12px'}} onClick={() => { setPlanDiezmadorId(editDId); setPlanTipoId(''); setPlanMonto(''); setPlanNotas(''); setEditPlanId(null); setModal('planDiezmador'); }}>➕ Agregar Plan</button>
-                        </div>
-                        {planesColaborador.filter(p => p.diezmadorId === editDId).length === 0 ? (
-                            <div style={{fontSize: '12px', color: 'var(--dim)', textAlign: 'center', padding: '10px'}}>Sin planes asignados</div>
-                        ) : (
-                            <div style={{display: 'flex', flexDirection: 'column', gap: '6px'}}>
-                                {planesColaborador.filter(p => p.diezmadorId === editDId).map(p => {
-                                    const tipo = todosTiposPlanes.find(t => t.id === p.tipoPlanId);
-                                    return (
-                                        <div key={p.id} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)'}}>
-                                            <div style={{width: '10px', height: '10px', borderRadius: '50%', background: tipo?.color || '#999', flexShrink: 0}}></div>
-                                            <span style={{flex: 1, fontSize: '13px', fontWeight: 600}}>{tipo?.nombre || '—'}</span>
-                                            <span style={{fontSize: '13px', color: 'var(--gold)', fontWeight: 700}}>{money(p.montoMensual)}/mes</span>
-                                            <button className="btn btn-secondary" style={{padding: '2px 6px', fontSize: '11px'}} onClick={() => openEditPlan(p)}>✏️</button>
-                                            <button className="btn btn-secondary" style={{padding: '2px 6px', fontSize: '11px', color: 'var(--red)'}} onClick={() => { setDelPlanId(p.id); setModal('delPlanDiezmador'); }}>🗑️</button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-        </Modal>
+        <AporteFormModal
+          open={modal === 'aporte'}
+          onClose={() => setModal(null)}
+          saveA={saveA}
+          colaboradores={colaboradores}
+          grupos={grupos}
+          aMiembro={aMiembro} setAMiembro={setAMiembro}
+          aGrupo={aGrupo} setAGrupo={setAGrupo}
+          aTipo={aTipo} setATipo={setATipo}
+          aMonto={aMonto} setAMonto={setAMonto}
+          aFecha={aFecha} setAFecha={setAFecha}
+          aMetodo={aMetodo} setAMetodo={setAMetodo}
+          aServicio={aServicio} setAServicio={setAServicio}
+          aNotas={aNotas} setANotas={setANotas}
+        />
 
-        <Modal open={modal === 'aporte'} onClose={() => setModal(null)} title={aTipo === 'Diezmo' ? '💰 Registrar Diezmo' : '🎁 Registrar Ofrenda'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveA}>💾 Registrar</button></>}>
-            <div className="form-grid">
-                <div className="form-group">
-                    <label className="form-label">Diezmador {aTipo === 'Diezmo' && '*'}</label>
-                    {aTipo === 'Diezmo' ? (
-                        <select className="form-select" value={aMiembro} onChange={e => { setAMiembro(e.target.value); setAGrupo(''); }}>
-                            <option value="">Seleccionar Diezmador *</option>
-                            {colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
-                        </select>
-                    ) : (
-                        <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                            <select className="form-select" value={aMiembro} onChange={e => { setAMiembro(e.target.value); setAGrupo(''); }}>
-                                <option value="">Seleccionar Diezmador (Opcional)</option>
-                                {colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
-                            </select>
-                            <div style={{textAlign: 'center', fontSize: '12px', color: 'var(--dim)'}}>O</div>
-                            <select className="form-select" value={aGrupo} onChange={e => { setAGrupo(e.target.value); setAMiembro(''); }}>
-                                <option value="">Seleccionar Grupo (Opcional)</option>
-                                {grupos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-                            </select>
-                        </div>
-                    )}
-                </div>
-                <div className="form-row">
-                    <div className="form-group"><label className="form-label">Tipo *</label><select className="form-select" value={aTipo} onChange={e => setATipo(e.target.value as 'Diezmo' | 'Ofrenda')}><option>Diezmo</option><option>Ofrenda</option></select></div>
-                    <div className="form-group"><label className="form-label">Monto *</label><input className="form-input" type="number" value={aMonto} onChange={e => setAMonto(e.target.value)} /></div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group"><label className="form-label">Fecha *</label><input className="form-input" type="date" value={aFecha} onChange={e => setAFecha(e.target.value)} /></div>
-                    <div className="form-group"><label className="form-label">Método</label><select className="form-select" value={aMetodo} onChange={e => setAMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cheque</option></select></div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group"><label className="form-label">Servicio</label><input className="form-input" value={aServicio} onChange={e => setAServicio(e.target.value)} /></div>
-                </div>
-                <div className="form-group"><label className="form-label">Notas</label><textarea className="form-textarea" value={aNotas} onChange={e => setANotas(e.target.value)} /></div>
-            </div>
-        </Modal>
-        <Modal open={modal === 'verD'} onClose={() => setModal(null)} title={`🙏 Detalle del Diezmador`} footer={<><button className="btn btn-danger btn-sm" onClick={() => { setModal('delD'); if (viewDiezmador) setSelectedId(viewDiezmador.id); }}>🗑️ Eliminar</button><button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button><button className="btn btn-gold" onClick={() => { if (viewDiezmador) handleEditDiezmador(viewDiezmador); }}>✏️ Editar Diezmador</button></>}>
-            {viewDiezmador && (() => {
-                const regs = aportes.filter(a => a.diezmadorId === viewDiezmador.id);
-                const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-                const diezmos = regs.filter(a => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
-                const ofrendas = total - diezmos;
-                const mesK = new Date().toISOString().slice(0, 7);
-                const esteMes = regs.filter(a => monthKey(a.fecha) === mesK).reduce((s, a) => s + (a.monto || 0), 0);
-                return (
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '20px', borderBottom: '1px solid var(--border)'}}>
-                            <div style={{width: '60px', height: '60px', borderRadius: '50%', background: 'var(--gold-glow)', border: '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: '20px'}}>
-                                {viewDiezmador.nombre[0]}{viewDiezmador.apellido[0]}
-                            </div>
-                            <div>
-                                <div style={{fontSize: '22px', fontWeight: 800}}>{viewDiezmador.nombre} {viewDiezmador.apellido}</div>
-                                <span className={`badge ${viewDiezmador.estado === 'Activo' ? 'badge-green' : 'badge-red'}`} style={{fontSize: '12px'}}>{viewDiezmador.estado}</span>
-                            </div>
-                        </div>
+        <DiezmadorDetailModal
+          open={modal === 'verD'}
+          onClose={() => setModal(null)}
+          onEliminar={() => { setModal('delD'); if (viewDiezmador) setSelectedId(viewDiezmador.id); }}
+          onEditar={() => { if (viewDiezmador) handleEditDiezmador(viewDiezmador); }}
+          viewDiezmador={viewDiezmador}
+          aportes={aportes}
+        />
 
-                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px'}}>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>Acumulado</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--gold)'}}>{money(total)}</div>
-                            </div>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>Diezmos</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--green)'}}>{money(diezmos)}</div>
-                            </div>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>Ofrendas</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--yellow)'}}>{money(ofrendas)}</div>
-                            </div>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>Este Mes</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--blue)'}}>{money(esteMes)}</div>
-                            </div>
-                        </div>
+        <GrupoDetailModal
+          open={modal === 'verG'}
+          onClose={() => setModal(null)}
+          onNuevaOfrenda={() => { if (viewGrupo) { setModal(null); resetA(); setATipo('Ofrenda'); setAGrupo(viewGrupo.id); setModal('aporte'); } }}
+          viewGrupo={viewGrupo}
+          ofrendasGruposFiltradas={ofrendasGruposFiltradas}
+          onEditAporte={(a) => { setModal(null); handleEditAporte(a); }}
+          onDeleteAporte={(id) => { setSelectedId(id); setModal('delA'); }}
+        />
 
-                        <div>
-                            <div style={{fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <span>ℹ️</span> Información General
-                            </div>
-                            <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', background: 'var(--bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)'}}>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Zona</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewDiezmador.zona || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Grupo</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewDiezmador.grupo || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Estado</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewDiezmador.estado || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Plan de Diezmo</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px', color: 'var(--gold)'}}>{money(viewDiezmador.planDiezmo || 0)}</span>
-                                </div>
-                            </div>
-                        </div>
+        <TipoPlanFormModal
+          open={modal === 'tipoPlan'}
+          onClose={() => setModal(null)}
+          editTpId={editTpId}
+          saveTp={saveTp}
+          tpNombre={tpNombre} setTpNombre={setTpNombre}
+          tpColor={tpColor} setTpColor={setTpColor}
+        />
 
-                        <div>
-                            <div style={{fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <span>📅</span> Historial de Aportes
-                            </div>
-                            <table className="data-table" style={{fontSize: '13px'}}>
-                                <thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th></tr></thead>
-                                <tbody>{regs.sort((a, b) => b.fecha.localeCompare(a.fecha)).map(r => (
-                                    <tr key={r.id}>
-                                        <td>{r.fecha}</td>
-                                        <td><span className={`badge ${r.tipo === 'Diezmo' ? 'badge-purple' : 'badge-blue'}`} style={{fontSize: '10px'}}>{r.tipo}</span></td>
-                                        <td style={{fontWeight: 700, color: 'var(--gold)'}}>{money(r.monto)}</td>
-                                    </tr>
-                                ))}</tbody>
-                            </table>
-                        </div>
-                    </div>
-                );
-            })()}
-        </Modal>
+        <PlanDiezmadorFormModal
+          open={modal === 'planDiezmador'}
+          onClose={() => setModal(null)}
+          editPlanId={editPlanId}
+          savePlan={savePlan}
+          planDiezmadorId={planDiezmadorId} setPlanDiezmadorId={setPlanDiezmadorId}
+          colaboradores={colaboradores}
+          tiposPlanes={tiposPlanes}
+          planTipoId={planTipoId} setPlanTipoId={setPlanTipoId}
+          planMonto={planMonto} setPlanMonto={setPlanMonto}
+          planNotas={planNotas} setPlanNotas={setPlanNotas}
+        />
 
-        <Modal open={modal === 'delD'} onClose={() => setModal(null)} title="Eliminar Diezmador" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delD}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este diezmador?</Modal>
-        <Modal open={modal === 'delA'} onClose={() => setModal(null)} title="Eliminar Aporte" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delA}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este aporte?</Modal>
-
-        <Modal open={modal === 'verG'} onClose={() => setModal(null)} title={`🎁 Detalle del Grupo`} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button><button className="btn btn-gold" onClick={() => { if (viewGrupo) { setModal(null); resetA(); setATipo('Ofrenda'); setAGrupo(viewGrupo.id); setModal('aporte'); } }}>➕ Nueva Ofrenda</button></>}>
-            {viewGrupo && (() => {
-                const regs = ofrendasGruposFiltradas.filter(a => a.grupoId === viewGrupo.id);
-                const total = regs.reduce((s, a) => s + (a.monto || 0), 0);
-                const regsCount = regs.length;
-                const promedio = regsCount > 0 ? total / regsCount : 0;
-                const mesK = new Date().toISOString().slice(0, 7);
-                const esteMes = regs.filter(a => monthKey(a.fecha) === mesK).reduce((s, a) => s + (a.monto || 0), 0);
-                const iniciales = viewGrupo.nombre.split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase();
-                return (
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '20px', borderBottom: '1px solid var(--border)'}}>
-                            <div style={{width: '60px', height: '60px', borderRadius: '50%', background: 'var(--gold-glow)', border: '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: '20px'}}>
-                                {iniciales}
-                            </div>
-                            <div>
-                                <div style={{fontSize: '22px', fontWeight: 800}}>{viewGrupo.nombre}</div>
-                                <div style={{color: 'var(--dim)', fontSize: '13px'}}>Grupo de Misión</div>
-                            </div>
-                        </div>
-
-                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px'}}>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>Total Acumulado</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--gold)'}}>{money(total)}</div>
-                            </div>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>N° Ofrendas</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--green)'}}>{regsCount}</div>
-                            </div>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>Promedio</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--yellow)'}}>{money(promedio)}</div>
-                            </div>
-                            <div style={{padding: '12px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
-                                <div style={{fontSize: '12px', color: 'var(--dim)', marginBottom: '4px'}}>Este Mes</div>
-                                <div style={{fontSize: '18px', fontWeight: 700, color: 'var(--blue)'}}>{money(esteMes)}</div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div style={{fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <span>ℹ️</span> Información General
-                            </div>
-                            <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', background: 'var(--bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)'}}>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Zona</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewGrupo.zona || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Líder</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewGrupo.lider || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Día</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewGrupo.dia || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Hora</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewGrupo.hora || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Lugar</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewGrupo.lugar || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Capacidad</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewGrupo.capacidad || '—'}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Miembros</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px'}}>{viewGrupo.miembros || 0}</span>
-                                </div>
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                                    <span style={{color: 'var(--dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'}}>Estado</span>
-                                    <span style={{fontWeight: 600, fontSize: '13px', color: esteMes > 0 ? 'var(--green)' : 'var(--dim)'}}>{esteMes > 0 ? '✅ Al día' : '⏳ Sin ofrenda'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div style={{fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <span>📅</span> Historial de Ofrendas
-                            </div>
-                            {regs.length > 0 ? (
-                                <table className="data-table" style={{fontSize: '13px'}}>
-                                    <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Acciones</th></tr></thead>
-                                    <tbody>{[...regs].sort((a, b) => b.fecha.localeCompare(a.fecha)).map(r => (
-                                        <tr key={r.id}>
-                                            <td>{r.fecha}</td>
-                                            <td style={{fontWeight: 700, color: 'var(--gold)'}}>{money(r.monto)}</td>
-                                            <td style={{color: 'var(--dim)'}}>{r.metodo || '—'}</td>
-                                            <td>
-                                                <div style={{display: 'flex', gap: '5px'}} onClick={e => e.stopPropagation()}>
-                                                    <button className="btn btn-secondary btn-sm" onClick={() => { setModal(null); handleEditAporte(r); }}>✏️</button>
-                                                    <button className="btn btn-danger btn-sm" onClick={() => { setSelectedId(r.id); setModal('delA'); }}>🗑</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}</tbody>
-                                </table>
-                            ) : (
-                                <div style={{textAlign: 'center', padding: '30px', color: 'var(--dim)', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border)'}}>No hay ofrendas registradas para este grupo</div>
-                            )}
-                        </div>
-                    </div>
-                );
-            })()}
-        </Modal>
-
-        <Modal open={modal === 'tipoPlan'} onClose={() => setModal(null)} title={editTpId ? '✏️ Editar Tipo de Plan' : '➕ Nuevo Tipo de Plan'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveTp}>💾 {editTpId ? 'Guardar' : 'Crear'}</button></>}>
-            <div className="form-group"><label className="form-label">Nombre del Tipo *</label><input className="form-input" value={tpNombre} onChange={e => setTpNombre(e.target.value)} placeholder="Ej: Ofrenda General" /></div>
-            <div className="form-group" style={{marginTop: 12}}><label className="form-label">Color</label><input className="form-input" type="color" value={tpColor} onChange={e => setTpColor(e.target.value)} style={{height: '40px', padding: '4px'}} /></div>
-        </Modal>
-
-        <Modal open={modal === 'delTipoPlan'} onClose={() => setModal(null)} title="Desactivar Tipo" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delTp}>🗑️ Desactivar</button></>}>¿Desactivar este tipo de plan? Los planes existentes con este tipo se mantendrán.</Modal>
-
-        <Modal open={modal === 'planDiezmador'} onClose={() => setModal(null)} title={editPlanId ? '✏️ Editar Plan' : '➕ Nuevo Plan de Diezmador'} footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={savePlan}>💾 {editPlanId ? 'Guardar' : 'Crear'}</button></>}>
-            <div className="form-group"><label className="form-label">Diezmador *</label><select className="form-select" value={planDiezmadorId || ''} onChange={e => setPlanDiezmadorId(e.target.value)} disabled={!!editPlanId}><option value="">Seleccionar diezmador...</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}</select></div>
-            <div className="form-group" style={{marginTop: 12}}><label className="form-label">Tipo de Plan *</label><select className="form-select" value={planTipoId} onChange={e => setPlanTipoId(e.target.value)}><option value="">Seleccionar tipo...</option>{tiposPlanes.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select></div>
-            <div className="form-group" style={{marginTop: 12}}><label className="form-label">Monto Mensual ($) *</label><input className="form-input" type="number" value={planMonto} onChange={e => setPlanMonto(e.target.value)} min="0" placeholder="Ej: 100" /></div>
-            <div className="form-group" style={{marginTop: 12}}><label className="form-label">Notas</label><input className="form-input" value={planNotas} onChange={e => setPlanNotas(e.target.value)} placeholder="Opcional" /></div>
-        </Modal>
-
-        <Modal open={modal === 'delPlanDiezmador'} onClose={() => setModal(null)} title="Eliminar Plan" footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delPlan}>🗑️ Eliminar</button></>}>¿Está seguro que desea eliminar este plan?</Modal>
-
-        </Layout>
+        <DeleteModals
+          modal={modal}
+          onClose={() => setModal(null)}
+          delD={delD}
+          delA={delA}
+          delTp={delTp}
+          delPlan={delPlan}
+        />
+    </Layout>
   );
 }

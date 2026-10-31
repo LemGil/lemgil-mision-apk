@@ -3,31 +3,22 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
-import { exportCSV } from '../lib/csvExport';
-import { Modal } from '../components/Modal';
-import { EmptyState } from '../components/EmptyState';
-import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Curso, Estudiante, Certificado } from '../lib/types';
-import {
-  exportEstudiantesPDF,
-  exportCursosPDF
-} from '../lib/pdfExport';
-import { CsvImportButton } from '../components/CsvImportButton';
 import { showToast } from '../lib/notification';
-
-
-const NIVEL_BADGE: Record<string, string> = { Basico: 'badge-blue', Intermedio: 'badge-yellow', Avanzado: 'badge-red' };
-const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Completado: 'badge-purple', Pausado: 'badge-yellow' };
-const CAL_BADGE: Record<string, string> = { Aprobado: 'badge-green', Sobresaliente: 'badge-purple', 'Con Honores': 'badge-yellow' };
-import { today, fmt, accentStyle } from '../lib/utils';
-
-type Tab = 'cursos' | 'estudiantes' | 'certificados';
-
-function q(search: string, text: string) {
-  return search && !text.toLowerCase().includes(search.toLowerCase());
-}
+import { today } from '../lib/utils';
+import { q } from './academia/constants';
+import type { Tab } from './academia/constants';
+import { CursosTab } from './academia/CursosTab';
+import { EstudiantesTab } from './academia/EstudiantesTab';
+import { CertificadosTab } from './academia/CertificadosTab';
+import { CursoFormModal } from './academia/CursoFormModal';
+import { LeccionFormModal } from './academia/LeccionFormModal';
+import { CursoDetailModal } from './academia/CursoDetailModal';
+import { EstudianteFormModal } from './academia/EstudianteFormModal';
+import { EstudianteDetailModal } from './academia/EstudianteDetailModal';
+import { CertificadoFormModal } from './academia/CertificadoFormModal';
 
 export default function Academia() {
    const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
@@ -323,554 +314,159 @@ export default function Academia() {
         <button className={`tab ${tab === 'certificados' ? 'active' : ''}`} onClick={() => setTab('certificados')}>🏆 Certificados</button>
       </div>
 
-      {/* TAB: Cursos */}
-      {tab === 'cursos' && <>
-        <div className="actions-row">
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => exportCursosPDF({ cursos, lecciones })}>📄 Exportar PDF</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => {
-              if (!cursos.length) return showToast('No hay cursos para exportar');
-              const h = ['Nombre', 'Instructor', 'Nivel', 'Estado', 'Lecciones', 'Duración'];
-              const r = cursos.map(c => {
-                const count = lecciones.filter(l => l.cursoId === c.id).length;
-                return [c.nombre, c.instructor || '', c.nivel || '', c.estado || '', count, c.duracion || ''];
-              });
-              exportCSV(h, r, 'lemgil-cursos.csv');
-              showToast('CSV exportado');
-            }}>📥 Exportar CSV</button>
-            <CsvImportButton<Curso>
-              table="cursos"
-              fieldMapping={{
-                'Nombre': 'nombre',
-                'Instructor': 'instructor',
-                'Nivel': 'nivel',
-                'Estado': 'estado',
-                'Duración': 'duracion',
-                'Descripción': 'descripcion',
-                'Emoji': 'emoji',
-                'Color': 'color',
-              }}
-              requiredFields={['nombre']}
-              defaults={{ nivel: 'Basico', estado: 'Activo', emoji: '📚', color: '#3b82f6' }}
-              onImport={(n) => showToast(`${n} curso(s) importado(s)`)}
-            />
-            <button className="btn btn-gold" onClick={openNewCurso}>➕ Nuevo Curso</button>
-            <button className="btn btn-secondary" onClick={openNewLeccion}>📝 Agregar Lección</button>
-          </div>
-        </div>
-        <div className="search-bar">
-          <input className="search-input" placeholder="🔍 Buscar curso…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select className="filter-select" value={filterNivel} onChange={(e) => setFilterNivel(e.target.value)}>
-            <option value="">Todos los niveles</option>
-            <option>Basico</option><option>Intermedio</option><option>Avanzado</option>
-          </select>
-          <select className="filter-select" value={filterCursoEstado} onChange={(e) => setFilterCursoEstado(e.target.value)}>
-            <option value="">Todos los estados</option>
-            <option>Activo</option><option>Borrador</option><option>Archivado</option>
-          </select>
-        </div>
-        {filteredCursos.length === 0 ? (
-          <EmptyState icon="📚" title={cursos.length ? 'Sin resultados' : 'Sin cursos aún'} sub={cursos.length ? 'Prueba otros filtros' : 'Crea el primer curso de la Academia'} />
-        ) : (
-          <div className="grid-3">
-            {filteredCursos.map((c) => {
-              const lecs = lecciones.filter((l) => l.cursoId === c.id);
-              const ests = estudiantes.filter((e) => e.cursoId === c.id);
-              return (
-                <div key={c.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', transition: 'border-color .2s, transform .2s' }}>
-                  <div style={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 38, background: c.color, position: 'relative' }}>
-                    {c.emoji}
-                    <div style={{ position: 'absolute', top: 8, right: 8 }}><span className={`badge ${NIVEL_BADGE[c.nivel] || 'badge-blue'}`}>{c.nivel}</span></div>
-                    {c.estado !== 'Activo' && <div style={{ position: 'absolute', top: 8, left: 8 }}><span className="badge badge-yellow">{c.estado}</span></div>}
-                  </div>
-                  <div style={{ padding: 14 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 3 }}>{c.nombre}</div>
-                    <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10 }}>👤 {c.instructor}{c.duracion && ` · ${c.duracion} sem`} · 📝 {lecs.length} lecciones · 🎓 {ests.length} estudiantes</div>
-                    {c.descripcion && <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8, lineHeight: 1.5 }}>{c.descripcion.slice(0, 80)}{c.descripcion.length > 80 ? '…' : ''}</div>}
-                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${Math.min(100, lecs.length * 8)}%`, background: 'var(--purple)' }} /></div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => { setViewCursoId(c.id); setModal('ver'); }}>👁 Ver</button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openEditCurso(c.id)}>✏️ Editar</button>
-                      <button className="btn btn-gold btn-sm" onClick={() => { openNewEst(); setTimeout(() => setECurso(c.id), 50); }}>🎓 Matricular</button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </>}
+      {tab === 'cursos' && (
+        <CursosTab
+          cursos={cursos}
+          lecciones={lecciones}
+          estudiantes={estudiantes}
+          filteredCursos={filteredCursos}
+          search={search} setSearch={setSearch}
+          filterNivel={filterNivel} setFilterNivel={setFilterNivel}
+          filterCursoEstado={filterCursoEstado} setFilterCursoEstado={setFilterCursoEstado}
+          openNewCurso={openNewCurso}
+          openNewLeccion={openNewLeccion}
+          openEditCurso={openEditCurso}
+          onVerCurso={(id) => { setViewCursoId(id); setModal('ver'); }}
+          onMatricular={(id) => { openNewEst(); setTimeout(() => setECurso(id), 50); }}
+        />
+      )}
 
-      {/* TAB: Estudiantes */}
-      {tab === 'estudiantes' && <>
-        <div className="actions-row">
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } })}>📄 Exportar PDF</button>
-            <button className="btn btn-gold" onClick={openNewEst}>➕ Matricular Estudiante</button>
-          </div>
-        </div>
-        <div className="search-bar">
-          <input className="search-input" placeholder="🔍 Buscar estudiante…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select className="filter-select" value={filterCursoEst} onChange={(e) => setFilterCursoEst(e.target.value)}>
-            <option value="">Todos los cursos</option>
-            {cursos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
-          <select className="filter-select" value={filterEstadoEst} onChange={(e) => setFilterEstadoEst(e.target.value)}>
-            <option value="">Todos los estados</option>
-            <option>Activo</option><option>Completado</option><option>Pausado</option>
-          </select>
-          <select className="filter-select" value={filterOrigenEst} onChange={(e) => setFilterOrigenEst(e.target.value)}>
-            <option value="">Todos los orígenes</option>
-            <option value="convertido">Convertido</option>
-            <option value="miembro">Miembro</option>
-            <option value="manual">Manual</option>
-          </select>
-          <select className="filter-select" value={filterZonaEst} onChange={(e) => setFilterZonaEst(e.target.value)}>
-            <option value="">Todas las zonas</option>
-            {zonas.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
-          </select>
-          <select className="filter-select" value={filterGrupoEst} onChange={(e) => setFilterGrupoEst(e.target.value)}>
-            <option value="">Todos los grupos</option>
-            {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-          </select>
-          <select className="filter-select" value={filterBautizadoEst} onChange={(e) => setFilterBautizadoEst(e.target.value)}>
-            <option value="">Todos</option>
-            <option value="si">Sí</option>
-            <option value="no">No</option>
-          </select>
-          {(search || filterCursoEst || filterEstadoEst || filterOrigenEst || filterZonaEst || filterGrupoEst || filterBautizadoEst) && (
-            <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterCursoEst(''); setFilterEstadoEst(''); setFilterOrigenEst(''); setFilterZonaEst(''); setFilterGrupoEst(''); setFilterBautizadoEst(''); }}>✕ Limpiar</button>
-          )}
-        </div>
-        <div className="card">
-           <div className="card-header">
-             <div className="card-title">🎓 Registro de Estudiantes</div>
-             <div style={{ fontSize: 12, color: 'var(--dim)' }}>{estudiantes.length} estudiantes</div>
-           </div>
-           <div style={{ display: 'flex', gap: 8, padding: '0 16px', marginBottom: 12 }}>
-             <button className="btn btn-secondary btn-sm" onClick={() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } })}>📄 Exportar PDF</button>
-              <button className="btn btn-secondary btn-sm" onClick={() => {
-                if (!filteredEst.length) return showToast('No hay estudiantes para exportar');
-                const h = ['#', 'Nombre', 'Apellido', 'Curso', 'Teléfono', 'Email', 'Estado'];
-                const r = filteredEst.map((e, i) => {
-                  const curso = cursos.find(c => c.id === e.cursoId);
-                  return [i + 1, e.nombre, e.apellido, curso?.nombre || '', e.telefono || '', e.email || '', e.estado || ''];
-                });
-                exportCSV(h, r, 'lemgil-estudiantes.csv');
-                showToast('CSV exportado');
-              }}>📥 Exportar CSV</button>
-              <CsvImportButton<Estudiante>
-                table="estudiantes"
-                fieldMapping={{
-                  'Nombre': 'nombre',
-                  'Apellido': 'apellido',
-                  'Teléfono': 'telefono',
-                  'Email': 'email',
-                  'Curso': 'cursoId',
-                  'Estado': 'estado',
-                  'Zona': 'zona',
-                  'Dirección': 'direccion',
-                  'Profesión': 'profesion',
-                  'Notas': 'notas',
-                }}
-                requiredFields={['nombre', 'apellido']}
-                defaults={{ estado: 'Activo', origen: 'manual' }}
-                onImport={(n) => showToast(`${n} estudiante(s) importado(s)`)}
-              />
-           </div>
-          {filteredEst.length === 0 ? (
-            <EmptyState icon="🎓" title={estudiantes.length ? 'Sin resultados' : 'Sin estudiantes aún'} sub={estudiantes.length ? 'Prueba otros filtros' : 'Matricula el primer estudiante'} />
-          ) : (
-            <table className="data-table">
-              <thead><tr><th>#</th><th>Nombre</th><th>Curso</th><th>Inicio</th><th>Estado</th><th>Acciones</th></tr></thead>
-              <tbody>
-                {filteredEst.map((e, i) => {
-                  const curso = cursos.find((c) => c.id === e.cursoId);
-                  return (
-                    <tr key={e.id}>
-                      <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
-                      <td><strong>{e.nombre} {e.apellido}</strong>{e.telefono && <><br /><span style={{ fontSize: 10, color: 'var(--dim)' }}>{e.telefono}</span></>}</td>
-                      <td>{curso ? `${curso.emoji} ${curso.nombre}` : '—'}</td>
-                      <td>{fmt(e.fecha)}</td>
-                      <td><span className={`badge ${EST_BADGE[e.estado] || 'badge-blue'}`}>{e.estado}</span></td>
-                       <td>
-                         <div style={{ display: 'flex', gap: 5 }}>
-                           <button className="btn btn-secondary btn-sm" onClick={() => { setViewEstId(e.id); setModal('estDetail'); }}>👁 Ver</button>
-                           <button className="btn btn-secondary btn-sm" onClick={() => openEditEst(e.id)}>✏️ Editar</button>
-                           <button className="btn btn-gold btn-sm" onClick={() => { openNewCert(); setTimeout(() => { setCertEst(e.id); setCertCurso(e.cursoId); }, 50); }}>🏆 Cert.</button>
-                         </div>
-                       </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </>}
+      {tab === 'estudiantes' && (
+        <EstudiantesTab
+          estudiantes={estudiantes}
+          filteredEst={filteredEst}
+          cursos={cursos}
+          zonas={zonas}
+          grupos={grupos}
+          search={search} setSearch={setSearch}
+          filterCursoEst={filterCursoEst} setFilterCursoEst={setFilterCursoEst}
+          filterEstadoEst={filterEstadoEst} setFilterEstadoEst={setFilterEstadoEst}
+          filterOrigenEst={filterOrigenEst} setFilterOrigenEst={setFilterOrigenEst}
+          filterZonaEst={filterZonaEst} setFilterZonaEst={setFilterZonaEst}
+          filterGrupoEst={filterGrupoEst} setFilterGrupoEst={setFilterGrupoEst}
+          filterBautizadoEst={filterBautizadoEst} setFilterBautizadoEst={setFilterBautizadoEst}
+          openNewEst={openNewEst}
+          openEditEst={openEditEst}
+          onVerEst={(id) => { setViewEstId(id); setModal('estDetail'); }}
+          onCertificar={(e) => { openNewCert(); setTimeout(() => { setCertEst(e.id); setCertCurso(e.cursoId); }, 50); }}
+        />
+      )}
 
-      {/* TAB: Certificados */}
-      {tab === 'certificados' && <>
-        <div className="actions-row"><button className="btn btn-gold" onClick={openNewCert}>🏆 Emitir Certificado</button></div>
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">🏆 Certificados Emitidos</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>{certs.length} certificados</div>
-          </div>
-          {certs.length === 0 ? (
-            <EmptyState icon="🏆" title="Sin certificados aún" sub="Emite el primer certificado" />
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-              {certs.map((c) => {
-                const est = estudiantes.find((e) => e.id === c.estId);
-                const curso = cursos.find((x) => x.id === c.cursoId);
-                return (
-                  <div key={c.id} style={{ background: 'linear-gradient(135deg, var(--surface), var(--surface-2))', border: '1px solid var(--gold)', borderRadius: 12, padding: 16, position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, background: 'var(--gold-glow)', borderRadius: '50%' }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, fontWeight: 700, color: 'var(--gold)' }}>{est ? `${est.nombre} ${est.apellido}` : '—'}</div>
-                        <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 3 }}>{curso ? `${curso.emoji} ${curso.nombre}` : '—'}</div>
-                        <div style={{ fontSize: 11, color: 'var(--gold-deep)', marginTop: 6 }}>📅 {fmt(c.fecha)}</div>
-                      </div>
-                      <span className={`badge ${CAL_BADGE[c.calificacion] || 'badge-green'}`} style={{ marginTop: 4 }}>{c.calificacion}</span>
-                    </div>
-                    {c.observaciones && <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 8 }}>{c.observaciones}</div>}
-                    <div style={{ marginTop: 10 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openEditCert(c.id)}>✏️ Editar</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </>}
+      {tab === 'certificados' && (
+        <CertificadosTab
+          certs={certs}
+          estudiantes={estudiantes}
+          cursos={cursos}
+          openNewCert={openNewCert}
+          openEditCert={openEditCert}
+        />
+      )}
 
-      {/* MODAL: Curso */}
-      <Modal open={modal === 'curso'} onClose={() => setModal(null)} title={editCursoId ? '✏️ Editar Curso' : '📚 Nuevo Curso'} footer={<>{editCursoId && <button className="btn btn-danger btn-sm" style={{ marginRight: 'auto' }} onClick={delCurso}>🗑️ Eliminar</button>}<button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveCurso}>{editCursoId ? '💾 Guardar Cambios' : '💾 Crear Curso'}</button></>}>
-        <div className="form-row">
-          <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Nombre del Curso *</label><input className="form-input" value={cNombre} onChange={(e) => setCNombre(e.target.value)} placeholder="Ej: Cristología Bíblica" /></div>
-          <div className="form-group"><label className="form-label">Nivel</label><select className="form-select" value={cNivel} onChange={(e) => setCNivel(e.target.value)}><option>Basico</option><option>Intermedio</option><option>Avanzado</option></select></div>
-          <div className="form-group"><label className="form-label">Duración (semanas)</label><input className="form-input" type="number" value={cDur} onChange={(e) => setCDur(e.target.value)} placeholder="8" min="1" /></div>
-          <div className="form-group"><label className="form-label">Instructor *</label><input className="form-input" value={cInst} onChange={(e) => setCInst(e.target.value)} placeholder="Nombre del instructor" /></div>
-          <div className="form-group"><label className="form-label">Emoji / Ícono</label><input className="form-input" value={cEmoji} onChange={(e) => setCEmoji(e.target.value)} placeholder="📖" maxLength={4} /></div>
-          <div className="form-group"><label className="form-label">Color de fondo</label><select className="form-select" value={cColor} onChange={(e) => setCColor(e.target.value)}><option value="rgba(122,95,192,0.25)">🟣 Púrpura</option><option value="rgba(76,175,125,0.25)">🟢 Verde</option><option value="rgba(201,146,42,0.25)">🟡 Dorado</option><option value="rgba(74,127,212,0.25)">🔵 Azul</option><option value="rgba(224,85,85,0.25)">🔴 Rojo</option></select></div>
-          <div className="form-group"><label className="form-label">Estado</label><select className="form-select" value={cEstado} onChange={(e) => setCEstado(e.target.value)}><option>Activo</option><option>Borrador</option><option>Archivado</option></select></div>
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Descripción</label><textarea className="form-textarea" value={cDesc} onChange={(e) => setCDesc(e.target.value)} placeholder="Describe el contenido y objetivos del curso…" /></div>
-      </Modal>
+      <CursoFormModal
+        open={modal === 'curso'}
+        onClose={() => setModal(null)}
+        editCursoId={editCursoId}
+        delCurso={delCurso}
+        saveCurso={saveCurso}
+        cNombre={cNombre} setCNombre={setCNombre}
+        cNivel={cNivel} setCNivel={setCNivel}
+        cDur={cDur} setCDur={setCDur}
+        cInst={cInst} setCInst={setCInst}
+        cEmoji={cEmoji} setCEmoji={setCEmoji}
+        cColor={cColor} setCColor={setCColor}
+        cEstado={cEstado} setCEstado={setCEstado}
+        cDesc={cDesc} setCDesc={setCDesc}
+      />
 
-      {/* MODAL: Lección */}
-      <Modal open={modal === 'leccion'} onClose={() => setModal(null)} title={editLecId ? '✏️ Editar Lección' : '📝 Agregar Lección'} footer={<>{editLecId && <button className="btn btn-danger btn-sm" style={{ marginRight: 'auto' }} onClick={delLeccion}>🗑️ Eliminar</button>}<button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveLeccion}>💾 Guardar Lección</button></>}>
-        <div className="form-row">
-          <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Curso *</label><select className="form-select" value={lCurso} onChange={(e) => setLCurso(e.target.value)}><option value="">Seleccionar curso…</option>{cursos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
-          <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Título de la Lección *</label><input className="form-input" value={lTitulo} onChange={(e) => setLTitulo(e.target.value)} placeholder="Ej: La naturaleza divina de Cristo" /></div>
-          <div className="form-group"><label className="form-label">Número de Lección</label><input className="form-input" type="number" value={lNum} onChange={(e) => setLNum(e.target.value)} placeholder="1" min="1" /></div>
-          <div className="form-group"><label className="form-label">Duración (min)</label><input className="form-input" type="number" value={lDur} onChange={(e) => setLDur(e.target.value)} placeholder="45" min="1" /></div>
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Descripción / Contenido</label><textarea className="form-textarea" value={lDesc} onChange={(e) => setLDesc(e.target.value)} placeholder="Temas, referencias bíblicas, objetivos de la lección…" /></div>
-      </Modal>
+      <LeccionFormModal
+        open={modal === 'leccion'}
+        onClose={() => setModal(null)}
+        editLecId={editLecId}
+        delLeccion={delLeccion}
+        saveLeccion={saveLeccion}
+        cursos={cursos}
+        lCurso={lCurso} setLCurso={setLCurso}
+        lTitulo={lTitulo} setLTitulo={setLTitulo}
+        lNum={lNum} setLNum={setLNum}
+        lDur={lDur} setLDur={setLDur}
+        lDesc={lDesc} setLDesc={setLDesc}
+      />
 
-      {/* MODAL: Ver Curso */}
-      <Modal open={modal === 'ver'} onClose={() => setModal(null)} title={`${viewCurso?.emoji || '📖'} ${viewCurso?.nombre || ''}`} wide footer={<><button className="btn btn-secondary btn-sm" onClick={() => { setModal(null); if (viewCursoId) openEditCurso(viewCursoId); }}>✏️ Editar Curso</button><button className="btn btn-gold btn-sm" onClick={() => { setModal(null); openNewLeccion(); setTimeout(() => setLCurso(viewCursoId || ''), 50); }}>📝 + Lección</button><button className="btn btn-gold" onClick={() => { setModal(null); openNewEst(); setTimeout(() => setECurso(viewCursoId || ''), 50); }}>🎓 Matricular</button></>}>
-        {viewCurso && <>
-          <div className="detail-row"><span className="detail-label">Instructor</span><span className="detail-value">{viewCurso.instructor}</span></div>
-          <div className="detail-row"><span className="detail-label">Nivel</span><span className="detail-value"><span className={`badge ${NIVEL_BADGE[viewCurso.nivel]}`}>{viewCurso.nivel}</span></span></div>
-          <div className="detail-row"><span className="detail-label">Duración</span><span className="detail-value">{viewCurso.duracion ? `${viewCurso.duracion} semanas` : '—'}</span></div>
-          <div className="detail-row"><span className="detail-label">Estado</span><span className="detail-value"><span className={`badge ${viewCurso.estado === 'Activo' ? 'badge-green' : 'badge-yellow'}`}>{viewCurso.estado}</span></span></div>
-          {viewCurso.descripcion && <div className="detail-row"><span className="detail-label">Descripción</span><span className="detail-value" style={{ fontSize: 12, color: 'var(--dim)' }}>{viewCurso.descripcion}</span></div>}
-          <div className="form-section" style={{ marginTop: 14 }}>Lecciones</div>
-          {viewLeccs.length === 0 ? <div style={{ color: 'var(--dim)', fontSize: 13, padding: '10px 0' }}>No hay lecciones. Agrega la primera.</div> :
-            viewLeccs.map((l) => (
-              <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: 'var(--surface-2)', borderRadius: 8, marginBottom: 6 }}>
-                <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{l.numero || '?'}</div>
-                <div style={{ flex: 1, fontSize: 13 }}>{l.titulo}{l.duracion && <span style={{ fontSize: 10, color: 'var(--dim)' }}> · {l.duracion}min</span>}</div>
-                <button className="btn btn-secondary btn-sm" onClick={() => { setModal(null); openEditLeccion(l.id); }}>✏️</button>
-              </div>
-            ))
-          }
-          <div className="form-section" style={{ marginTop: 14 }}>Estudiantes Matriculados</div>
-          {viewEsts.length === 0 ? <div style={{ color: 'var(--dim)', fontSize: 13, padding: '10px 0' }}>Sin estudiantes matriculados.</div> :
-            viewEsts.map((e) => (
-              <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 7, marginBottom: 5 }}>
-                <div><div style={{ fontSize: 13, fontWeight: 700 }}>{e.nombre} {e.apellido}</div><div style={{ fontSize: 11, color: 'var(--dim)' }}>Desde {fmt(e.fecha)}</div></div>
-                <span className={`badge ${EST_BADGE[e.estado] || 'badge-blue'}`}>{e.estado}</span>
-              </div>
-            ))
-          }
-        </>}
-      </Modal>
+      <CursoDetailModal
+        open={modal === 'ver'}
+        onClose={() => setModal(null)}
+        viewCurso={viewCurso}
+        viewLeccs={viewLeccs}
+        viewEsts={viewEsts}
+        onEditarCurso={() => { setModal(null); if (viewCursoId) openEditCurso(viewCursoId); }}
+        onNuevaLeccion={() => { setModal(null); openNewLeccion(); setTimeout(() => setLCurso(viewCursoId || ''), 50); }}
+        onMatricular={() => { setModal(null); openNewEst(); setTimeout(() => setECurso(viewCursoId || ''), 50); }}
+        onEditarLeccion={(id) => { setModal(null); openEditLeccion(id); }}
+      />
 
-      <Modal open={modal === 'est'} onClose={() => setModal(null)} title={editEstId ? '✏️ Editar Estudiante' : '🎓 Matricular Estudiante'} footer={<>{editEstId && <button className="btn btn-danger btn-sm" style={{ marginRight: 'auto' }} onClick={delEst}>🗑️ Eliminar</button>}<button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveEst}>{editEstId ? '💾 Guardar Cambios' : '💾 Matricular'}</button></>} wide>
+      <EstudianteFormModal
+        open={modal === 'est'}
+        onClose={() => setModal(null)}
+        editEstId={editEstId}
+        delEst={delEst}
+        saveEst={saveEst}
+        autoFillOrigen={autoFillOrigen}
+        conversiones={conversiones}
+        miembros={miembros}
+        grupos={grupos}
+        cursos={cursos}
+        eOrigen={eOrigen} setEOrigen={setEOrigen}
+        eOrigenId={eOrigenId} setEOrigenId={setEOrigenId}
+        eNombre={eNombre} setENombre={setENombre}
+        eApellido={eApellido} setEApellido={setEApellido}
+        eEdad={eEdad} setEEdad={setEEdad}
+        eProfesion={eProfesion} setEProfesion={setEProfesion}
+        eTel={eTel} setETel={setETel}
+        eEmail={eEmail} setEEmail={setEEmail}
+        eDireccion={eDireccion} setEDireccion={setEDireccion}
+        eZona={eZona} setEZona={setEZona}
+        eGrupoId={eGrupoId} setEGrupoId={setEGrupoId}
+        eHermanoMayorId={eHermanoMayorId} setEHermanoMayorId={setEHermanoMayorId}
+        eBautizado={eBautizado} setEBautizado={setEBautizado}
+        eFechaBautismo={eFechaBautismo} setEFechaBautismo={setEFechaBautismo}
+        eConyuge={eConyuge} setEConyuge={setEConyuge}
+        eHijos={eHijos} setEHijos={setEHijos}
+        eCurso={eCurso} setECurso={setECurso}
+        eFecha={eFecha} setEFecha={setEFecha}
+        eEstado={eEstado} setEEstado={setEEstado}
+        eNotas={eNotas} setENotas={setENotas}
+      />
 
-        {/* ─── SECCIÓN: ORIGEN ─── */}
-        <div className="form-section">📋 Origen del Estudiante</div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Fuente de datos</label>
-            <select className="form-select" value={eOrigen} onChange={(e) => { const v = e.target.value as 'convertido' | 'miembro' | 'manual'; setEOrigen(v); setEOrigenId(''); if (v === 'manual') { setENombre(''); setEApellido(''); setETel(''); setEEdad(''); setEEmail(''); setEDireccion(''); setEProfesion(''); setEBautizado(false); setEFechaBautismo(''); setEConyuge(''); setEHijos(''); setEZona(''); setEGrupoId(''); setEHermanoMayorId(''); } }}>
-              <option value="manual">— Ingreso manual —</option>
-              <option value="convertido">🕊 Nuevo Convertido</option>
-              <option value="miembro">👥 Miembro de la Iglesia</option>
-            </select>
-          </div>
-          {eOrigen !== 'manual' && (
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label className="form-label">{eOrigen === 'convertido' ? 'Seleccionar Convertido' : 'Seleccionar Miembro'}</label>
-              <select className="form-select" value={eOrigenId} onChange={(e) => { setEOrigenId(e.target.value); autoFillOrigen(eOrigen, e.target.value); }}>
-                <option value="">— Seleccionar —</option>
-                {(eOrigen === 'convertido' ? conversiones : miembros.filter(m => m.estado === 'Activo')).map((item: any) => (
-                  <option key={item.id} value={item.id}>{item.nombre} {item.apellido}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
+      <EstudianteDetailModal
+        open={modal === 'estDetail' && !!selEst}
+        onClose={() => setModal(null)}
+        selEst={selEst}
+        selEstData={selEstData}
+        cursos={cursos}
+        qhTipo={qhTipo} setQHTipo={setQHTipo}
+        qhDesc={qhDesc} setQHDesc={setQHDesc}
+        qhFecha={qhFecha} setQHFecha={setQHFecha}
+        saveHito={saveHito}
+        resetHito={resetHito}
+        onEditarPerfil={() => { setModal(null); if (selEst) openEditEst(selEst.id); }}
+        onEliminar={() => { setModal(null); if (selEst) { setEditEstId(selEst.id); setModal('est'); } }}
+      />
 
-        {/* ─── SECCIÓN: PERSONAL ─── */}
-        <div className="form-section">👤 Datos Personales</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={eNombre} onChange={(e) => setENombre(e.target.value)} placeholder="Nombre" /></div>
-          <div className="form-group"><label className="form-label">Apellido *</label><input className="form-input" value={eApellido} onChange={(e) => setEApellido(e.target.value)} placeholder="Apellido" /></div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Edad</label><input className="form-input" type="number" value={eEdad} onChange={(e) => setEEdad(e.target.value)} placeholder="25" min="5" max="120" /></div>
-          <div className="form-group"><label className="form-label">Profesión</label><input className="form-input" value={eProfesion} onChange={(e) => setEProfesion(e.target.value)} placeholder="Ej: Maestro, Ingeniero…" /></div>
-        </div>
-
-        {/* ─── SECCIÓN: CONTACTO ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>📞 Contacto</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Teléfono</label><input className="form-input" value={eTel} onChange={(e) => setETel(e.target.value)} placeholder="+1 555 000 0000" /></div>
-          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={eEmail} onChange={(e) => setEEmail(e.target.value)} placeholder="email@ejemplo.com" /></div>
-        </div>
-        <div className="form-group"><label className="form-label">Dirección</label><input className="form-input" value={eDireccion} onChange={(e) => setEDireccion(e.target.value)} placeholder="Calle, número, ciudad" /></div>
-
-        {/* ─── SECCIÓN: IGLESIA ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>⛪ Ubicación en la Iglesia</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Zona / Sector</label><ZonaSelect value={eZona} onChange={setEZona} emptyLabel="Sin zona" /></div>
-          <div className="form-group"><label className="form-label">Grupo de Misión</label>
-            <select className="form-select" value={eGrupoId} onChange={(e) => setEGrupoId(e.target.value)}>
-              <option value="">— Sin grupo —</option>
-              {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-group"><label className="form-label">Hermano Mayor (Líder/Mentor)</label>
-          <select className="form-select" value={eHermanoMayorId} onChange={(e) => setEHermanoMayorId(e.target.value)}>
-            <option value="">— Sin hermano mayor asignado —</option>
-            {miembros.filter(m => m.estado === 'Activo').sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)).map((m) => (
-              <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* ─── SECCIÓN: FAMILIA ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>👪 Familia</div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">¿Bautizado?</label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, background: 'var(--surface-2)', borderRadius: 6, cursor: 'pointer' }}>
-              <input type="checkbox" checked={eBautizado} onChange={(e) => setEBautizado(e.target.checked)} style={{ width: 18, height: 18 }} />
-              <span style={{ fontWeight: 600 }}>{eBautizado ? '💧 Sí, bautizado' : 'No bautizado'}</span>
-            </label>
-          </div>
-          <div className="form-group"><label className="form-label">Fecha de Bautismo</label>
-            <input className="form-input" type="date" value={eFechaBautismo} onChange={(e) => setEFechaBautismo(e.target.value)} disabled={!eBautizado} />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Cónyuge</label><input className="form-input" value={eConyuge} onChange={(e) => setEConyuge(e.target.value)} placeholder="Si aplica" /></div>
-          <div className="form-group"><label className="form-label">Hijos</label><input className="form-input" value={eHijos} onChange={(e) => setEHijos(e.target.value)} placeholder="Ej: 2 hijos (Sofía 8, Mateo 5)" /></div>
-        </div>
-
-        {/* ─── SECCIÓN: MATRÍCULA ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>🎓 Matrícula</div>
-        <div className="form-row">
-          <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Curso *</label><select className="form-select" value={eCurso} onChange={(e) => setECurso(e.target.value)}><option value="">Seleccionar curso…</option>{cursos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
-          <div className="form-group"><label className="form-label">Fecha de Inicio *</label><input className="form-input" type="date" value={eFecha} onChange={(e) => setEFecha(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Estado</label><select className="form-select" value={eEstado} onChange={(e) => setEEstado(e.target.value)}><option>Activo</option><option>Pausado</option></select></div>
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Notas</label><textarea className="form-textarea" value={eNotas} onChange={(e) => setENotas(e.target.value)} placeholder="Observaciones de ingreso…" style={{ minHeight: 55 }} /></div>
-      </Modal>
-
-      <Modal open={modal === 'estDetail' && !!selEst} onClose={() => setModal(null)} title="Perfil del Estudiante" wide>
-        {selEstData ? (
-          <>
-            {/* ─── HEADER ─── */}
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', padding: '4px 0 18px', borderBottom: '1px solid var(--border)', marginBottom: 18 }}>
-              <div className="avatar-lg" style={{ background: 'linear-gradient(135deg, var(--academia-teal), var(--academia-pergamino))', color: 'var(--carbon)' }}>{selEstData.iniciales || '👤'}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-display)' }}>{selEst!.nombre} {selEst!.apellido}</h2>
-                  <span className={`badge ${EST_BADGE[selEst!.estado] || 'badge-blue'}`}>{selEst!.estado}</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 6 }}>
-                  🎓 {selEstData.myCurso ? selEstData.myCurso.nombre : 'sin curso'} · 📅 Ingreso: {fmt(selEst!.fecha)}
-                </div>
-              </div>
-            </div>
-
-            {/* ─── KPIS ─── */}
-            <div className="kpis" style={{ marginBottom: 20 }}>
-              <div className="kpi" style={accentStyle('var(--blue)')}>
-                <div className="kpi-label">Cursos Totales</div>
-                <div className="kpi-value" style={{ fontSize: 20 }}>{selEstData.totalCursos}</div>
-                <div className="kpi-sub">incluye actual</div>
-              </div>
-              <div className="kpi" style={accentStyle('var(--gold)')}>
-                <div className="kpi-label">Certificados</div>
-                <div className="kpi-value" style={{ fontSize: 20 }}>{selEstData.myCerts.length}</div>
-                <div className="kpi-sub">obtidos</div>
-              </div>
-              <div className="kpi" style={accentStyle('var(--green)')}>
-                <div className="kpi-label">Estado</div>
-                <div className="kpi-value" style={{ fontSize: 16 }}>{selEst!.estado}</div>
-                <div className="kpi-sub">estatus académico</div>
-              </div>
-              <div className="kpi" style={accentStyle('var(--purple)')}>
-                <div className="kpi-label">Progreso</div>
-                <div className="kpi-value" style={{ fontSize: 16 }}>{selEstData.totalCursos > 0 ? `${Math.round((selEstData.myCerts.length / selEstData.totalCursos) * 100)}%` : '—'}</div>
-                <div className="kpi-sub">completado</div>
-              </div>
-            </div>
-
-            {/* ─── ORIGEN ─── */}
-            <div className="form-section">📋 Origen</div>
-            <div style={{ marginBottom: 18 }}>
-              {selEst!.origen === 'convertido' && selEstData.origenConv ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, background: 'var(--surface-2)', borderRadius: 8, fontSize: 13 }}>
-                  <span>🕊</span>
-                  <span>Convertido · <strong>{selEstData.origenConv.nombre} {selEstData.origenConv.apellido}</strong></span>
-                  <span style={{ color: 'var(--dim)' }}>· {selEstData.origenConv.lider}</span>
-                </div>
-              ) : selEst!.origen === 'miembro' && selEstData.origenMiem ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, background: 'var(--surface-2)', borderRadius: 8, fontSize: 13 }}>
-                  <span>👥</span>
-                  <span>Miembro · <strong>{selEstData.origenMiem.nombre} {selEstData.origenMiem.apellido}</strong></span>
-                </div>
-              ) : (
-                <div style={{ color: 'var(--dim)', fontSize: 13, padding: '4px 0' }}>📝 Ingreso manual</div>
-              )}
-            </div>
-
-            {/* ─── CERTIFICADOS ─── */}
-            {selEstData.myCerts.length > 0 && (
-              <>
-                <div className="form-section">🏆 Certificados</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
-                  {selEstData.myCerts.map(c => {
-                    const curso = cursos.find(x => x.id === c.cursoId);
-                    return (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 8, fontSize: 13 }}>
-                        <span>{curso?.emoji || '🏆'}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600 }}>{curso?.nombre || 'Curso'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--dim)' }}>{fmt(c.fecha)}</div>
-                        </div>
-                        <span className={`badge ${CAL_BADGE[c.calificacion] || 'badge-green'}`}>{c.calificacion}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-
-            {/* ─── INFORMACIÓN PERSONAL ─── */}
-            <div className="form-section">👤 Información Personal</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px 16px', marginBottom: 18 }}>
-              <div className="detail-row"><span className="detail-label">📞 Teléfono</span><span className="detail-value">{selEst!.telefono ? <a href={`tel:${selEst!.telefono}`} style={{ color: 'var(--academia-teal)', textDecoration: 'none', fontWeight: 600 }}>{selEst!.telefono}</a> : '—'}{selEst!.telefono && <a href={`https://wa.me/${selEst!.telefono.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 8, fontSize: 11, color: 'var(--green)', textDecoration: 'none' }}>💬 WhatsApp</a>}</span></div>
-              <div className="detail-row"><span className="detail-label">✉ Email</span><span className="detail-value">{selEst!.email ? <a href={`mailto:${selEst!.email}`} style={{ color: 'var(--academia-teal)', textDecoration: 'none' }}>{selEst!.email}</a> : '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">🎂 Edad</span><span className="detail-value">{selEst!.edad || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">💼 Profesión</span><span className="detail-value">{selEst!.profesion || '—'}</span></div>
-              <div className="detail-row" style={{ gridColumn: '1 / -1' }}><span className="detail-label">📍 Dirección</span><span className="detail-value">{selEst!.direccion ? <a href={`https://www.google.com/maps/search/${encodeURIComponent(selEst!.direccion)}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--academia-teal)', textDecoration: 'none' }}>{selEst!.direccion} 🗺</a> : '—'}</span></div>
-            </div>
-
-            {/* ─── IGLESIA ─── */}
-            <div className="form-section">⛪ Iglesia</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px 16px', marginBottom: 18 }}>
-              <div className="detail-row"><span className="detail-label">📍 Zona</span><span className="detail-value">{selEst!.zona || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">👥 Grupo</span><span className="detail-value">{selEstData.grupo?.nombre || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">🧑 Hermano Mayor</span><span className="detail-value">{selEstData.hermanoMayor ? `${selEstData.hermanoMayor.nombre} ${selEstData.hermanoMayor.apellido}` : '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">💧 Bautismo</span><span className="detail-value">{selEst!.bautizado ? (selEst!.fechaBautismo ? fmt(selEst!.fechaBautismo) : 'Sí') : 'No'}</span></div>
-              <div className="detail-row"><span className="detail-label">👪 Cónyuge</span><span className="detail-value">{selEst!.conyuge || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">👶 Hijos</span><span className="detail-value">{selEst!.hijos || '—'}</span></div>
-            </div>
-
-            {/* ─── NOTAS ─── */}
-            {selEst!.notas && (
-              <div style={{ marginBottom: 18 }}>
-                <div className="form-section">📝 Notas</div>
-                <div style={{ fontSize: 13, color: 'var(--dim)', whiteSpace: 'pre-wrap', padding: '6px 0' }}>{selEst!.notas}</div>
-              </div>
-            )}
-
-            {/* ─── HITOS ─── */}
-            <div className="form-section">📍 Hitos Recientes</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-              {selEstData.studentHitos.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--dim)', fontSize: 13, padding: 10 }}>Sin hitos registrados</div>
-              ) : (
-                selEstData.studentHitos.slice(0, 5).map(h => (
-                  <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, background: 'var(--surface-2)', borderRadius: 8, fontSize: 13 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gold)' }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{h.tipo}</div>
-                      <div style={{ fontSize: 11, color: 'var(--dim)' }}>{fmt(h.fecha)}</div>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' }}>{h.descripcion}</div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* ─── REGISTRAR HITO RÁPIDO ─── */}
-            <div className="form-section">➕ Registrar Hito Rápido</div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Tipo</label>
-                <select className="form-select" value={qhTipo} onChange={(e) => setQHTipo(e.target.value as 'Conversión' | 'Bautismo' | 'Discipulado' | 'Curso Completado' | 'Integración' | 'Liderazgo' | 'Matrimonio' | 'Otro')}>
-                  <option>Conversión</option><option>Bautismo</option><option>Discipulado</option>
-                  <option>Curso Completado</option><option>Integración</option><option>Liderazgo</option>
-                  <option>Matrimonio</option><option>Otro</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Fecha</label>
-                <input className="form-input" type="date" value={qhFecha} onChange={(e) => setQHFecha(e.target.value)} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Descripción</label>
-              <input className="form-input" value={qhDesc} onChange={(e) => setQHDesc(e.target.value)} placeholder="Ej: Completó curso de ..." />
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button className="btn btn-gold btn-sm" style={{ flex: 1 }} onClick={() => saveHito(selEst!.id)}>💾 Registrar</button>
-              <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={resetHito}>🧹 Limpiar</button>
-            </div>
-
-            {/* ─── FOOTER ─── */}
-            <div className="modal-footer" style={{ marginTop: 20 }}>
-              <button className="btn btn-secondary" onClick={() => { setModal(null); openEditEst(selEst!.id); }}>✏ Editar perfil</button>
-              <button className="btn btn-danger" onClick={() => { setModal(null); setEditEstId(selEst!.id); setModal('est'); }}>🗑 Eliminar</button>
-            </div>
-          </>
-        ) : null}
-      </Modal>
-
-      <Modal open={modal === 'cert'} onClose={() => setModal(null)} title={editCertId ? '✏️ Editar Certificado' : '🏆 Emitir Certificado'} footer={<>{editCertId && <button className="btn btn-danger btn-sm" style={{ marginRight: 'auto' }} onClick={delCert}>🗑️ Eliminar</button>}<button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveCert}>🏆 Emitir Certificado</button></>}>
-        <div className="form-row">
-          <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Estudiante *</label><select className="form-select" value={certEst} onChange={(e) => setCertEst(e.target.value)}><option value="">Seleccionar estudiante…</option>{estudiantes.map((e) => <option key={e.id} value={e.id}>{e.nombre} {e.apellido}</option>)}</select></div>
-          <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Curso *</label><select className="form-select" value={certCurso} onChange={(e) => setCertCurso(e.target.value)}><option value="">Seleccionar curso…</option>{cursos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
-          <div className="form-group"><label className="form-label">Fecha de Emisión *</label><input className="form-input" type="date" value={certFecha} onChange={(e) => setCertFecha(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Calificación Final</label><select className="form-select" value={certCal} onChange={(e) => setCertCal(e.target.value)}><option>Aprobado</option><option>Sobresaliente</option><option>Con Honores</option></select></div>
-        </div>
-        <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Observaciones</label><textarea className="form-textarea" value={certObs} onChange={(e) => setCertObs(e.target.value)} placeholder="Logros destacados, menciones especiales…" style={{ minHeight: 55 }} /></div>
-      </Modal>
-
-          </div>
+      <CertificadoFormModal
+        open={modal === 'cert'}
+        onClose={() => setModal(null)}
+        editCertId={editCertId}
+        delCert={delCert}
+        saveCert={saveCert}
+        estudiantes={estudiantes}
+        cursos={cursos}
+        certEst={certEst} setCertEst={setCertEst}
+        certCurso={certCurso} setCertCurso={setCertCurso}
+        certFecha={certFecha} setCertFecha={setCertFecha}
+        certCal={certCal} setCertCal={setCertCal}
+        certObs={certObs} setCertObs={setCertObs}
+      />
+      </div>
     </Layout>
   );
 }
