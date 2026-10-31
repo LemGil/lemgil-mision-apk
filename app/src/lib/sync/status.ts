@@ -23,6 +23,7 @@ let _currentStatus: SyncStatus = {
   connected: false,
   lastSync: loadLastSync(),
   error: "",
+  errors: [],
   pending: 0,
   syncing: false,
 };

@@ -64,17 +64,17 @@ export async function runSync(opts: { pull?: boolean } = {}): Promise<void> {
 
     const pending = await getPendingCount();
     if (errors.length === 0 && pending === 0) {
-      emitStatus({ lastSync: saveLastSync(), error: "", pending: 0 });
+      emitStatus({ lastSync: saveLastSync(), error: "", errors: [], pending: 0 });
     } else {
       emitStatus({ pending });
       if (errors.length > 0) {
-        emitStatus({ error: summarizeErrors(errors) });
+        emitStatus({ error: summarizeErrors(errors), errors });
         console.warn("[Sync] ⚠️ Sync con errores:", errors);
       }
     }
   } catch (err: unknown) {
     console.warn("[Sync] Falló el ciclo de sincronización:", err);
-    emitStatus({ error: err instanceof Error ? err.message : String(err) });
+    emitStatus({ error: err instanceof Error ? err.message : String(err), errors: [] });
   } finally {
     running = false;
     emitStatus({ syncing: false });

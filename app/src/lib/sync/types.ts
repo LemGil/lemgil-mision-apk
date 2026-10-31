@@ -2,6 +2,8 @@ export type SyncStatus = {
   connected: boolean;
   lastSync: string;
   error: string;
+  /** Lista completa de errores del último ciclo (tabla + mensaje), para el detalle. */
+  errors: SyncError[];
   /** Cambios locales aún sin subir (bandeja de salida + borrados pendientes). */
   pending: number;
   /** Hay una sincronización en curso. */
