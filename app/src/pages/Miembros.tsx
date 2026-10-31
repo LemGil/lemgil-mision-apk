@@ -2,60 +2,24 @@ import { useState, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
-import { Modal } from '../components/Modal';
-import { exportCSV } from '../lib/csvExport';
-import { EmptyState } from '../components/EmptyState';
-import { ZonaSelect } from '../components/ZonaSelect';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
-import type { Miembro, MiembroMinisterio, Hito } from '../lib/types';
-import { exportMiembrosPDF, exportMinisteriosPDF, exportHitosPDF } from '../lib/pdfExport';
-import { CsvImportButton } from '../components/CsvImportButton';
-
-import { today, fmt, accentStyle } from '../lib/utils';
+import type { Hito, Miembro, MiembroMinisterio } from '../lib/types';
+import { today } from '../lib/utils';
 import { showToast } from '../lib/notification';
-const calcAge = (d: string) => {
-  if (!d) return null;
-  const n = new Date(d);
-  const now = new Date();
-  let age = now.getFullYear() - n.getFullYear();
-  const m = now.getMonth() - n.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < n.getDate())) age--;
-  return age;
-};
-
-const EST_BADGE: Record<string, string> = { Activo: 'badge-green', Inactivo: 'badge-red', Trasladado: 'badge-yellow', Disciplinado: 'badge-red', Fallecido: 'badge-gray' };
-const CIVIL_BADGE: Record<string, string> = { Soltero: 'badge-blue', Casado: 'badge-green', Viudo: 'badge-yellow', Divorciado: 'badge-red', Unión: 'badge-purple' };
-const ROL_BADGE: Record<string, string> = { Líder: 'badge-purple', Coordinador: 'badge-blue', Servidor: 'badge-green', Miembro: 'badge-yellow' };
-const HITO_BADGE: Record<string, string> = { Conversión: 'badge-blue', Bautismo: 'badge-purple', Discipulado: 'badge-green', 'Curso Completado': 'badge-blue', Integración: 'badge-green', Liderazgo: 'badge-purple', Matrimonio: 'badge-yellow', Otro: 'badge-blue' };
-const ROLES = ['Líder', 'Coordinador', 'Servidor', 'Miembro'] as const;
-const HITO_TIPOS = ['Conversión', 'Bautismo', 'Discipulado', 'Curso Completado', 'Integración', 'Liderazgo', 'Matrimonio', 'Otro'] as const;
-
-const diasHastaCumple = (fechaNac: string) => {
-  if (!fechaNac) return null;
-  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  const fc = new Date(fechaNac); fc.setHours(0, 0, 0, 0);
-  const prox = new Date(hoy.getFullYear(), fc.getMonth(), fc.getDate());
-  if (prox < hoy) prox.setFullYear(hoy.getFullYear() + 1);
-  return Math.floor((prox.getTime() - hoy.getTime()) / 86400000);
-};
-const aniosEnIglesia = (fechaIngreso: string) => {
-  if (!fechaIngreso) return 0;
-  const fi = new Date(fechaIngreso);
-  const hoy = new Date();
-  let a = hoy.getFullYear() - fi.getFullYear();
-  const m = hoy.getMonth() - fi.getMonth();
-  if (m < 0 || (m === 0 && hoy.getDate() < fi.getDate())) a--;
-  return Math.max(0, a);
-};
-const diasEnIglesia = (fechaIngreso: string) => {
-  if (!fechaIngreso) return 0;
-  const fi = new Date(fechaIngreso);
-  return Math.max(0, Math.floor((Date.now() - fi.getTime()) / 86400000));
-};
-
-type Tab = 'directorio' | 'ministerios' | 'hitos';
-type ModalType = 'miembro' | 'ministerio' | 'asignar' | 'hito' | 'detail' | 'delM' | 'delMin' | 'delAsig' | 'delH';
+import { diasHastaCumple } from './miembros/constants';
+import type { ModalType, Tab } from './miembros/constants';
+import { CumpleanosCard } from './miembros/CumpleanosCard';
+import { DirectorioTab } from './miembros/DirectorioTab';
+import { MinisteriosTab } from './miembros/MinisteriosTab';
+import { HitosTab } from './miembros/HitosTab';
+import { MiembroFormModal } from './miembros/MiembroFormModal';
+import { MinisterioFormModal } from './miembros/MinisterioFormModal';
+import { AsignarFormModal } from './miembros/AsignarFormModal';
+import { HitoFormModal } from './miembros/HitoFormModal';
+import { MiembroDetailModal } from './miembros/MiembroDetailModal';
+import { MinisterioDetailModal } from './miembros/MinisterioDetailModal';
+import { DeleteModals } from './miembros/DeleteModals';
 
 export default function Miembros() {
   const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
@@ -387,33 +351,7 @@ export default function Miembros() {
       </div>
 
       {miembros.length > 0 && (
-        <div className="card" style={{ marginBottom: 16, padding: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 18 }}>🎂</span>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>Próximos Cumpleaños</span>
-            <span style={{ fontSize: 11, color: 'var(--dim)' }}>— {proximosCumples.length} {proximosCumples.length === 1 ? 'miembro' : 'miembros'} en los próximos 30 días</span>
-          </div>
-          {proximosCumples.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--dim)', fontSize: 13, padding: 10 }}>No hay cumpleaños en los próximos 30 días</div>
-          ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {proximosCumples.map(({ m, dias }) => {
-              const d = dias!;
-              return (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 6, background: d === 0 ? 'var(--gold-glow)' : 'var(--surface-2)', fontSize: 13 }}>
-                <span style={{ fontSize: 16 }}>{d === 0 ? '🎉' : d <= 7 ? '🎈' : '📅'}</span>
-                <strong style={{ flex: 1 }}>{m.nombre} {m.apellido}</strong>
-                <span style={{ color: 'var(--dim)', fontSize: 12 }}>
-                  {d === 0 ? '¡Hoy!' : d === 1 ? 'Mañana' : `En ${d} días`}
-                </span>
-                <span style={{ fontSize: 11, color: 'var(--dim)' }}>{calcAge(m.fechaNacimiento) !== null ? `(${calcAge(m.fechaNacimiento)} años)` : ''}</span>
-                {m.telefono && d <= 1 && <a href={`https://wa.me/${m.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Feliz cumpleaños ${m.nombre}! 🎂🎉 Que Dios te bendiga grandemente`)}`} target="_blank" rel="noopener noreferrer" className="btn btn-gold btn-sm" style={{ padding: '2px 10px', fontSize: 11, textDecoration: 'none' }}>💬 Felicitar</a>}
-              </div>
-            );
-            })}
-          </div>
-          )}
-        </div>
+        <CumpleanosCard proximosCumples={proximosCumples} />
       )}
 
       <div className="tabs">
@@ -423,729 +361,164 @@ export default function Miembros() {
       </div>
 
       {tab === 'directorio' && (
-        <div className="card">
-           <div className="card-header">
-              <div>
-                <div className="card-title">DIRECTORIO DE MIEMBROS</div>
-                <div className="card-sub">Datos personales, contacto y ministerios</div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportMiembrosPDF({ miembros: miembrosFiltrados, filtros: { estado: filterEstado, zona: filterZona, contacto: filterContacto } })}>📄 Exportar PDF</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
-                  if (!miembrosFiltrados.length) return showToast('No hay miembros para exportar');
-                  const h = ['#', 'Nombre', 'Apellido', 'Estado Civil', 'Zona', 'Teléfono', 'Email', 'Estado'];
-                  const r = miembrosFiltrados.map((m, i) => [i + 1, m.nombre, m.apellido, m.estadoCivil || '', m.zona || '', m.telefono || '', m.email || '', m.estado]);
-                  exportCSV(h, r, 'lemgil-miembros.csv');
-                  showToast('CSV exportado');
-                }}>📥 Exportar CSV</button>
-                <CsvImportButton<Miembro>
-                  table="miembros"
-                  fieldMapping={{
-                    'Nombre': 'nombre',
-                    'Apellido': 'apellido',
-                    'Teléfono': 'telefono',
-                    'Email': 'email',
-                    'Dirección': 'direccion',
-                    'Zona': 'zona',
-                    'Estado Civil': 'estadoCivil',
-                    'Estado': 'estado',
-                    'Contacto Preferido': 'contactoPreferido',
-                    'Profesión': 'profesion',
-                    'Fecha Nacimiento': 'fechaNacimiento',
-                    'Fecha Ingreso': 'fechaIngreso',
-                    'Bautizado': 'bautizado',
-                    'Fecha Bautismo': 'fechaBautismo',
-                    'Cónyuge': 'conyuge',
-                    'Hijos': 'hijos',
-                    'Notas': 'notas',
-                  }}
-                  requiredFields={['nombre', 'apellido']}
-                  defaults={{ estado: 'Activo', estadoCivil: 'Soltero', contactoPreferido: 'WhatsApp' }}
-                  onImport={(n) => showToast(`${n} miembro(s) importado(s)`)}
-                />
-                <button className="btn btn-gold" onClick={openNewM}>➕ Nuevo miembro</button>
-              </div>
-           </div>
-          <div className="search-bar">
-            <input className="search-input" placeholder="🔍 Buscar nombre, teléfono, ministerio..." value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
-              <option value="">Todos los estados</option>
-              <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option><option>Fallecido</option>
-            </select>
-            <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
-              <option value="">Todas las zonas</option>
-              {zonas.map((z) => <option key={z} value={z}>{z}</option>)}
-            </select>
-            <select className="filter-select" value={filterGrupo} onChange={(e) => setFilterGrupo(e.target.value)}>
-              <option value="">Todos los grupos</option>
-              {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-            </select>
-            <select className="filter-select" value={filterEstadoCivil} onChange={(e) => setFilterEstadoCivil(e.target.value)}>
-              <option value="">Estado Civil</option>
-              <option>Soltero</option><option>Casado</option><option>Viudo</option><option>Divorciado</option><option>Unión</option>
-            </select>
-            <select className="filter-select" value={filterContacto} onChange={(e) => setFilterContacto(e.target.value)}>
-              <option value="">Cualquier contacto</option>
-              <option>Teléfono</option><option>WhatsApp</option><option>Email</option><option>Visita</option><option>Otro</option>
-            </select>
-          </div>
-          {miembrosFiltrados.length === 0 ? (
-            <EmptyState icon="🧑" title="Sin miembros registrados" sub="Agrega el primer miembro para iniciar el directorio" />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nombre</th><th>Contacto</th><th>Edad</th><th>Zona</th><th>Grupo</th><th>Ministerios</th><th>Estado</th><th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {miembrosFiltrados.map((m) => {
-                  const asigs = asignacionesPorMiembro[m.id] || [];
-                  const mints = asigs.map((a) => {
-                    const mn = ministerios.find((x) => x.id === a.ministerioId);
-                    return mn ? `${mn.emoji}${mn.nombre.split(' ')[0]}` : '';
-                  }).filter(Boolean).join(' ');
-                  const grupoAsignado = m.grupoId ? grupos.find(g => g.id === m.grupoId) : null;
-                  return (
-                    <tr key={m.id}>
-                      <td>
-                        <strong>{m.nombre} {m.apellido}</strong>
-                        {m.profesion && <div style={{ fontSize: 11, color: 'var(--dim)' }}>{m.profesion}</div>}
-                      </td>
-                      <td>
-                        <div style={{ fontSize: 12 }}>
-                          {m.telefono && <div>📱 {m.telefono}</div>}
-                          {m.email && <div style={{ color: 'var(--dim)' }}>✉ {m.email}</div>}
-                        </div>
-                      </td>
-                      <td>{calcAge(m.fechaNacimiento) ?? '—'}</td>
-                      <td style={{ fontSize: 12 }}>{m.zona || '—'}</td>
-                      <td style={{ fontSize: 12, maxWidth: 160, overflow: 'hidden' }}>{grupoAsignado ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 6, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 11, fontWeight: 700, border: '1px solid var(--gold)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>👥 {grupoAsignado.nombre}</span> : <span style={{ color: 'var(--dim)' }}>—</span>}</td>
-                      <td style={{ fontSize: 12 }}>{mints || <span style={{ color: 'var(--dim)' }}>—</span>}</td>
-                      <td><span className={`badge ${EST_BADGE[m.estado]}`}>{m.estado}</span></td>
-                      <td>
-                        <button className="btn btn-secondary btn-sm" onClick={() => { setSelectedId(m.id); setModal('detail'); }}>👁 Ver</button>{' '}
-                        <button className="btn btn-secondary btn-sm" onClick={() => openEditM(m.id)}>✏</button>{' '}
-                        <button className="btn btn-danger btn-sm" onClick={() => { setSelectedId(m.id); setModal('delM'); }}>🗑</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <DirectorioTab
+          miembrosFiltrados={miembrosFiltrados}
+          asignacionesPorMiembro={asignacionesPorMiembro}
+          ministerios={ministerios}
+          grupos={grupos}
+          zonas={zonas}
+          search={search} setSearch={setSearch}
+          filterEstado={filterEstado} setFilterEstado={setFilterEstado}
+          filterZona={filterZona} setFilterZona={setFilterZona}
+          filterGrupo={filterGrupo} setFilterGrupo={setFilterGrupo}
+          filterEstadoCivil={filterEstadoCivil} setFilterEstadoCivil={setFilterEstadoCivil}
+          filterContacto={filterContacto} setFilterContacto={setFilterContacto}
+          openNewM={openNewM}
+          openEditM={openEditM}
+          onVer={(id) => { setSelectedId(id); setModal('detail'); }}
+          onEliminar={(id) => { setSelectedId(id); setModal('delM'); }}
+        />
       )}
 
       {tab === 'ministerios' && (
-        <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">⛪ MINISTERIOS Y ASIGNACIONES</div>
-                <div className="card-sub">Gestiona tus ministerios y sus integrantes</div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportMinisteriosPDF({ ministerios, asignaciones, miembros })}>📄 Exportar PDF</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
-                  if (!ministerios.length) return showToast('No hay ministerios para exportar');
-                  const h = ['Ministerio', 'Líder', 'Miembros'];
-                  const r = ministerios.map(m => {
-                    const count = asignaciones.filter(a => a.ministerioId === m.id).length;
-                    return [m.nombre, m.lider || '', count];
-                  });
-                  exportCSV(h, r, 'lemgil-ministerios.csv');
-                  showToast('CSV exportado');
-                }}>📥 Exportar CSV</button>
-                <CsvImportButton
-                  table="ministerios"
-                  fieldMapping={{
-                    'Ministerio': 'nombre',
-                    'Nombre': 'nombre',
-                    'Líder': 'lider',
-                    'Descripción': 'descripcion',
-                    'Color': 'color',
-                    'Emoji': 'emoji',
-                  }}
-                  requiredFields={['nombre']}
-                  defaults={{ color: '#C9A24A', emoji: '⛪' }}
-                  onImport={(n) => showToast(`${n} ministerio(s) importado(s)`)}
-                />
-                <button className="btn btn-gold" onClick={openNewMin}>➕ Nuevo ministerio</button>
-              </div>
-            </div>
-          {ministeriosConStats.length === 0 ? (
-            <EmptyState icon="⛪" title="Sin ministerios" sub="Crea los ministerios de tu iglesia" />
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-              {ministeriosConStats.map((mn) => (
-                <div key={mn.id} className="card" style={{ borderLeft: `4px solid ${mn.color}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ fontSize: 24 }}>{mn.emoji}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800 }}>{mn.nombre}</div>
-                      <div style={{ fontSize: 11, color: 'var(--dim)' }}>{mn.lider ? `Ministro: ${mn.lider}` : 'Sin ministro definido'}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openEditMin(mn.id)}>✏️</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => { setSelectedId(mn.id); setModal('delMin'); }}>🗑️</button>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--dim)', background: 'var(--surface-2)', padding: '6px 10px', borderRadius: 6 }}>{mn.descripcion || 'Sin descripción'}</div>
-                  
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <div style={{ fontWeight: 700, fontSize: 12 }}>Integrantes ({mn.miembros.length})</div>
-                      <button className="btn btn-gold btn-sm" onClick={() => openNewAsig(undefined, mn.id)}>➕ Asignar</button>
-                    </div>
-                    {mn.miembros.length === 0 ? <div style={{ fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' }}>Sin miembros asignados</div> : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {mn.miembros.map((m) => {
-                          const asig = asignaciones.find(a => a.miembroId === m.id && a.ministerioId === mn.id);
-                          return (
-                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}>
-                              <span><strong>{m.nombre} {m.apellido}</strong> <span style={{ color: 'var(--dim)' }}>({asig?.rol})</span></span>
-                              <button type="button" className="btn btn-danger btn-sm" style={{ padding: '2px 6px' }} onClick={() => { if(asig) { setSelectedId(asig.id); setModal('delAsig'); } }}>🗑</button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <MinisteriosTab
+          ministerios={ministerios}
+          asignaciones={asignaciones}
+          miembros={miembros}
+          ministeriosConStats={ministeriosConStats}
+          openNewMin={openNewMin}
+          openEditMin={openEditMin}
+          openNewAsig={openNewAsig}
+          onEliminarMin={(id) => { setSelectedId(id); setModal('delMin'); }}
+          onQuitarAsig={(id) => { setSelectedId(id); setModal('delAsig'); }}
+        />
       )}
 
       {tab === 'hitos' && (
-        <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">CRECIMIENTO ESPIRITUAL</div>
-                <div className="card-sub">Hitos y eventos en la vida de cada miembro</div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportHitosPDF({ hitos, miembros })}>📄 Exportar PDF</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
-                  if (!hitos.length) return showToast('No hay hitos para exportar');
-                  const h = ['Fecha', 'Miembro', 'Tipo', 'Descripción'];
-                  const r = hitos.map(h => {
-                    const m = miembros.find(x => x.id === h.miembroId);
-                    return [h.fecha, m ? `${m.nombre} ${m.apellido}` : '—', h.tipo, (h.descripcion || '').replace(/,/g, ';')];
-                  });
-                  exportCSV(h, r, 'lemgil-hitos.csv');
-                  showToast('CSV exportado');
-                }}>📥 Exportar CSV</button>
-                <CsvImportButton
-                  table="hitos"
-                  fieldMapping={{
-                    'Fecha': 'fecha',
-                    'Tipo': 'tipo',
-                    'Descripción': 'descripcion',
-                    'Miembro': 'miembroId',
-                  }}
-                  requiredFields={['fecha', 'tipo', 'descripcion']}
-                  defaults={{ fecha: () => new Date().toISOString().split('T')[0] }}
-                  onImport={(n) => showToast(`${n} hito(s) importado(s)`)}
-                />
-                <button className="btn btn-gold" onClick={() => openNewH()}>➕ Nuevo hito</button>
-              </div>
-            </div>
-          <div className="search-bar">
-            <input className="search-input" placeholder="🔍 Buscar miembro, descripción..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          {hitosList.length === 0 ? (
-            <EmptyState icon="📍" title="Sin hitos registrados" sub="Registra los momentos clave del crecimiento" />
-          ) : (
-            <div className="timeline">
-              {hitosList.map((h) => {
-                const m = miembros.find((x) => x.id === h.miembroId);
-                return (
-                  <div key={h.id} className="timeline-item">
-                    <div className="timeline-date">{fmt(h.fecha)}</div>
-                    <div className="timeline-dot" />
-                    <div className="timeline-content">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span className={`badge ${HITO_BADGE[h.tipo]}`}>{h.tipo}</span>
-                        {m && <strong>{m.nombre} {m.apellido}</strong>}
-                      </div>
-                      <div style={{ marginTop: 4, fontSize: 13 }}>{h.descripcion}</div>
-                      <div style={{ marginTop: 6, display: 'flex', gap: 4 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => openEditH(h.id)}>✏</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => { setSelectedId(h.id); setModal('delH'); }}>🗑</button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <HitosTab
+          hitos={hitos}
+          hitosList={hitosList}
+          miembros={miembros}
+          search={search} setSearch={setSearch}
+          openNewH={openNewH}
+          openEditH={openEditH}
+          onEliminarH={(id) => { setSelectedId(id); setModal('delH'); }}
+        />
       )}
 
-      <Modal open={modal === 'miembro'} onClose={() => { setModal(null); resetM(); }} title={editMId ? 'Editar miembro' : 'Nuevo miembro'} wide>
-        {/* ─── SECCIÓN: PERSONAL ─── */}
-        <div className="form-section">👤 Datos Personales</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={mNombre} onChange={(e) => setMNombre(e.target.value)} placeholder="Juan" /></div>
-          <div className="form-group"><label className="form-label">Apellido *</label><input className="form-input" value={mApellido} onChange={(e) => setMApellido(e.target.value)} placeholder="Pérez" /></div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Fecha de nacimiento</label><input className="form-input" type="date" value={mNac} onChange={(e) => setMNac(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Estado civil</label>
-            <select className="form-select" value={mCivil} onChange={(e) => setMCivil(e.target.value)}>
-              <option>Soltero</option><option>Casado</option><option>Viudo</option><option>Divorciado</option><option>Unión</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Profesión</label><input className="form-input" value={mProfesion} onChange={(e) => setMProfesion(e.target.value)} placeholder="Ej: Maestro, Ingeniero…" /></div>
-          <div className="form-group"><label className="form-label">Cónyuge</label><input className="form-input" value={mConyuge} onChange={(e) => setMConyuge(e.target.value)} placeholder="Si aplica" /></div>
-        </div>
-        <div className="form-group"><label className="form-label">Hijos</label><input className="form-input" value={mHijos} onChange={(e) => setMHijos(e.target.value)} placeholder="Ej: 2 hijos (Sofía 8, Mateo 5)" /></div>
+      <MiembroFormModal
+        open={modal === 'miembro'}
+        onClose={() => { setModal(null); resetM(); }}
+        editMId={editMId}
+        saveM={saveM}
+        grupos={grupos}
+        miembros={miembros}
+        mNombre={mNombre} setMNombre={setMNombre}
+        mApellido={mApellido} setMApellido={setMApellido}
+        mTel={mTel} setMTel={setMTel}
+        mEmail={mEmail} setMEmail={setMEmail}
+        mDir={mDir} setMDir={setMDir}
+        mZona={mZona} setMZona={setMZona}
+        mGrupo={mGrupo} setMGrupo={setMGrupo}
+        mNac={mNac} setMNac={setMNac}
+        mIngreso={mIngreso} setMIngreso={setMIngreso}
+        mEstado={mEstado} setMEstado={setMEstado}
+        mContacto={mContacto} setMContacto={setMContacto}
+        mProfesion={mProfesion} setMProfesion={setMProfesion}
+        mCivil={mCivil} setMCivil={setMCivil}
+        mBautizado={mBautizado} setMBautizado={setMBautizado}
+        mBautismo={mBautismo} setMBautismo={setMBautismo}
+        mConyuge={mConyuge} setMConyuge={setMConyuge}
+        mHijos={mHijos} setMHijos={setMHijos}
+        mHermanoMayorId={mHermanoMayorId} setMHermanoMayorId={setMHermanoMayorId}
+        mNotas={mNotas} setMNotas={setMNotas}
+      />
 
-        {/* ─── SECCIÓN: CONTACTO ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>📞 Contacto</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Teléfono</label><input className="form-input" value={mTel} onChange={(e) => setMTel(e.target.value)} placeholder="+54 11 5555 5555" /></div>
-          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={mEmail} onChange={(e) => setMEmail(e.target.value)} placeholder="email@ejemplo.com" /></div>
-        </div>
-        <div className="form-group"><label className="form-label">Dirección</label><input className="form-input" value={mDir} onChange={(e) => setMDir(e.target.value)} placeholder="Calle, número, ciudad" /></div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Zona / Sector</label><ZonaSelect value={mZona} onChange={setMZona} emptyLabel="Sin zona" /></div>
-          <div className="form-group"><label className="form-label">Contacto preferido</label>
-            <select className="form-select" value={mContacto} onChange={(e) => setMContacto(e.target.value)}>
-              <option>Teléfono</option><option>WhatsApp</option><option>Email</option><option>Visita</option><option>Otro</option>
-            </select>
-          </div>
-        </div>
+      <MinisterioFormModal
+        open={modal === 'ministerio'}
+        onClose={() => { setModal(null); resetMin(); }}
+        editMinId={editMinId}
+        saveMin={saveMin}
+        miembros={miembros}
+        minNombre={minNombre} setMinNombre={setMinNombre}
+        minDesc={minDesc} setMinDesc={setMinDesc}
+        minLider={minLider} setMinLider={setMinLider}
+        minLiderCustom={minLiderCustom} setMinLiderCustom={setMinLiderCustom}
+        minColor={minColor} setMinColor={setMinColor}
+        minEmoji={minEmoji} setMinEmoji={setMinEmoji}
+      />
 
-        {/* ─── SECCIÓN: IGLESIA ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>⛪ Membresía</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Fecha de ingreso</label><input className="form-input" type="date" value={mIngreso} onChange={(e) => setMIngreso(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Estado</label>
-            <select className="form-select" value={mEstado} onChange={(e) => setMEstado(e.target.value)}>
-              <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option><option>Fallecido</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Grupo de Misión</label>
-            <select className="form-select" value={mGrupo} onChange={(e) => setMGrupo(e.target.value)}>
-              <option value="">— Sin grupo asignado —</option>
-              {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-            </select>
-          </div>
-          <div className="form-group"><label className="form-label">Hermano Mayor (Líder/Mentor)</label>
-            <select className="form-select" value={mHermanoMayorId} onChange={(e) => setMHermanoMayorId(e.target.value)}>
-              <option value="">— Sin hermano mayor asignado —</option>
-              {miembros.filter(m => m.estado === 'Activo' && m.id !== editMId).sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)).map((m) => (
-                <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+      <AsignarFormModal
+        open={modal === 'asignar'}
+        onClose={() => { setModal(null); resetAsig(); }}
+        editAId={editAId}
+        saveAsig={saveAsig}
+        miembros={miembros}
+        ministerios={ministerios}
+        asigMiembro={asigMiembro} setAsigMiembro={setAsigMiembro}
+        asigMinisterio={asigMinisterio} setAsigMinisterio={setAsigMinisterio}
+        asigRol={asigRol} setAsigRol={setAsigRol}
+        asigDesde={asigDesde} setAsigDesde={setAsigDesde}
+        asigNotas={asigNotas} setAsigNotas={setAsigNotas}
+      />
 
-        {/* ─── SECCIÓN: CRECIMIENTO ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>📈 Crecimiento Espiritual</div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">¿Bautizado?</label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, background: 'var(--surface-2)', borderRadius: 6, cursor: 'pointer' }}>
-              <input type="checkbox" checked={mBautizado} onChange={(e) => setMBautizado(e.target.checked)} style={{ width: 18, height: 18 }} />
-              <span style={{ fontWeight: 600 }}>{mBautizado ? '💧 Sí, bautizado' : 'No bautizado'}</span>
-            </label>
-          </div>
-          <div className="form-group"><label className="form-label">Fecha de bautismo</label>
-            <input className="form-input" type="date" value={mBautismo} onChange={(e) => setMBautismo(e.target.value)} disabled={!mBautizado} />
-          </div>
-        </div>
+      <HitoFormModal
+        open={modal === 'hito'}
+        onClose={() => { setModal(null); resetH(); }}
+        editHId={editHId}
+        saveH={saveH}
+        miembros={miembros}
+        hMiembro={hMiembro} setHMiembro={setHMiembro}
+        hFecha={hFecha} setHFecha={setHFecha}
+        hTipo={hTipo} setHTipo={setHTipo}
+        hDesc={hDesc} setHDesc={setHDesc}
+      />
 
-        {/* ─── SECCIÓN: NOTAS ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>📝 Notas Pastorales</div>
-        <div className="form-group"><textarea className="form-textarea" rows={3} value={mNotas} onChange={(e) => setMNotas(e.target.value)} placeholder="Observaciones pastorales, necesidades, seguimiento…" /></div>
+      <MiembroDetailModal
+        open={modal === 'detail' && !!selMiembro}
+        onClose={() => setModal(null)}
+        selMiembro={selMiembro}
+        asignacionesPorMiembro={asignacionesPorMiembro}
+        hitosPorMiembro={hitosPorMiembro}
+        grupos={grupos}
+        ministerios={ministerios}
+        qhTipo={qhTipo} setQhTipo={setQhTipo}
+        qhFecha={qhFecha} setQhFecha={setQhFecha}
+        qhDesc={qhDesc} setQhDesc={setQhDesc}
+        quickAddHito={quickAddHito}
+        updateAsigRol={updateAsigRol}
+        quickRemoveAsig={quickRemoveAsig}
+        openEditH={openEditH}
+        onAsignar={() => { if (selMiembro) { setModal(null); openNewAsig(selMiembro.id); } }}
+        onEditarPerfil={() => { if (selMiembro) { setModal(null); openEditM(selMiembro.id); } }}
+        onEliminar={() => setModal('delM')}
+        onEliminarHito={(id) => { setSelectedId(id); setModal('delH'); }}
+      />
 
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => { setModal(null); resetM(); }}>Cancelar</button>
-          <button className="btn btn-gold" onClick={saveM}>{editMId ? 'Guardar cambios' : 'Registrar miembro'}</button>
-        </div>
-      </Modal>
-      
-      <Modal open={modal === 'ministerio'} onClose={() => { setModal(null); resetMin(); }} title={editMinId ? 'Editar ministerio' : 'Nuevo ministerio'}>
-        <div className="form-group" style={{ marginBottom: 10 }}><label className="form-label">Nombre *</label><input className="form-input" value={minNombre} onChange={(e) => setMinNombre(e.target.value)} placeholder="Ej: Alabanza, Niños, Jóvenes" /></div>
-        <div className="form-group" style={{ marginBottom: 10 }}><label className="form-label">Descripción</label><textarea className="form-textarea" rows={2} value={minDesc} onChange={(e) => setMinDesc(e.target.value)} /></div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Ministro / Encargado *</label>
-            {minLiderCustom ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input className="form-input" value={minLider} onChange={(e) => setMinLider(e.target.value)} placeholder="Escribe el nombre completo" autoFocus />
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setMinLiderCustom(false); setMinLider(''); }}>📋 Lista</button>
-              </div>
-            ) : (
-              <select className="form-select" value={minLider} onChange={(e) => { if (e.target.value === '__custom__') { setMinLiderCustom(true); setMinLider(''); } else { setMinLider(e.target.value); } }}>
-                <option value="">— Seleccionar de la lista —</option>
-                {miembros.filter(m => m.estado === 'Activo').sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)).map((m) => (
-                  <option key={m.id} value={`${m.nombre} ${m.apellido}`}>{m.nombre} {m.apellido}</option>
-                ))}
-                <option value="__custom__">— Otro (escribir manualmente) —</option>
-              </select>
-            )}
-          </div>
-          <div className="form-group"><label className="form-label">Emoji</label>
-            <input className="form-input" value={minEmoji} onChange={(e) => setMinEmoji(e.target.value)} placeholder="⛪" />
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-              {['⛪', '📖', '🎤', '👶', '🧑', '🌍', '🤲', '📸', '🙏', '📢', '👋', '🏋️', '📚'].map(e => (
-                <button type="button" key={e} onClick={() => setMinEmoji(e)} style={{ border: '1px solid var(--border)', background: minEmoji === e ? 'var(--gold-glow)' : 'transparent', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '18px' }}>
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="form-group form-full">
-            <label className="form-label">Color identificador</label>
-            <input type="color" value={minColor} onChange={(e) => setMinColor(e.target.value)} style={{ width: '100%', height: '36px', border: 'none', borderRadius: 6, cursor: 'pointer' }} />
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => { setModal(null); resetMin(); }}>Cancelar</button>
-          <button className="btn btn-gold" onClick={saveMin}>{editMinId ? 'Guardar cambios' : 'Crear ministerio'}</button>
-        </div>
-      </Modal>
+      <MinisterioDetailModal
+        open={modal === 'detail' && !!selMinisterio && !selMiembro}
+        onClose={() => setModal(null)}
+        selMinisterio={selMinisterio}
+        asignaciones={asignaciones}
+        miembros={miembros}
+        onEditar={() => { if (selMinisterio) { setModal(null); openEditMin(selMinisterio.id); } }}
+        onAsignar={() => { if (selMinisterio) { setModal(null); openNewAsig(undefined, selMinisterio.id); } }}
+        onEliminar={() => setModal('delMin')}
+      />
 
-      <Modal open={modal === 'asignar'} onClose={() => { setModal(null); resetAsig(); }} title={editAId ? 'Editar asignación' : 'Asignar miembro a ministerio'} wide>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Miembro *</label>
-            <select className="form-select" value={asigMiembro} onChange={(e) => setAsigMiembro(e.target.value)}>
-              <option value="">— Selecciona miembro —</option>
-              {miembros.filter((m) => m.estado === 'Activo').sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)).map((m) => (
-                <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group"><label className="form-label">Ministerio *</label>
-            <select className="form-select" value={asigMinisterio} onChange={(e) => setAsigMinisterio(e.target.value)}>
-              <option value="">— Selecciona ministerio —</option>
-              {ministerios.map((mn) => <option key={mn.id} value={mn.id}>{mn.emoji} {mn.nombre}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Rol</label>
-            <select className="form-select" value={asigRol} onChange={(e) => setAsigRol(e.target.value)}>
-              <option>Miembro</option><option>Servidor</option><option>Coordinador</option><option>Líder</option>
-            </select>
-          </div>
-          <div className="form-group"><label className="form-label">Desde</label><input className="form-input" type="date" value={asigDesde} onChange={(e) => setAsigDesde(e.target.value)} /></div>
-        </div>
-        <div className="form-group" style={{ marginTop: 10 }}><label className="form-label">Notas</label><textarea className="form-textarea" rows={2} value={asigNotas} onChange={(e) => setAsigNotas(e.target.value)} /></div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => { setModal(null); resetAsig(); }}>Cancelar</button>
-          <button className="btn btn-gold" onClick={saveAsig}>{editAId ? 'Guardar cambios' : 'Asignar'}</button>
-        </div>
-      </Modal>
-
-      <Modal open={modal === 'hito'} onClose={() => { setModal(null); resetH(); }} title={editHId ? 'Editar hito' : 'Registrar hito de crecimiento'} wide>
-        <div className="form-group" style={{ marginBottom: 10 }}><label className="form-label">Miembro *</label>
-          <select className="form-select" value={hMiembro} onChange={(e) => setHMiembro(e.target.value)}>
-            <option value="">— Selecciona miembro —</option>
-            {miembros.sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)).map((m) => (
-              <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Fecha</label><input className="form-input" type="date" value={hFecha} onChange={(e) => setHFecha(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Tipo de hito</label>
-            <select className="form-select" value={hTipo} onChange={(e) => setHTipo(e.target.value)}>
-              <option>Conversión</option><option>Bautismo</option><option>Discipulado</option>
-              <option>Curso Completado</option><option>Integración</option><option>Liderazgo</option>
-              <option>Matrimonio</option><option>Otro</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-group" style={{ marginTop: 10 }}><label className="form-label">Descripción *</label><textarea className="form-textarea" rows={3} value={hDesc} onChange={(e) => setHDesc(e.target.value)} placeholder="Detalles del momento, curso completado, etc." /></div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => { setModal(null); resetH(); }}>Cancelar</button>
-          <button className="btn btn-gold" onClick={saveH}>{editHId ? 'Guardar cambios' : 'Registrar hito'}</button>
-        </div>
-      </Modal>
-      
-      <Modal open={modal === 'detail' && !!selMiembro} onClose={() => setModal(null)} title="Perfil del miembro" wide>
-        {selMiembro && (() => {
-          const asigs = asignacionesPorMiembro[selMiembro.id] || [];
-          const histo = hitosPorMiembro[selMiembro.id] || [];
-          const grupoAsignado = selMiembro.grupoId ? grupos.find((g) => g.id === selMiembro.grupoId) : null;
-          const telLimpio = (selMiembro.telefono || '').replace(/\D/g, '');
-          const iniciales = `${selMiembro.nombre[0] || ''}${selMiembro.apellido[0] || ''}`.toUpperCase();
-          const edad = calcAge(selMiembro.fechaNacimiento);
-          const diasIglesia = diasEnIglesia(selMiembro.fechaIngreso);
-          const aniosIglesia = aniosEnIglesia(selMiembro.fechaIngreso);
-          const dCumple = diasHastaCumple(selMiembro.fechaNacimiento);
-          const ultimoHito = histo.length > 0 ? histo[0] : null;
-          const diasUltimoHito = ultimoHito ? Math.max(0, Math.floor((Date.now() - new Date(ultimoHito.fecha).getTime()) / 86400000)) : null;
-          const sinHitoReciente = diasUltimoHito !== null && diasUltimoHito > 180;
-          return (<>
-            {/* HERO */}
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', padding: '4px 0 18px', borderBottom: '1px solid var(--border)', marginBottom: 18 }}>
-              <div className="avatar-lg" style={{ background: 'linear-gradient(135deg, var(--oro-apostolico), var(--oro-sombra))', color: 'var(--carbon)' }}>{iniciales || '👤'}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-display)' }}>{selMiembro.nombre} {selMiembro.apellido}</h2>
-                  <span className={`badge ${EST_BADGE[selMiembro.estado]}`}>{selMiembro.estado}</span>
-                  <span className={`badge ${CIVIL_BADGE[selMiembro.estadoCivil]}`}>{selMiembro.estadoCivil}</span>
-                  {selMiembro.bautizado && <span className="badge badge-purple">💧 Bautizado</span>}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 6 }}>
-                  {edad !== null ? `🎂 ${edad} años` : '🎂 Sin edad'} · 📍 {selMiembro.zona || 'Sin zona'} · ⛪ {aniosIglesia === 0 ? 'menos de 1 año' : `${aniosIglesia} ${aniosIglesia === 1 ? 'año' : 'años'} en la iglesia`}
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                  {dCumple !== null && dCumple === 0 && <span className="badge badge-green" style={{ fontSize: 11 }}>🎂 ¡Cumple hoy!</span>}
-                  {dCumple !== null && dCumple > 0 && dCumple <= 7 && <span className="badge badge-yellow" style={{ fontSize: 11 }}>🎂 Cumple en {dCumple} {dCumple === 1 ? 'día' : 'días'}</span>}
-                  {dCumple !== null && dCumple > 7 && dCumple <= 30 && <span className="badge badge-blue" style={{ fontSize: 11 }}>🎂 Cumple este mes ({dCumple} días)</span>}
-                  {aniosIglesia > 0 && [1, 5, 10, 15, 20, 25, 30, 40, 50].includes(aniosIglesia) && <span className="badge badge-yellow" style={{ fontSize: 11 }}>💒 ¡{aniosIglesia} años de aniversario!</span>}
-                  {aniosIglesia > 0 && ![1, 5, 10, 15, 20, 25, 30, 40, 50].includes(aniosIglesia) && <span className="badge badge-blue" style={{ fontSize: 11 }}>💒 {aniosIglesia} años</span>}
-                  {sinHitoReciente && <span className="badge badge-red" style={{ fontSize: 11 }}>⚠️ Sin hitos hace {diasUltimoHito} días</span>}
-                </div>
-              </div>
-            </div>
-
-            {/* QUICK CONTACT */}
-            {(telLimpio || selMiembro.email || selMiembro.direccion) && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-                {telLimpio && <a href={`tel:+${telLimpio}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>📞 Llamar</a>}
-                {telLimpio && <a href={`https://wa.me/${telLimpio}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', color: 'var(--green)', borderColor: 'var(--green)' }}>💬 WhatsApp</a>}
-                {selMiembro.email && <a href={`mailto:${selMiembro.email}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', color: 'var(--purple)', borderColor: 'var(--purple)' }}>✉ Email</a>}
-                {selMiembro.direccion && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selMiembro.direccion + ' ' + (selMiembro.zona || ''))}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', color: 'var(--blue)', borderColor: 'var(--blue)' }}>🗺️ Ver en mapa</a>}
-                {selMiembro.contactoPreferido && <span style={{ padding: '4px 10px', fontSize: 11, color: 'var(--dim)', alignSelf: 'center' }}>Prefiere: <strong>{selMiembro.contactoPreferido}</strong></span>}
-              </div>
-            )}
-
-            {/* STATS */}
-            <div className="kpis" style={{ marginBottom: 20 }}>
-              <div className="kpi" style={accentStyle('var(--gold)')}>
-                <div className="kpi-label">⛪ Días en la iglesia</div>
-                <div className="kpi-value" style={{ fontSize: 24 }}>{diasIglesia}</div>
-                <div className="kpi-sub">{aniosIglesia === 0 ? 'menos de 1 año' : `${aniosIglesia} ${aniosIglesia === 1 ? 'año' : 'años'}`} · desde {fmt(selMiembro.fechaIngreso)}</div>
-              </div>
-              <div className="kpi" style={accentStyle('var(--blue)')}>
-                <div className="kpi-label">⛪ Ministerios</div>
-                <div className="kpi-value" style={{ fontSize: 24 }}>{asigs.length}</div>
-                <div className="kpi-sub">{asigs.filter((a) => a.rol === 'Líder' || a.rol === 'Coordinador').length} liderazgo · {asigs.filter((a) => a.rol === 'Servidor' || a.rol === 'Miembro').length} servicio</div>
-              </div>
-              <div className="kpi" style={accentStyle('var(--green)')}>
-                <div className="kpi-label">📍 Hitos</div>
-                <div className="kpi-value" style={{ fontSize: 24 }}>{histo.length}</div>
-                <div className="kpi-sub">{histo.filter((h) => h.tipo === 'Bautismo').length} bautismo · {histo.filter((h) => h.tipo === 'Discipulado').length} discipulado</div>
-              </div>
-              <div className="kpi" style={accentStyle(sinHitoReciente ? 'var(--red)' : 'var(--purple)')}>
-                <div className="kpi-label">🕒 Último hito</div>
-                <div className="kpi-value" style={{ fontSize: 24 }}>{diasUltimoHito === null ? '—' : diasUltimoHito === 0 ? 'Hoy' : diasUltimoHito}</div>
-                <div className="kpi-sub">{ultimoHito ? `${ultimoHito.tipo} · ${fmt(ultimoHito.fecha)}` : 'sin hitos registrados'}</div>
-              </div>
-            </div>
-
-            {/* LINKED CARDS */}
-            {grupoAsignado && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--gold)', marginBottom: 10 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--gold-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👥</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Grupo de misión</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--oro-sombra)' }}>{grupoAsignado.nombre}</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>📍 {grupoAsignado.zona} · 🗓️ {grupoAsignado.dia} {grupoAsignado.hora} · 📌 {grupoAsignado.lugar || 'Sin lugar'} · 👤 {grupoAsignado.lider || 'Sin mentor'}</div>
-                </div>
-              </div>
-            )}
-            {/* INFO GRID */}
-            <div className="form-section">Datos Personales</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0 18px' }}>
-              <div className="detail-row"><span className="detail-label">📅 Nacimiento</span><span className="detail-value">{selMiembro.fechaNacimiento ? fmt(selMiembro.fechaNacimiento) : '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">🎂 Edad</span><span className="detail-value">{edad !== null ? `${edad} años` : '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">💼 Profesión</span><span className="detail-value">{selMiembro.profesion || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">💒 Estado civil</span><span className="detail-value">{selMiembro.estadoCivil || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">💍 Cónyuge</span><span className="detail-value">{selMiembro.conyuge || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">👶 Hijos</span><span className="detail-value">{selMiembro.hijos || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">💧 Bautizado</span><span className="detail-value">{selMiembro.bautizado ? (selMiembro.fechaBautismo ? `Sí · ${fmt(selMiembro.fechaBautismo)}` : 'Sí') : 'No'}</span></div>
-            </div>
-
-            <div className="form-section" style={{ marginTop: 16 }}>Contacto</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0 18px' }}>
-              <div className="detail-row"><span className="detail-label">📞 Teléfono</span><span className="detail-value">{selMiembro.telefono || <span style={{ color: 'var(--dim)' }}>No registrado</span>}</span></div>
-              <div className="detail-row"><span className="detail-label">✉ Email</span><span className="detail-value" style={{ fontSize: 12, wordBreak: 'break-all' }}>{selMiembro.email || '—'}</span></div>
-              <div className="detail-row" style={{ gridColumn: '1 / -1' }}><span className="detail-label">🏡 Dirección</span><span className="detail-value" style={{ fontSize: 12 }}>{selMiembro.direccion || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">📍 Zona</span><span className="detail-value">{selMiembro.zona || '—'}</span></div>
-            </div>
-
-            {selMiembro.notas && (
-              <>
-                <div className="form-section" style={{ marginTop: 16 }}>Notas Pastorales</div>
-                <div style={{ padding: 12, background: 'var(--surface-2)', borderRadius: 8, fontSize: 13, whiteSpace: 'pre-wrap', borderLeft: '3px solid var(--oro-apostolico)' }}>{selMiembro.notas}</div>
-              </>
-            )}
-
-            {/* MINISTERIOS con edición inline */}
-            <div className="form-section" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>⛪ Ministerios ({asigs.length})</span>
-              <button className="btn btn-gold btn-sm" onClick={() => { setModal(null); openNewAsig(selMiembro.id); }}>➕ Asignar</button>
-            </div>
-            {asigs.length === 0 ? (
-              <div style={{ color: 'var(--dim)', fontSize: 13, padding: 12, textAlign: 'center', background: 'var(--surface-2)', borderRadius: 8 }}>Sin ministerios asignados</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {asigs.map((a) => {
-                  const mn = ministerios.find((x) => x.id === a.ministerioId);
-                  if (!mn) return null;
-                  return (
-                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: 'var(--surface-2)', borderRadius: 8, borderLeft: `3px solid ${mn.color}` }}>
-                      <span style={{ fontSize: 22 }}>{mn.emoji}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{mn.nombre}</div>
-                        <div style={{ fontSize: 11, color: 'var(--dim)' }}>Desde {fmt(a.desde)} {mn.lider ? `· Ministro: ${mn.lider}` : ''}</div>
-                      </div>
-                      <select className="form-select" style={{ width: 'auto', minWidth: 120, fontSize: 12, padding: '4px 8px' }} value={a.rol} onChange={(e) => updateAsigRol(a.id, e.target.value)}>
-                        {ROLES.map((r) => <option key={r}>{r}</option>)}
-                      </select>
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => quickRemoveAsig(a.id, mn.nombre)}>🗑</button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* HITOS con timeline + quick add */}
-            <div className="form-section" style={{ marginTop: 18 }}>📍 Hitos de Crecimiento ({histo.length})</div>
-
-            {/* QUICK ADD HITO */}
-            <div style={{ display: 'grid', gridTemplateColumns: '140px 140px 1fr auto', gap: 6, marginBottom: 12, padding: 10, background: 'var(--gold-glow)', borderRadius: 8, border: '1px solid var(--gold)' }}>
-              <select className="form-select" value={qhTipo} onChange={(e) => setQhTipo(e.target.value)} style={{ fontSize: 12 }}>
-                {HITO_TIPOS.map((t) => <option key={t}>{t}</option>)}
-              </select>
-              <input type="date" className="form-input" value={qhFecha} onChange={(e) => setQhFecha(e.target.value)} style={{ fontSize: 12 }} />
-              <input className="form-input" placeholder="Descripción del hito…" value={qhDesc} onChange={(e) => setQhDesc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && quickAddHito()} style={{ fontSize: 12 }} />
-              <button className="btn btn-gold btn-sm" onClick={quickAddHito} disabled={!qhDesc.trim()}>➕ Agregar</button>
-            </div>
-
-            {histo.length === 0 ? (
-              <div style={{ color: 'var(--dim)', fontSize: 13, padding: 12, textAlign: 'center', background: 'var(--surface-2)', borderRadius: 8 }}>Sin hitos registrados · usa el formulario arriba para agregar el primero</div>
-            ) : (
-              <div className="timeline" style={{ marginLeft: 0 }}>
-                {histo.map((h) => (
-                  <div key={h.id} className="timeline-item">
-                    <div className="timeline-date">{fmt(h.fecha)}</div>
-                    <div className="timeline-dot" />
-                    <div className="timeline-content">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span className={`badge ${HITO_BADGE[h.tipo]}`}>{h.tipo}</span>
-                        <button className="btn btn-secondary btn-sm" style={{ padding: '2px 6px', fontSize: 10 }} onClick={() => openEditH(h.id)}>✏</button>
-                        <button className="btn btn-danger btn-sm" style={{ padding: '2px 6px', fontSize: 10 }} onClick={() => { setSelectedId(h.id); setModal('delH'); }}>🗑</button>
-                      </div>
-                      <div style={{ marginTop: 4, fontSize: 13, whiteSpace: 'pre-wrap' }}>{h.descripcion}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="modal-footer" style={{ marginTop: 20 }}>
-              {selMiembro.estado !== 'Fallecido' && (
-                <button
-                  className="btn btn-secondary"
-                  style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6, borderColor: 'var(--red, #ef4444)', color: 'var(--red, #ef4444)' }}
-                  onClick={async () => {
-                    if (window.confirm(`¿Está seguro de registrar el fallecimiento de ${selMiembro.nombre} ${selMiembro.apellido}?`)) {
-                      await db.miembros.update(selMiembro.id, { estado: 'Fallecido', actualizado: new Date().toISOString() });
-                      showToast('Fallecimiento registrado');
-                    }
-                  }}
-                >
-                  ✝️ Registrar Fallecimiento
-                </button>
-              )}
-              <button className="btn btn-secondary" onClick={() => { setModal(null); openEditM(selMiembro.id); }}>✏ Editar perfil</button>
-              <button className="btn btn-danger" onClick={() => setModal('delM')}>🗑 Eliminar</button>
-            </div>
-          </>);
-        })()}
-      </Modal>
-
-      <Modal open={modal === 'detail' && !!selMinisterio && !selMiembro} onClose={() => setModal(null)} title="Detalle del ministerio" wide>
-        {selMinisterio && (() => {
-          const asigs = asignaciones.filter((a) => a.ministerioId === selMinisterio.id);
-          return (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{ fontSize: 40 }}>{selMinisterio.emoji}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>{selMinisterio.nombre}</div>
-                  <div style={{ fontSize: 12, color: 'var(--dim)' }}>Ministro: {selMinisterio.lider || '—'}</div>
-                </div>
-                <div style={{ width: 24, height: 24, background: selMinisterio.color, borderRadius: 4 }} />
-              </div>
-              {selMinisterio.descripcion && (
-                <div style={{ padding: 10, background: 'var(--bg)', borderRadius: 6, fontSize: 13, marginBottom: 12 }}>{selMinisterio.descripcion}</div>
-              )}
-              <h4 style={{ marginBottom: 8 }}>Miembros sirviendo ({asigs.length})</h4>
-              {asigs.length === 0 ? <div style={{ color: 'var(--dim)', fontSize: 13 }}>Aún no hay miembros asignados</div> : (
-                <table className="data-table">
-                  <thead><tr><th>Miembro</th><th>Rol</th><th>Desde</th><th>Notas</th></tr></thead>
-                  <tbody>
-                    {asigs.map((a) => {
-                      const m = miembros.find((x) => x.id === a.miembroId);
-                      if (!m) return null;
-                      return (
-                        <tr key={a.id}>
-                          <td><strong>{m.nombre} {m.apellido}</strong></td>
-                          <td><span className={`badge ${ROL_BADGE[a.rol]}`}>{a.rol}</span></td>
-                          <td style={{ fontSize: 12 }}>{fmt(a.desde)}</td>
-                          <td style={{ fontSize: 12 }}>{a.notas || '—'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => { setModal(null); openEditMin(selMinisterio.id); }}>✏ Editar</button>
-                <button className="btn btn-gold" onClick={() => { setModal(null); openNewAsig(undefined, selMinisterio.id); }}>➕ Asignar miembro</button>
-                <button className="btn btn-danger" onClick={() => setModal('delMin')}>🗑 Eliminar</button>
-              </div>
-            </>
-          );
-        })()}
-      </Modal>
-
-      <Modal open={modal === 'delM'} onClose={() => setModal(null)} title="Eliminar miembro">
-        <p>¿Eliminar a <strong>{selMiembro?.nombre} {selMiembro?.apellido}</strong> y todas sus asignaciones e hitos?</p>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-          <button className="btn btn-danger" onClick={delM}>Eliminar todo</button>
-        </div>
-      </Modal>
-
-      <Modal open={modal === 'delMin'} onClose={() => setModal(null)} title="Eliminar ministerio">
-        <p>¿Eliminar el ministerio <strong>{selMinisterio?.nombre}</strong> y todas sus asignaciones?</p>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-          <button className="btn btn-danger" onClick={delMin}>Eliminar</button>
-        </div>
-      </Modal>
-
-      <Modal open={modal === 'delAsig'} onClose={() => setModal(null)} title="Eliminar asignación">
-        <p>¿Quitar a <strong>{selAsigMiembro?.nombre} {selAsigMiembro?.apellido}</strong> del ministerio <strong>{selAsigMinisterio?.nombre}</strong>?</p>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-          <button className="btn btn-danger" onClick={delAsig}>Quitar</button>
-        </div>
-      </Modal>
-
-      <Modal open={modal === 'delH'} onClose={() => setModal(null)} title="Eliminar hito">
-        <p>¿Eliminar este hito de <strong>{selHitoMiembro?.nombre} {selHitoMiembro?.apellido}</strong>?</p>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-          <button className="btn btn-danger" onClick={delH}>Eliminar</button>
-        </div>
-      </Modal>
+      <DeleteModals
+        modal={modal}
+        selMiembro={selMiembro}
+        selMinisterio={selMinisterio}
+        selAsigMiembro={selAsigMiembro}
+        selAsigMinisterio={selAsigMinisterio}
+        selHitoMiembro={selHitoMiembro}
+        onClose={() => setModal(null)}
+        delM={delM}
+        delMin={delMin}
+        delAsig={delAsig}
+        delH={delH}
+      />
     </Layout>
   );
 }
