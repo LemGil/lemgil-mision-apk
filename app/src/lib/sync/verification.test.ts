@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toLowerCaseKeys, toCamelCaseKeys } from "./api";
+import { toLowerCaseKeys, toCamelCaseKeys, parseMissingColumn } from "./api";
 
 describe("Sync API - Verification", () => {
   it("should lowercase keys correctly", () => {
@@ -7,6 +7,29 @@ describe("Sync API - Verification", () => {
     const result = toLowerCaseKeys(obj) as Record<string, unknown>;
     expect(result).toHaveProperty("planofrendamonto");
     expect(result.planofrendamonto).toBe(0);
+  });
+});
+
+describe("parseMissingColumn (escalera adaptativa de columnas)", () => {
+  it("extrae 'version' del mensaje de PostgREST", () => {
+    const msg = "Could not find the 'version' column of 'cursos' in the schema cache";
+    expect(parseMissingColumn(msg)).toBe("version");
+  });
+
+  it("extrae 'updated_at' del mensaje de PostgREST", () => {
+    const msg = "Could not find the 'updated_at' column of 'zonas' in the schema cache";
+    expect(parseMissingColumn(msg)).toBe("updated_at");
+  });
+
+  it("extrae cualquier otra columna nombrada en el mensaje", () => {
+    const msg = "Could not find the 'codigo' column of 'metas' in the schema cache";
+    expect(parseMissingColumn(msg)).toBe("codigo");
+  });
+
+  it("devuelve null ante un mensaje ajeno", () => {
+    expect(parseMissingColumn("duplicate key value violates unique constraint")).toBeNull();
+    expect(parseMissingColumn("Network request failed")).toBeNull();
+    expect(parseMissingColumn("")).toBeNull();
   });
 });
 

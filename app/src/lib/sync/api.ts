@@ -139,7 +139,11 @@ export const tableMap: Record<SyncTableName, Table<any, string>> = {
  * Prepara un registro local para subirlo a Supabase.
  * - Quita campos internos de Dexie.
  * - Conserva version y updatedAt (antes se quitaban: por eso los conflictos
- *   nunca se resolvían y la versión remota quedaba siempre en 1).
+ *   nunca se resolvían y la versión remota quedaba siempre en 1). OJO: los
+ *   esquemas remotos no son parejos (hay tablas sin version y/o sin
+ *   updated_at); esas columnas se conservan aquí y se descartan de forma
+ *   adaptativa, por tabla, solo si el servidor las rechaza (ver
+ *   parseMissingColumn y la escalera de reintento en upsertOne).
  * - aportesComun NO lleva version (la tabla remota rechaza esa columna; es el
  *   arreglo histórico de los commits «excluir campo version de aportesComun»).
  */
@@ -179,26 +183,63 @@ async function pushTombstones(): Promise<SyncError[]> {
   return errors;
 }
 
-async function upsertOne(table: SyncTableName, record: Record<string, unknown>): Promise<string | null> {
-  const payload = toLowerCaseKeys(cleanForPush(table, record)) as Record<string, unknown>;
-  const { error } = await supabase.from(toSupabase(table)).upsert(payload);
-  if (!error) return null;
-  // Red de seguridad: si la tabla remota no tiene la columna updated_at,
-  // se reintenta sin ella y se recuerda la tabla para esta sesión.
-  if (/updated_at/i.test(error.message) && "updated_at" in payload) {
-    const retry = { ...payload };
-    delete retry.updated_at;
-    const second = await supabase.from(toSupabase(table)).upsert(retry);
-    if (!second.error) {
-      tablesWithoutUpdatedAt.add(table);
-      return null;
-    }
-    return second.error.message;
-  }
-  return error.message;
+/**
+ * Extrae el nombre de la columna faltante de un error de PostgREST del tipo
+ * «Could not find the 'version' column of 'cursos' in the schema cache».
+ * Devuelve null si el mensaje no es de ese tipo. (Función pura, probada.)
+ */
+export function parseMissingColumn(message: string): string | null {
+  const match = /could not find the '([^']+)' column/i.exec(message);
+  return match ? match[1] : null;
 }
 
-const tablesWithoutUpdatedAt = new Set<SyncTableName>();
+/**
+ * Columnas que el servidor ya rechazó por tabla (solo esta sesión): los
+ * esquemas remotos no son parejos — hay tablas sin `version` y/o sin
+ * `updated_at` — y una vez detectada la columna faltante, los registros
+ * siguientes de esa tabla salen sin ella, sin repetir la escalera.
+ */
+const droppedColumns = new Map<SyncTableName, Set<string>>();
+
+function noteDroppedColumn(table: SyncTableName, column: string): void {
+  let set = droppedColumns.get(table);
+  if (!set) {
+    set = new Set<string>();
+    droppedColumns.set(table, set);
+  }
+  set.add(column);
+}
+
+function applyDroppedColumns(table: SyncTableName, row: Record<string, unknown>): Record<string, unknown> {
+  const dropped = droppedColumns.get(table);
+  if (!dropped || dropped.size === 0) return row;
+  const out = { ...row };
+  for (const column of dropped) delete out[column];
+  return out;
+}
+
+/** Intentos máximos de la escalera: uno por columna descartable, con margen. */
+const MAX_UPSERT_ATTEMPTS = 5;
+
+async function upsertOne(table: SyncTableName, record: Record<string, unknown>): Promise<string | null> {
+  const base = toLowerCaseKeys(cleanForPush(table, record)) as Record<string, unknown>;
+  let payload = applyDroppedColumns(table, base);
+  let lastMessage: string | null = null;
+  for (let attempt = 0; attempt < MAX_UPSERT_ATTEMPTS; attempt++) {
+    const { error } = await supabase.from(toSupabase(table)).upsert(payload);
+    if (!error) return null;
+    lastMessage = error.message;
+    // Escalera adaptativa: si el servidor rechaza una columna que va en el
+    // payload, se registra el descarte para la tabla y se reintenta sin ella.
+    // Cualquier otro error se devuelve tal cual (nada se traga en silencio).
+    const missing = parseMissingColumn(error.message);
+    if (!missing || !(missing in payload)) return error.message;
+    noteDroppedColumn(table, missing);
+    payload = { ...payload };
+    delete payload[missing];
+  }
+  return lastMessage;
+}
 
 /**
  * Sube SOLO los registros que cambiaron desde el último sync (bandeja de salida).
@@ -219,10 +260,8 @@ export async function pushOutbox(): Promise<SyncError[]> {
         if (entry.id != null) done.push(entry.id);
         continue;
       }
-      const payloadRecord = tablesWithoutUpdatedAt.has(table)
-        ? { ...record, updatedAt: undefined }
-        : record;
-      const errMsg = await upsertOne(table, payloadRecord);
+      // upsertOne aplica los descartes de columnas ya conocidos de la tabla.
+      const errMsg = await upsertOne(table, record);
       if (errMsg) {
         errors.push({ table, message: `subida de ${entry.recordId}: ${errMsg}` });
       } else if (entry.id != null) {
@@ -248,25 +287,30 @@ export async function forceFullPush(): Promise<SyncError[]> {
     try {
       const localData = await tableMap[table].toArray();
       if (localData.length === 0) continue;
-      const cleaned = localData.map((r) =>
-        tablesWithoutUpdatedAt.has(table) ? { ...cleanForPush(table, r), updatedAt: undefined } : cleanForPush(table, r),
-      );
+      const cleaned = localData.map((r) => cleanForPush(table, r));
       const lowerData = toLowerCaseKeys(cleaned) as Record<string, unknown>[];
-      const { error } = await supabase.from(toSupabase(table)).upsert(lowerData);
-      if (error) {
-        if (/updated_at/i.test(error.message)) {
-          const retry = lowerData.map((r) => {
-            const c = { ...r };
-            delete c.updated_at;
-            return c;
-          });
-          const second = await supabase.from(toSupabase(table)).upsert(retry);
-          if (second.error) errors.push({ table, message: second.error.message });
-          else tablesWithoutUpdatedAt.add(table);
-        } else {
-          errors.push({ table, message: error.message });
+      // Se parte de los descartes ya conocidos de la tabla y se aplica la
+      // misma escalera que en upsertOne, a nivel de lote: ante un error de
+      // columna faltante se quita de todas las filas y se reintenta.
+      let rows = lowerData.map((r) => applyDroppedColumns(table, r));
+      let errorMsg: string | null = null;
+      for (let attempt = 0; attempt < MAX_UPSERT_ATTEMPTS; attempt++) {
+        const { error } = await supabase.from(toSupabase(table)).upsert(rows);
+        if (!error) {
+          errorMsg = null;
+          break;
         }
+        errorMsg = error.message;
+        const missing = parseMissingColumn(error.message);
+        if (!missing || !rows.some((r) => missing in r)) break;
+        noteDroppedColumn(table, missing);
+        rows = rows.map((r) => {
+          const c = { ...r };
+          delete c[missing];
+          return c;
+        });
       }
+      if (errorMsg) errors.push({ table, message: errorMsg });
     } catch (err: unknown) {
       errors.push({ table, message: err instanceof Error ? err.message : String(err) });
     }
