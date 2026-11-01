@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { exportCSV } from '../../lib/csvExport';
-import { exportGruposPDF } from '../../lib/pdfExport';
+import { exportGruposPDF, safeExport } from '../../lib/pdfExport';
 import { money, MS_SHORT, monthKey } from '../../lib/utils';
 import { CsvImportButton } from '../CsvImportButton';
 import { showToast } from '../../lib/notification';
@@ -49,7 +49,7 @@ export function OfrendasGruposTab({
       <div className="actions-row between">
         <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
           <button className="btn btn-gold" onClick={() => { resetA(); setATipo('Ofrenda'); setModal('aporte'); }}>➕ Registrar Ofrenda Grupo</button>
-          <button className="btn btn-secondary" onClick={() => exportGruposPDF({ grupos, aportes, anio: new Date().getFullYear().toString() })}>📄 Exportar PDF</button>
+          <button className="btn btn-secondary" onClick={() => safeExport(() => exportGruposPDF({ grupos, aportes, anio: new Date().getFullYear().toString() }))}>📄 Exportar PDF</button>
           <button className="btn btn-secondary" onClick={() => {
             if (!grupos.length) return showToast('No hay grupos para exportar');
             const mesK = new Date().toISOString().slice(0, 7);

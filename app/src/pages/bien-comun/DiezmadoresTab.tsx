@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { exportCSV } from '../../lib/csvExport';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { showToast } from '../../lib/notification';
-import { exportDiezmadoresPDF } from '../../lib/pdfExport';
+import { exportDiezmadoresPDF, safeExport } from '../../lib/pdfExport';
 import { money, monthKey, MS_SHORT } from '../../lib/utils';
 import type { AporteComun, Diezmador } from '../../lib/types';
 
@@ -24,7 +24,7 @@ export function DiezmadoresTab(props: DiezmadoresTabProps) {
             <div className="page-content">
                 <div className="actions-row">
                     <button className="btn btn-gold" onClick={onNuevoDiezmador}>➕ Nuevo Diezmador</button>
-                    <button className="btn btn-secondary" onClick={() => exportDiezmadoresPDF({ colaboradores, aportes, anio: new Date().getFullYear().toString() })}>📄 Exportar PDF</button>
+                    <button className="btn btn-secondary" onClick={() => safeExport(() => exportDiezmadoresPDF({ colaboradores, aportes, anio: new Date().getFullYear().toString() }))}>📄 Exportar PDF</button>
                     <button className="btn btn-secondary" onClick={() => {
                         if (!colaboradores.length) return showToast('No hay diezmadores para exportar');
                         const h = ['#', 'Nombre', 'Apellido', 'Zona', 'Estado', 'Plan Diezmo', 'Total Aportado'];

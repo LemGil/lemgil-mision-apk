@@ -20,8 +20,4 @@ export const MS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago',
 
 export const MS_FULL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-export function q(search: string, text: string) {
-  return !search || text.toLowerCase().includes(search.toLowerCase());
-}
-
 export const accentStyle = (color: string): CSSProperties => ({ '--accent': color } as CSSProperties);

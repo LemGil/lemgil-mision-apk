@@ -1,7 +1,7 @@
 import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
-import { exportEvangelismoPDF } from '../../lib/pdfExport';
+import { exportEvangelismoPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
 import type { Evangelismo } from '../../lib/types';
@@ -24,7 +24,7 @@ export function EvangelismoTable(props: EvangelismoTableProps) {
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{evangelsFiltrados.length} de {evangels.length} actividades</div>
              </div>
              <div style={{ display: 'flex', gap: 5 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => exportEvangelismoPDF({ evangelismos: evangels })}>📄 Exportar PDF</button>
+               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportEvangelismoPDF({ evangelismos: evangels }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!evangels.length) return showToast('No hay actividades para exportar');
                   const h = ['Fecha', 'Tipo', 'Zona', 'Líder', 'Contactos', 'Conversiones', 'Notas'];

@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
-import { exportEstudiantesPDF } from '../../lib/pdfExport';
+import { exportEstudiantesPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
 import type { Curso, Estudiante, Grupo, Zona } from '../../lib/types';
@@ -33,7 +33,7 @@ export function EstudiantesTab(props: EstudiantesTabProps) {
     <>
         <div className="actions-row">
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } })}>📄 Exportar PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } }))}>📄 Exportar PDF</button>
             <button className="btn btn-gold" onClick={openNewEst}>➕ Matricular Estudiante</button>
           </div>
         </div>
@@ -76,7 +76,7 @@ export function EstudiantesTab(props: EstudiantesTabProps) {
              <div style={{ fontSize: 12, color: 'var(--dim)' }}>{estudiantes.length} estudiantes</div>
            </div>
            <div style={{ display: 'flex', gap: 8, padding: '0 16px', marginBottom: 12 }}>
-             <button className="btn btn-secondary btn-sm" onClick={() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } })}>📄 Exportar PDF</button>
+             <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportEstudiantesPDF({ estudiantes, filtros: { curso: filterCursoEst, estado: filterEstadoEst } }))}>📄 Exportar PDF</button>
               <button className="btn btn-secondary btn-sm" onClick={() => {
                 if (!filteredEst.length) return showToast('No hay estudiantes para exportar');
                 const h = ['#', 'Nombre', 'Apellido', 'Curso', 'Teléfono', 'Email', 'Estado'];

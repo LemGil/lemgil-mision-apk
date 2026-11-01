@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
-import { exportCursosPDF } from '../../lib/pdfExport';
+import { exportCursosPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import type { Curso, Estudiante, Leccion } from '../../lib/types';
 import { NIVEL_BADGE } from './constants';
@@ -28,7 +28,7 @@ export function CursosTab(props: CursosTabProps) {
     <>
         <div className="actions-row">
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => exportCursosPDF({ cursos, lecciones })}>📄 Exportar PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportCursosPDF({ cursos, lecciones }))}>📄 Exportar PDF</button>
             <button className="btn btn-secondary btn-sm" onClick={() => {
               if (!cursos.length) return showToast('No hay cursos para exportar');
               const h = ['Nombre', 'Instructor', 'Nivel', 'Estado', 'Lecciones', 'Duración'];

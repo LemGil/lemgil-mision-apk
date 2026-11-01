@@ -1,5 +1,6 @@
 import { EmptyState } from '../../components/EmptyState';
 import { fmt } from '../../lib/utils';
+import { exportCertificadosPDF, safeExport } from '../../lib/pdfExport';
 import type { Certificado, Curso, Estudiante } from '../../lib/types';
 import { CAL_BADGE } from './constants';
 
@@ -15,7 +16,10 @@ export function CertificadosTab(props: CertificadosTabProps) {
   const { certs, estudiantes, cursos, openNewCert, openEditCert } = props;
   return (
     <>
-        <div className="actions-row"><button className="btn btn-gold" onClick={openNewCert}>🏆 Emitir Certificado</button></div>
+        <div className="actions-row">
+          <button className="btn btn-gold" onClick={openNewCert}>🏆 Emitir Certificado</button>
+          <button className="btn btn-secondary" onClick={() => safeExport(() => exportCertificadosPDF({ certs, estudiantes, cursos }))}>📄 Exportar PDF</button>
+        </div>
         <div className="card">
           <div className="card-header">
             <div className="card-title">🏆 Certificados Emitidos</div>

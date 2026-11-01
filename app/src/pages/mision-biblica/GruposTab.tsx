@@ -1,7 +1,7 @@
 import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
-import { exportGruposMisionPDF } from '../../lib/pdfExport';
+import { exportGruposMisionPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import type { Conversion, Grupo, Miembro } from '../../lib/types';
 
@@ -24,7 +24,7 @@ export function GruposTab(props: GruposTabProps) {
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{gruposFiltrados.length} de {grupos.length} grupos</div>
              </div>
              <div style={{ display: 'flex', gap: 5 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => exportGruposMisionPDF({ grupos, miembros })}>📄 Exportar PDF</button>
+               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportGruposMisionPDF({ grupos, miembros }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!grupos.length) return showToast('No hay grupos para exportar');
                   const h = ['Nombre', 'Zona', 'Líder', 'Día', 'Hora', 'Capacidad', 'Lugar'];

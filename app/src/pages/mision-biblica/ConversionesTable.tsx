@@ -1,5 +1,5 @@
 import { EmptyState } from '../../components/EmptyState';
-import { exportConversionesPDF } from '../../lib/pdfExport';
+import { exportConversionesPDF, safeExport } from '../../lib/pdfExport';
 import { fmt } from '../../lib/utils';
 import type { Conversion, Grupo } from '../../lib/types';
 import { EST_BADGE } from './constants';
@@ -26,7 +26,7 @@ export function ConversionesTable(props: ConversionesTableProps) {
                <div className="card-title">📋 Registro de Conversiones</div>
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{convs.length} registros</div>
              </div>
-             <button className="btn btn-secondary btn-sm" onClick={() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv } })}>📄 Exportar PDF</button>
+             <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv } }))}>📄 Exportar PDF</button>
            </div>
            {filtered.length === 0 ? (
              <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />

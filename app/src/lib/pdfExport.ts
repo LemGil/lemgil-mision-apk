@@ -1,5 +1,217 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { showToast } from './notification';
+import { fmt } from './utils';
+import type {
+  AporteComun,
+  Certificado,
+  Conversion,
+  Curso,
+  Diezmador,
+  Estudiante,
+  Evangelismo,
+  Grupo,
+  Hito,
+  Leccion,
+  Miembro,
+  MiembroMinisterio,
+  Ministerio,
+} from './types';
+
+/**
+ * Ejecuta un exportador PDF garantizando que un fallo nunca sea silencioso:
+ * antes, si un exportador lanzaba (p. ej. por un campo renombrado), el clic
+ * no producía ni PDF ni aviso. Ahora el error se registra y se avisa.
+ */
+export function safeExport(fn: () => void): void {
+  try {
+    fn();
+  } catch (err) {
+    console.error('[pdfExport] Error al generar el PDF:', err);
+    showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Formas de datos agregados (las construyen los productores; si un    */
+/* campo se renombra en un solo lado, tsc debe fallar).                */
+/* ------------------------------------------------------------------ */
+
+/** Resumen anual de Bien Común (ResumenTab.resumenAnual). */
+export interface ResumenAnualBC {
+  total: number;
+  diezmos: number;
+  ofrendas: number;
+}
+
+/** Una fila mensual de Bien Común (ResumenTab.resumenCompleto.mesesData). */
+export interface MesResumenBC {
+  mes: string;
+  idx: number;
+  total: number;
+  diezmos: number;
+  ofrendas: number;
+  regs: number;
+}
+
+/** Top de diezmadores de Bien Común (ResumenTab.resumenCompleto.topDiezmadores). */
+export interface TopDiezmadorBC {
+  id: string;
+  nombre: string;
+  apellido: string;
+  zona: string;
+  total: number;
+  regs: number;
+}
+
+/** Top de grupos de Bien Común (ResumenTab.resumenCompleto.topGrupos). */
+export interface TopGrupoBC {
+  id: string;
+  nombre: string;
+  zona: string;
+  total: number;
+  regs: number;
+}
+
+/** Resumen completo de Bien Común (ResumenTab.resumenCompleto). */
+export interface ResumenCompletoBC {
+  mesesData: MesResumenBC[];
+  mejorMes: MesResumenBC | null;
+  promedioMensual: number;
+  diezmadoresActivosAnio: number;
+  topDiezmadores: TopDiezmadorBC[];
+  topGrupos: TopGrupoBC[];
+  totalAportes: number;
+  gruposConOfrenda: number;
+  variacionTotal: number | null;
+  variacionDiezmos: number | null;
+  variacionOfrendas: number | null;
+}
+
+/** Cumplimiento por diezmador (ResumenTab.cumplimiento.cumplimientoDiezmadores). */
+export interface CumplimientoDiezmadorBC {
+  id: string;
+  nombre: string;
+  apellido: string;
+  zona: string;
+  planDiezmo: number;
+  metaAnual: number;
+  total: number;
+  regs: number;
+  pct: number | null;
+}
+
+/** Cumplimiento por grupo (ResumenTab.cumplimiento.cumplimientoGrupos). */
+export interface CumplimientoGrupoBC {
+  id: string;
+  nombre: string;
+  zona: string;
+  planOfrendasMensual: number;
+  metaAnual: number;
+  total: number;
+  regs: number;
+  pct: number | null;
+}
+
+/** Período (trimestre/semestre/año) de cumplimiento (ResumenTab.cumplimiento). */
+export interface CumplimientoPeriodoBC {
+  etiqueta: string;
+  tipo: string;
+  total: number;
+  metaEsperada: number;
+  pct: number | null;
+}
+
+/** Fila mensual acumulada de cumplimiento (ResumenTab.cumplimiento.mensuales). */
+export interface CumplimientoMensualBC extends CumplimientoPeriodoBC {
+  idx: number;
+  acumulado: number;
+  metaAcumulada: number;
+  pctAcumulado: number | null;
+}
+
+/** Cumplimiento completo de Bien Común (ResumenTab.cumplimiento). */
+export interface CumplimientoBC {
+  metaGlobalAnual: number;
+  metaGlobalMes: number;
+  totalRecAnio: number;
+  totalRecMesActual: number;
+  pctGlobal: number;
+  metaAcumuladaEsperada: number;
+  cumplimientoDiezmadores: CumplimientoDiezmadorBC[];
+  cumplimientoGrupos: CumplimientoGrupoBC[];
+  mensuales: CumplimientoMensualBC[];
+  trimestres: CumplimientoPeriodoBC[];
+  semestres: CumplimientoPeriodoBC[];
+  anual: CumplimientoPeriodoBC;
+}
+
+/** Datos del Reporte General (Reportes.datos / snapshot guardado en db.reportes). */
+export interface ReporteDatos {
+  conv: { total: number; mesActual: number; integrados: number; grupos: number };
+  evang: { total: number; contactos: number; conversiones: number };
+  academia: { cursos: number; cursosActivos: number; estudiantes: number; certificados: number };
+  finanzas: {
+    diezmos: number;
+    ofrendas: number;
+    bienComunDiezmos: number;
+    bienComunOfrendas: number;
+    bienComunTotal: number;
+    bienComunPlan: number;
+    colaboradoresAyuda: number;
+    colaboradoresMisiones: number;
+    colaboradoresManosAbiertas: number;
+    colaboradoresConstruccion: number;
+    colaboradoresOtro: number;
+    colaboradoresTotal: number;
+    colaboradoresPlan: number;
+    totalFinal: number;
+    planMensual: number;
+  };
+  manos: { beneficiarios: number; campanas: number; entregas: number; familias: number; personas: number };
+  negocios: { activos: number; emprendedores: number; ingresos: number };
+  comunicacion: { publicaciones: number; alcance: number; engagement: number };
+}
+
+/** Snapshot vacío: base segura para mostrar informes guardados incompletos. */
+export const REPORTE_DATOS_VACIO: ReporteDatos = {
+  conv: { total: 0, mesActual: 0, integrados: 0, grupos: 0 },
+  evang: { total: 0, contactos: 0, conversiones: 0 },
+  academia: { cursos: 0, cursosActivos: 0, estudiantes: 0, certificados: 0 },
+  finanzas: {
+    diezmos: 0, ofrendas: 0, bienComunDiezmos: 0, bienComunOfrendas: 0, bienComunTotal: 0,
+    bienComunPlan: 0, colaboradoresAyuda: 0, colaboradoresMisiones: 0, colaboradoresManosAbiertas: 0,
+    colaboradoresConstruccion: 0, colaboradoresOtro: 0, colaboradoresTotal: 0, colaboradoresPlan: 0,
+    totalFinal: 0, planMensual: 0,
+  },
+  manos: { beneficiarios: 0, campanas: 0, entregas: 0, familias: 0, personas: 0 },
+  negocios: { activos: 0, emprendedores: 0, ingresos: 0 },
+  comunicacion: { publicaciones: 0, alcance: 0, engagement: 0 },
+};
+
+/**
+ * Parsea el `resumen` JSON de un informe guardado SIN lanzar jamás:
+ * JSON dañado devuelve el snapshot vacío y cada sección ausente se rellena
+ * con ceros, para que el modal «Ver» muestre lo que haya en vez de tumbar
+ * la app al ErrorBoundary.
+ */
+export function parseReporteResumen(raw: string | null | undefined): ReporteDatos {
+  if (!raw) return REPORTE_DATOS_VACIO;
+  try {
+    const p = JSON.parse(raw) as Partial<ReporteDatos>;
+    return {
+      conv: { ...REPORTE_DATOS_VACIO.conv, ...(p.conv ?? {}) },
+      evang: { ...REPORTE_DATOS_VACIO.evang, ...(p.evang ?? {}) },
+      academia: { ...REPORTE_DATOS_VACIO.academia, ...(p.academia ?? {}) },
+      finanzas: { ...REPORTE_DATOS_VACIO.finanzas, ...(p.finanzas ?? {}) },
+      manos: { ...REPORTE_DATOS_VACIO.manos, ...(p.manos ?? {}) },
+      negocios: { ...REPORTE_DATOS_VACIO.negocios, ...(p.negocios ?? {}) },
+      comunicacion: { ...REPORTE_DATOS_VACIO.comunicacion, ...(p.comunicacion ?? {}) },
+    };
+  } catch {
+    return REPORTE_DATOS_VACIO;
+  }
+}
 
 const money = (n: number) => `$${(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const today = () => new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -68,9 +280,9 @@ function progressBar(doc: jsPDF, x: number, y: number, w: number, h: number, pct
 }
 
 export function exportRegistrosPDF(opts: {
-  aportes: any[];
-  colaboradores: any[];
-  grupos: any[];
+  aportes: AporteComun[];
+  colaboradores: Diezmador[];
+  grupos: Grupo[];
   filters?: { tipo?: string; mes?: string; dador?: string };
 }) {
   const { aportes, colaboradores, grupos, filters } = opts;
@@ -126,7 +338,7 @@ export function exportRegistrosPDF(opts: {
   doc.save(`bien-comun-registros-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportDiezmadoresPDF(opts: { colaboradores: any[]; aportes: any[]; anio: string }) {
+export function exportDiezmadoresPDF(opts: { colaboradores: Diezmador[]; aportes: AporteComun[]; anio: string }) {
   const { colaboradores, aportes, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Listado de Dadores', `Año ${anio} · ${colaboradores.length} dadores`);
@@ -182,7 +394,7 @@ export function exportDiezmadoresPDF(opts: { colaboradores: any[]; aportes: any[
   doc.save(`bien-comun-diezmadores-${anio}.pdf`);
 }
 
-export function exportGruposPDF(opts: { grupos: any[]; aportes: any[]; anio: string }) {
+export function exportGruposPDF(opts: { grupos: Grupo[]; aportes: AporteComun[]; anio: string }) {
   const { grupos, aportes, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Listado de Grupos y Ofrendas', `Año ${anio} · ${grupos.length} grupos`);
@@ -237,7 +449,7 @@ export function exportGruposPDF(opts: { grupos: any[]; aportes: any[]; anio: str
   doc.save(`bien-comun-grupos-${anio}.pdf`);
 }
 
-export function exportResumenGeneralPDF(opts: { resumenAnual: any; resumenCompleto: any; anio: string }) {
+export function exportResumenGeneralPDF(opts: { resumenAnual: ResumenAnualBC; resumenCompleto: ResumenCompletoBC; anio: string }) {
   const { resumenAnual, resumenCompleto, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Resumen General', `Año ${anio}`);
@@ -245,7 +457,7 @@ export function exportResumenGeneralPDF(opts: { resumenAnual: any; resumenComple
   kpiBox(doc, 14, 34, 44, 18, 'Total Recaudado', money(resumenAnual.total), COLORS.gold);
   kpiBox(doc, 62, 34, 44, 18, 'Diezmos', money(resumenAnual.diezmos), COLORS.green);
   kpiBox(doc, 110, 34, 44, 18, 'Ofrendas', money(resumenAnual.ofrendas), COLORS.yellow);
-  kpiBox(doc, 158, 34, 44, 18, 'Dadores Activos', resumenCompleto.dadoresActivosAnio.toString(), COLORS.blue);
+  kpiBox(doc, 158, 34, 44, 18, 'Diezmadores Activos', resumenCompleto.diezmadoresActivosAnio.toString(), COLORS.blue);
 
   doc.setFontSize(12);
   doc.setTextColor(...COLORS.dark);
@@ -292,7 +504,7 @@ export function exportResumenGeneralPDF(opts: { resumenAnual: any; resumenComple
   doc.save(`bien-comun-resumen-general-${anio}.pdf`);
 }
 
-export function exportResumenMensualPDF(opts: { mesesData: any[]; resumenAnual: any; anio: string }) {
+export function exportResumenMensualPDF(opts: { mesesData: MesResumenBC[]; resumenAnual: ResumenAnualBC; anio: string }) {
   const { mesesData, resumenAnual, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Recaudación Mensual', `Año ${anio} · Detalle por mes`);
@@ -354,7 +566,7 @@ export function exportResumenMensualPDF(opts: { mesesData: any[]; resumenAnual: 
   doc.save(`bien-comun-resumen-mensual-${anio}.pdf`);
 }
 
-export function exportTopPDF(opts: { topDadores: any[]; topGrupos: any[]; anio: string }) {
+export function exportTopPDF(opts: { topDadores: TopDiezmadorBC[]; topGrupos: TopGrupoBC[]; anio: string }) {
   const { topDadores, topGrupos, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Top del Año', `Año ${anio} · Mejores dadores y grupos`);
@@ -419,7 +631,7 @@ export function exportTopPDF(opts: { topDadores: any[]; topGrupos: any[]; anio: 
   doc.save(`bien-comun-top-${anio}.pdf`);
 }
 
-export function exportMetasPDF(opts: { cumplimiento: any; anio: string; colaboradores: any[]; grupos: any[] }) {
+export function exportMetasPDF(opts: { cumplimiento: CumplimientoBC; anio: string }) {
   const { cumplimiento, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Plan de Metas', `Año ${anio} · Configuración del plan propuesto`);
@@ -438,7 +650,7 @@ export function exportMetasPDF(opts: { cumplimiento: any; anio: string; colabora
   autoTable(doc, {
     startY: 68,
     head: [['Dador', 'Zona', 'Plan Diezmo', 'Meta/Año', 'Recaudado', '%']],
-    body: cumplimiento.cumplimientoDadores.map((d: any) => [
+    body: cumplimiento.cumplimientoDiezmadores.map((d) => [
       `${d.nombre} ${d.apellido}`,
       d.zona,
       d.planDiezmo > 0 ? money(d.planDiezmo) : '—',
@@ -477,7 +689,7 @@ export function exportMetasPDF(opts: { cumplimiento: any; anio: string; colabora
   autoTable(doc, {
     startY: finalY + 4,
     head: [['Grupo', 'Zona', 'Meta/Mes', 'Meta/Año', 'Recaudado', '%']],
-    body: cumplimiento.cumplimientoGrupos.map((g: any) => [
+    body: cumplimiento.cumplimientoGrupos.map((g) => [
       g.nombre,
       g.zona,
       g.planOfrendasMensual > 0 ? money(g.planOfrendasMensual) : '—',
@@ -511,7 +723,7 @@ export function exportMetasPDF(opts: { cumplimiento: any; anio: string; colabora
   doc.save(`bien-comun-metas-${anio}.pdf`);
 }
 
-export function exportCumplimientoPDF(opts: { cumplimiento: any; anio: string }) {
+export function exportCumplimientoPDF(opts: { cumplimiento: CumplimientoBC; anio: string }) {
   const { cumplimiento, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Cumplimiento del Plan', `Año ${anio} · Seguimiento de metas`);
@@ -537,7 +749,7 @@ export function exportCumplimientoPDF(opts: { cumplimiento: any; anio: string })
   autoTable(doc, {
     startY: 84,
     head: [['Mes', 'Meta Mes', 'Real', '% Mes', 'Acum. Real', '% Acum.']],
-    body: cumplimiento.mensuales.map((m: any) => [
+    body: cumplimiento.mensuales.map((m) => [
       m.etiqueta,
       cumplimiento.metaGlobalMes > 0 ? money(m.metaEsperada) : '—',
       money(m.total),
@@ -610,7 +822,7 @@ export function exportCumplimientoPDF(opts: { cumplimiento: any; anio: string })
   doc.save(`bien-comun-cumplimiento-${anio}.pdf`);
 }
 
-export function exportMiembrosPDF(opts: { miembros: any[]; filtros?: any }) {
+export function exportMiembrosPDF(opts: { miembros: Miembro[]; filtros?: { estado?: string; zona?: string; contacto?: string } }) {
   const { miembros, filtros } = opts;
   const doc = new jsPDF();
   const subtitulo = filtros 
@@ -646,7 +858,7 @@ export function exportMiembrosPDF(opts: { miembros: any[]; filtros?: any }) {
   doc.save(`mision-miembros-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportMinisteriosPDF(opts: { ministerios: any[]; asignaciones: any[]; miembros: any[] }) {
+export function exportMinisteriosPDF(opts: { ministerios: Ministerio[]; asignaciones: MiembroMinisterio[]; miembros: Miembro[] }) {
   const { ministerios, asignaciones, miembros } = opts;
   const doc = new jsPDF();
   header(doc, 'Ministerios y Asignaciones', `${ministerios.length} ministerios activos`, 'Misión Bíblica');
@@ -694,7 +906,7 @@ export function exportMinisteriosPDF(opts: { ministerios: any[]; asignaciones: a
   doc.save(`mision-ministerios-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportHitosPDF(opts: { hitos: any[]; miembros: any[] }) {
+export function exportHitosPDF(opts: { hitos: Hito[]; miembros: Miembro[] }) {
   const { hitos, miembros } = opts;
   const doc = new jsPDF();
   header(doc, 'Historial de Crecimiento', `${hitos.length} hitos registrados`, 'Misión Bíblica');
@@ -729,7 +941,7 @@ export function exportHitosPDF(opts: { hitos: any[]; miembros: any[] }) {
   doc.save(`mision-hitos-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportEstudiantesPDF(opts: { estudiantes: any[]; filtros?: any }) {
+export function exportEstudiantesPDF(opts: { estudiantes: Estudiante[]; filtros?: { curso?: string; estado?: string } }) {
   const { estudiantes, filtros } = opts;
   const doc = new jsPDF();
   const subtitulo = filtros 
@@ -770,7 +982,7 @@ export function exportEstudiantesPDF(opts: { estudiantes: any[]; filtros?: any }
   doc.save(`academia-estudiantes-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportCursosPDF(opts: { cursos: any[]; lecciones: any[] }) {
+export function exportCursosPDF(opts: { cursos: Curso[]; lecciones: Leccion[] }) {
   const { cursos, lecciones } = opts;
   const doc = new jsPDF();
   header(doc, 'Catálogo de Cursos', `${cursos.length} cursos registrados`, 'Misión Bíblica');
@@ -804,7 +1016,7 @@ export function exportCursosPDF(opts: { cursos: any[]; lecciones: any[] }) {
   doc.save(`academia-cursos-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportCertificadosPDF(opts: { certs: any[]; estudiantes: any[]; cursos: any[] }) {
+export function exportCertificadosPDF(opts: { certs: Certificado[]; estudiantes: Estudiante[]; cursos: Curso[] }) {
   const { certs, estudiantes, cursos } = opts;
   const doc = new jsPDF();
   header(doc, 'Registro de Certificaciones', `${certs.length} certificados emitidos`, 'Misión Bíblica');
@@ -838,7 +1050,7 @@ export function exportCertificadosPDF(opts: { certs: any[]; estudiantes: any[]; 
   doc.save(`academia-certificados-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportConversionesPDF(opts: { conversiones: any[]; filtros?: any }) {
+export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtros?: { estado?: string; zona?: string; ano?: string; mes?: string } }) {
   const { conversiones, filtros } = opts;
   const doc = new jsPDF();
   const subtitulo = filtros 
@@ -881,7 +1093,7 @@ export function exportConversionesPDF(opts: { conversiones: any[]; filtros?: any
   doc.save(`mision-conversiones-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportGruposMisionPDF(opts: { grupos: any[]; miembros: any[] }) {
+export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro[] }) {
   const { grupos, miembros } = opts;
   const doc = new jsPDF();
   header(doc, 'Directorio de Grupos de Misión', `${grupos.length} grupos activos`, 'Misión Bíblica');
@@ -928,13 +1140,13 @@ export function exportGruposMisionPDF(opts: { grupos: any[]; miembros: any[] }) 
   doc.save(`mision-grupos-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportEvangelismoPDF(opts: { evangelismos: any[] }) {
+export function exportEvangelismoPDF(opts: { evangelismos: Evangelismo[] }) {
   const { evangelismos } = opts;
   const doc = new jsPDF();
   header(doc, 'Actividades de Evangelismo', `${evangelismos.length} actividades`, 'Misión Bíblica');
 
-  const totalContacts = evangelismos.reduce((s, e) => s + (parseInt(e.contactos) || 0), 0);
-  const totalConvs = evangelismos.reduce((s, e) => s + (parseInt(e.conversiones) || 0), 0);
+  const totalContacts = evangelismos.reduce((s, e) => s + (e.contactos || 0), 0);
+  const totalConvs = evangelismos.reduce((s, e) => s + (e.conversiones || 0), 0);
 
   kpiBox(doc, 14, 34, 58, 18, 'Total Actividades', evangelismos.length.toString(), COLORS.blue);
   kpiBox(doc, 76, 34, 58, 18, 'Contactos Totales', totalContacts.toString(), COLORS.green);
@@ -968,4 +1180,99 @@ export function exportEvangelismoPDF(opts: { evangelismos: any[] }) {
 
   footer(doc);
   doc.save(`mision-evangelismo-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/**
+ * Reporte General (página Reportes): sirve tanto para el cálculo en vivo
+ * como para un informe guardado en el Historial (ambos son ReporteDatos).
+ * Portado de la rama fix/reportes-exports y tipado.
+ */
+export function exportReporteGeneralPDF(opts: { datos: ReporteDatos; periodo: string; desde: string; hasta: string }) {
+  const { datos, periodo, desde, hasta } = opts;
+  const doc = new jsPDF();
+  header(doc, 'Reporte General', `${periodo} · ${fmt(desde)} → ${fmt(hasta)}`, 'Reportes');
+
+  const pctMeta = datos.finanzas.planMensual ? Math.round((datos.finanzas.totalFinal / datos.finanzas.planMensual) * 100) : 0;
+  const pctColor = pctMeta >= 100 ? COLORS.gold : pctMeta >= 70 ? COLORS.green : COLORS.red;
+  kpiBox(doc, 14, 34, 44, 18, 'Total Final', money(datos.finanzas.totalFinal), COLORS.gold);
+  kpiBox(doc, 62, 34, 44, 18, 'Bien Común', money(datos.finanzas.bienComunTotal), COLORS.green);
+  kpiBox(doc, 110, 34, 44, 18, 'Colaboradores', money(datos.finanzas.colaboradoresTotal), COLORS.yellow);
+  kpiBox(doc, 158, 34, 44, 18, '% de Meta', `${pctMeta}%`, pctColor);
+
+  let y = 58;
+  const section = (title: string, rows: [string, string][]) => {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(12);
+    doc.setTextColor(...COLORS.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, 14, y);
+    autoTable(doc, {
+      startY: y + 4,
+      head: [['Indicador', 'Valor']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: COLORS.gold, textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  };
+
+  section('Misión Bíblica', [
+    ['Conversiones (período)', datos.conv.total.toString()],
+    ['Conversiones del período', datos.conv.mesActual.toString()],
+    ['Integrados', datos.conv.integrados.toString()],
+    ['Grupos activos', datos.conv.grupos.toString()],
+    ['Evangelismos', datos.evang.total.toString()],
+    ['Contactos alcanzados', datos.evang.contactos.toLocaleString('en-US')],
+    ['Conversiones evangelísticas', datos.evang.conversiones.toString()],
+  ]);
+
+  section('Academia', [
+    ['Cursos totales', datos.academia.cursos.toString()],
+    ['Cursos activos', datos.academia.cursosActivos.toString()],
+    ['Estudiantes matriculados', datos.academia.estudiantes.toString()],
+    ['Certificados emitidos', datos.academia.certificados.toString()],
+  ]);
+
+  section('Finanzas', [
+    ['Diezmos (Bien Común)', money(datos.finanzas.bienComunDiezmos)],
+    ['Ofrendas (Bien Común)', money(datos.finanzas.bienComunOfrendas)],
+    ['Total Bien Común', money(datos.finanzas.bienComunTotal)],
+    ['Plan mensual Bien Común', money(datos.finanzas.bienComunPlan)],
+    ['Ayuda / Ofrendas (Colab.)', money(datos.finanzas.colaboradoresAyuda)],
+    ['Misiones (Colab.)', money(datos.finanzas.colaboradoresMisiones)],
+    ['Manos Abiertas (Colab.)', money(datos.finanzas.colaboradoresManosAbiertas)],
+    ['Construcción (Colab.)', money(datos.finanzas.colaboradoresConstruccion)],
+    ['Otros (Colab.)', money(datos.finanzas.colaboradoresOtro)],
+    ['Total Colaboradores', money(datos.finanzas.colaboradoresTotal)],
+    ['Plan mensual Colaboradores', money(datos.finanzas.colaboradoresPlan)],
+    ['TOTAL FINAL', money(datos.finanzas.totalFinal)],
+    ['Plan mensual global', money(datos.finanzas.planMensual)],
+    ['% de meta', `${pctMeta}%`],
+  ]);
+
+  section('Manos Abiertas', [
+    ['Beneficiarios registrados', datos.manos.beneficiarios.toString()],
+    ['Campañas (período)', datos.manos.campanas.toString()],
+    ['Entregas (período)', datos.manos.entregas.toString()],
+    ['Familias impactadas', datos.manos.familias.toString()],
+    ['Personas alcanzadas', datos.manos.personas.toString()],
+  ]);
+
+  section('Negocios Adonay', [
+    ['Proyectos activos', datos.negocios.activos.toString()],
+    ['Emprendedores únicos', datos.negocios.emprendedores.toString()],
+    ['Ingresos mensuales', money(datos.negocios.ingresos)],
+  ]);
+
+  section('Comunicación', [
+    ['Publicaciones', datos.comunicacion.publicaciones.toString()],
+    ['Alcance total', datos.comunicacion.alcance.toLocaleString('en-US')],
+    ['Engagement total', datos.comunicacion.engagement.toLocaleString('en-US')],
+    ['Engagement rate', `${datos.comunicacion.alcance ? ((datos.comunicacion.engagement / datos.comunicacion.alcance) * 100).toFixed(1) : '0.0'}%`],
+  ]);
+
+  footer(doc);
+  doc.save(`reporte-lemgil-${new Date().toISOString().slice(0, 10)}.pdf`);
 }

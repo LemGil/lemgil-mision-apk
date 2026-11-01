@@ -26,8 +26,12 @@ export function ActionsRow(props: ActionsRowProps) {
           {tab === 'diezmadores' && (
             <button className="btn btn-secondary" onClick={() => {
               if (!dadores.length) return showToast('No hay colaboradores para exportar');
-              exportDadoresPDF(dadores, aportes);
-              showToast('PDF exportado');
+              try {
+                exportDadoresPDF(dadores, aportes);
+                showToast('PDF exportado');
+              } catch {
+                showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
+              }
             }}>📄 Exportar PDF</button>
           )}
           {tab === 'diezmadores' && (
@@ -70,6 +74,7 @@ export function ActionsRow(props: ActionsRowProps) {
                 className="btn btn-secondary"
                 onClick={() => {
                   if (!aportes.length) return showToast('No hay aportes para exportar');
+                  try {
                   const doc = new jsPDF();
                   doc.setFontSize(18);
                   doc.text('Historial de Aportes', 14, 20);
@@ -83,6 +88,9 @@ export function ActionsRow(props: ActionsRowProps) {
                   autoTable(doc, { startY: 34, head: [['Fecha', 'Colaborador', 'Tipo', 'Método', 'Monto', 'Referencia']], body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [212, 168, 67] } });
                   doc.save('lemgil-aportes.pdf');
                   showToast('PDF exportado');
+                  } catch {
+                    showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
+                  }
                 }}
               >
                 📄 Exportar PDF

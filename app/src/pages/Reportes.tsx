@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
 import { exportCSV } from '../lib/csvExport';
+import { exportReporteGeneralPDF, parseReporteResumen, type ReporteDatos } from '../lib/pdfExport';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
@@ -94,18 +95,27 @@ export default function Reportes() {
     return `${fmt(desde)} → ${fmt(hasta)}`;
   }, [preset, desde, hasta, today]);
 
-  const datos = useMemo(() => {
+  const datos = useMemo((): ReporteDatos => {
     const enRango = <T extends { fecha?: string; fechaInicio?: string; creado?: string; emitido?: string }>(arr: T[], key: 'fecha' | 'fechaInicio' | 'creado' | 'emitido' = 'fecha') =>
       arr.filter((x) => inRange(x[key] || '', desde, hasta));
 
     const conv = enRango(convs);
-    const convMes = conv.filter((c) => monthKey(c.fecha) === ymNow).length;
+    // Conversiones cuyo mes (monthKey) cae dentro del período seleccionado:
+    // antes se contaban solo las del mes en curso, diera el período que diera.
+    const mkDesde = monthKey(desde);
+    const mkHasta = monthKey(hasta);
+    const convMes = convs.filter((c) => {
+      const mk = monthKey(c.fecha);
+      return mk >= mkDesde && mk <= mkHasta;
+    }).length;
     const convIntegrados = conv.filter((c) => c.estado === 'Integrado').length;
     const evang = enRango(evangels);
     const evangContactos = evang.reduce((s, e) => s + (e.contactos || 0), 0);
     const evangConvs = evang.reduce((s, e) => s + (e.conversiones || 0), 0);
 
-    const estActivos = estudiantes.filter((e) => e.estado === 'Activo' && inRange(e.creado, desde, hasta)).length;
+    // Matrícula total de estudiantes activos (antes solo contaba los creados
+    // dentro del rango, y la etiqueta «Estudiantes matriculados» no cuadraba).
+    const estActivos = estudiantes.filter((e) => e.estado === 'Activo').length;
     const certRango = enRango(certs, 'emitido');
     const cursosActivos = cursos.filter((c) => c.estado === 'Activo').length;
 
@@ -161,7 +171,106 @@ export default function Reportes() {
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
     };
-  }, [convs, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta, ymNow]);
+  }, [convs, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta]);
+
+  /* Constructores de exportación compartidos: el cálculo en vivo y el
+     snapshot guardado (Historial) exportan con el MISMO formato. */
+  const buildTxtLines = (d: ReporteDatos, periodo: string, dde: string, hta: string, generadoLabel: string): string[] => {
+    const lines: string[] = [];
+    lines.push(`REPORTE LEMGIL — ${periodo}`);
+    lines.push(`Período: ${fmt(dde)} → ${fmt(hta)}`);
+    lines.push(`Generado: ${generadoLabel}`);
+    lines.push('');
+    lines.push('MISION BIBLICA');
+    lines.push(`Conversiones: ${d.conv.total} (del período: ${d.conv.mesActual})`);
+    lines.push(`Integrados: ${d.conv.integrados}`);
+    lines.push(`Grupos: ${d.conv.grupos}`);
+    lines.push(`Evangelismos: ${d.evang.total} (contactos: ${d.evang.contactos}, conversiones: ${d.evang.conversiones})`);
+    lines.push('');
+    lines.push('ACADEMIA');
+    lines.push(`Cursos: ${d.academia.cursos} (${d.academia.cursosActivos} activos)`);
+    lines.push(`Estudiantes activos: ${d.academia.estudiantes}`);
+    lines.push(`Certificados emitidos: ${d.academia.certificados}`);
+    lines.push('');
+    lines.push('FINANZAS');
+    lines.push('');
+    lines.push('BIEN COMÚN (Diezmos+Ofrendas):');
+    lines.push(`  Diezmos: ${money(d.finanzas.bienComunDiezmos)}`);
+    lines.push(`  Ofrendas: ${money(d.finanzas.bienComunOfrendas)}`);
+    lines.push(`  Total Bien Común: ${money(d.finanzas.bienComunTotal)}`);
+    lines.push(`  Plan mensual: ${money(d.finanzas.bienComunPlan)}`);
+    lines.push('');
+    lines.push('COLABORADORES (Red Externa):');
+    lines.push(`  Ayuda / Ofrendas: ${money(d.finanzas.colaboradoresAyuda)}`);
+    lines.push(`  Misiones: ${money(d.finanzas.colaboradoresMisiones)}`);
+    lines.push(`  Manos Abiertas: ${money(d.finanzas.colaboradoresManosAbiertas)}`);
+    lines.push(`  Construcción: ${money(d.finanzas.colaboradoresConstruccion)}`);
+    lines.push(`  Otros: ${money(d.finanzas.colaboradoresOtro)}`);
+    lines.push(`  Total Colaboradores: ${money(d.finanzas.colaboradoresTotal)}`);
+    lines.push(`  Plan mensual: ${money(d.finanzas.colaboradoresPlan)}`);
+    lines.push('');
+    lines.push(`TOTAL FINAL: ${money(d.finanzas.totalFinal)}`);
+    lines.push(`Plan mensual: ${money(d.finanzas.bienComunPlan + d.finanzas.colaboradoresPlan)}`);
+    lines.push('');
+    lines.push('MANOS ABIERTAS');
+    lines.push(`Beneficiarios: ${d.manos.beneficiarios}`);
+    lines.push(`Campañas: ${d.manos.campanas}`);
+    lines.push(`Entregas: ${d.manos.entregas}`);
+    lines.push(`Familias impactadas: ${d.manos.familias} (${d.manos.personas} personas)`);
+    lines.push('');
+    lines.push('NEGOCIOS ADONAY');
+    lines.push(`Proyectos activos: ${d.negocios.activos}`);
+    lines.push(`Emprendedores: ${d.negocios.emprendedores}`);
+    lines.push(`Ingresos mensuales: ${money(d.negocios.ingresos)}`);
+    lines.push('');
+    lines.push('COMUNICACION');
+    lines.push(`Publicaciones: ${d.comunicacion.publicaciones}`);
+    lines.push(`Alcance: ${num(d.comunicacion.alcance)}`);
+    lines.push(`Engagement: ${num(d.comunicacion.engagement)}`);
+    return lines;
+  };
+
+  const downloadTxt = (d: ReporteDatos, periodo: string, dde: string, hta: string, generadoLabel: string, filename: string) => {
+    const txt = buildTxtLines(d, periodo, dde, hta, generadoLabel).join('\n');
+    const b = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(u);
+    showToast('TXT exportado');
+  };
+
+  const buildCsvRows = (d: ReporteDatos): (string | number)[][] => [
+    ['Misión Bíblica', 'Conversiones', d.conv.total],
+    ['Misión Bíblica', 'Conversiones del Período', d.conv.mesActual],
+    ['Misión Bíblica', 'Integrados', d.conv.integrados],
+    ['Misión Bíblica', 'Grupos', d.conv.grupos],
+    ['Misión Bíblica', 'Evangelismos', d.evang.total],
+    ['Misión Bíblica', 'Contactos', d.evang.contactos],
+    ['Academia', 'Cursos', d.academia.cursos],
+    ['Academia', 'Estudiantes', d.academia.estudiantes],
+    ['Academia', 'Certificados', d.academia.certificados],
+    ['Finanzas', 'Bien Común', d.finanzas.bienComunTotal],
+    ['Finanzas', 'Colaboradores', d.finanzas.colaboradoresTotal],
+    ['Finanzas', 'Total', d.finanzas.totalFinal],
+    ['Manos Abiertas', 'Beneficiarios', d.manos.beneficiarios],
+    ['Manos Abiertas', 'Entregas', d.manos.entregas],
+    ['Negocios', 'Activos', d.negocios.activos],
+    ['Negocios', 'Ingresos', d.negocios.ingresos],
+    ['Comunicación', 'Publicaciones', d.comunicacion.publicaciones],
+    ['Comunicación', 'Alcance', d.comunicacion.alcance],
+  ];
+
+  const handleExportPDFActual = () => {
+    try {
+      exportReporteGeneralPDF({ datos, periodo: periodoLabel, desde, hasta });
+      showToast('PDF exportado');
+    } catch {
+      showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
+    }
+  };
 
   const openGen = () => {
     setGenTitulo(`Reporte ${periodoLabel}`);
@@ -169,7 +278,9 @@ export default function Reportes() {
   };
   const saveReporte = async () => {
     if (!genTitulo.trim()) return showToast('El título es obligatorio');
-    await db.reportes.add(createBaseRecord({
+    // Sin el campo fantasma «creado»: la interfaz Reporte y la tabla remota
+    // no lo tienen (cada informe nuevo pagaba un 400 en su primer sync).
+    const { creado: _creado, ...registro } = createBaseRecord({
       id: uuid(),
       titulo: genTitulo.trim(),
       periodo: periodoLabel,
@@ -179,7 +290,8 @@ export default function Reportes() {
       generado: new Date().toISOString(),
       generadoPor: 'LemGil',
       version: 1,
-    }));
+    });
+    await db.reportes.add(registro);
     showToast('Reporte guardado');
     setModal(null);
     setTab('historial');
@@ -192,7 +304,31 @@ export default function Reportes() {
   };
 
   const selReporte = viewId ? reportes.find((r) => r.id === viewId) : null;
-  const selResumen = selReporte ? JSON.parse(selReporte.resumen) : null;
+  // Parseo blindado: un snapshot dañado o incompleto muestra ceros por
+  // sección en vez de lanzar y tumbar la app al ErrorBoundary.
+  const selResumen: ReporteDatos = useMemo(
+    () => parseReporteResumen(selReporte?.resumen),
+    [selReporte],
+  );
+
+  const handleSelPDF = () => {
+    if (!selReporte) return;
+    try {
+      exportReporteGeneralPDF({ datos: selResumen, periodo: selReporte.periodo, desde: selReporte.desde, hasta: selReporte.hasta });
+      showToast('PDF exportado');
+    } catch {
+      showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
+    }
+  };
+  const handleSelTXT = () => {
+    if (!selReporte) return;
+    downloadTxt(selResumen, selReporte.periodo, selReporte.desde, selReporte.hasta, new Date(selReporte.generado).toLocaleString('es-ES'), `reporte-lemgil-${selReporte.desde.slice(0, 7)}.txt`);
+  };
+  const handleSelCSV = () => {
+    if (!selReporte) return;
+    exportCSV(['Módulo', 'Métrica', 'Valor'], buildCsvRows(selResumen), `reporte-lemgil-${selReporte.desde.slice(0, 7)}.csv`);
+    showToast('CSV exportado');
+  };
 
   return (
     <Layout title="Sistema de Reportes">
@@ -237,91 +373,11 @@ export default function Reportes() {
 
             <div className="actions-row">
               <button className="btn btn-gold" onClick={openGen}>💾 Guardar Reporte</button>
-              <button className="btn btn-secondary" onClick={() => window.print()}>🖨 Imprimir / PDF</button>
+              <button className="btn btn-secondary" onClick={handleExportPDFActual}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => window.print()}>🖨 Imprimir</button>
+              <button className="btn btn-secondary" onClick={() => downloadTxt(datos, periodoLabel, desde, hasta, new Date().toLocaleString('es-ES'), `reporte-lemgil-${ymNow}.txt`)}>📥 Exportar TXT</button>
               <button className="btn btn-secondary" onClick={() => {
-                const lines: string[] = [];
-                lines.push(`REPORTE LEMGIL — ${periodoLabel}`);
-                lines.push(`Período: ${fmt(desde)} → ${fmt(hasta)}`);
-                lines.push(`Generado: ${new Date().toLocaleString('es-ES')}`);
-                lines.push('');
-                lines.push('MISION BIBLICA');
-                lines.push(`Conversiones: ${datos.conv.total} (mes actual: ${datos.conv.mesActual})`);
-                lines.push(`Integrados: ${datos.conv.integrados}`);
-                lines.push(`Grupos: ${datos.conv.grupos}`);
-                lines.push(`Evangelismos: ${datos.evang.total} (contactos: ${datos.evang.contactos}, conversiones: ${datos.evang.conversiones})`);
-                lines.push('');
-                lines.push('ACADEMIA');
-                lines.push(`Cursos: ${datos.academia.cursos} (${datos.academia.cursosActivos} activos)`);
-                lines.push(`Estudiantes activos: ${datos.academia.estudiantes}`);
-                lines.push(`Certificados emitidos: ${datos.academia.certificados}`);
-                lines.push('');
-                lines.push('FINANZAS');
-                lines.push('');
-                lines.push('BIEN COMÚN (Diezmos+Ofrendas):');
-                lines.push(`  Diezmos: ${money(datos.finanzas.bienComunDiezmos)}`);
-                lines.push(`  Ofrendas: ${money(datos.finanzas.bienComunOfrendas)}`);
-                lines.push(`  Total Bien Común: ${money(datos.finanzas.bienComunTotal)}`);
-                lines.push(`  Plan mensual: ${money(datos.finanzas.bienComunPlan)}`);
-                lines.push('');
-                lines.push('COLABORADORES (Red Externa):');
-                lines.push(`  Ayuda / Ofrendas: ${money(datos.finanzas.colaboradoresAyuda)}`);
-                lines.push(`  Misiones: ${money(datos.finanzas.colaboradoresMisiones)}`);
-                lines.push(`  Manos Abiertas: ${money(datos.finanzas.colaboradoresManosAbiertas)}`);
-                lines.push(`  Construcción: ${money(datos.finanzas.colaboradoresConstruccion)}`);
-                lines.push(`  Otros: ${money(datos.finanzas.colaboradoresOtro)}`);
-                lines.push(`  Total Colaboradores: ${money(datos.finanzas.colaboradoresTotal)}`);
-                lines.push(`  Plan mensual: ${money(datos.finanzas.colaboradoresPlan)}`);
-                lines.push('');
-                lines.push(`TOTAL FINAL: ${money(datos.finanzas.totalFinal)}`);
-                lines.push(`Plan mensual: ${money(datos.finanzas.bienComunPlan + datos.finanzas.colaboradoresPlan)}`);
-                lines.push('');
-                lines.push('MANOS ABIERTAS');
-                lines.push(`Beneficiarios: ${datos.manos.beneficiarios}`);
-                lines.push(`Campañas: ${datos.manos.campanas}`);
-                lines.push(`Entregas: ${datos.manos.entregas}`);
-                lines.push(`Familias impactadas: ${datos.manos.familias} (${datos.manos.personas} personas)`);
-                lines.push('');
-                lines.push('NEGOCIOS ADONAY');
-                lines.push(`Proyectos activos: ${datos.negocios.activos}`);
-                lines.push(`Emprendedores: ${datos.negocios.emprendedores}`);
-                lines.push(`Ingresos mensuales: ${money(datos.negocios.ingresos)}`);
-                lines.push('');
-                lines.push('COMUNICACION');
-                lines.push(`Publicaciones: ${datos.comunicacion.publicaciones}`);
-                lines.push(`Alcance: ${num(datos.comunicacion.alcance)}`);
-                lines.push(`Engagement: ${num(datos.comunicacion.engagement)}`);
-                const csv = lines.join('\n');
-                const b = new Blob([csv], { type: 'text/plain;charset=utf-8;' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = `reporte-lemgil-${ymNow}.txt`;
-                a.click();
-                showToast('TXT exportado');
-              }}>📥 Exportar TXT</button>
-              <button className="btn btn-secondary" onClick={() => {
-                const h = ['Módulo', 'Métrica', 'Valor'];
-                const r = [
-                  ['Misión Bíblica', 'Conversiones', datos.conv.total],
-                  ['Misión Bíblica', 'Mes Actual', datos.conv.mesActual],
-                  ['Misión Bíblica', 'Integrados', datos.conv.integrados],
-                  ['Misión Bíblica', 'Grupos', datos.conv.grupos],
-                  ['Misión Bíblica', 'Evangelismos', datos.evang.total],
-                  ['Misión Bíblica', 'Contactos', datos.evang.contactos],
-                  ['Academia', 'Cursos', datos.academia.cursos],
-                  ['Academia', 'Estudiantes', datos.academia.estudiantes],
-                  ['Academia', 'Certificados', datos.academia.certificados],
-                  ['Finanzas', 'Bien Común', datos.finanzas.bienComunTotal],
-                  ['Finanzas', 'Colaboradores', datos.finanzas.colaboradoresTotal],
-                  ['Finanzas', 'Total', datos.finanzas.totalFinal],
-                  ['Manos Abiertas', 'Beneficiarios', datos.manos.beneficiarios],
-                  ['Manos Abiertas', 'Entregas', datos.manos.entregas],
-                  ['Negocios', 'Activos', datos.negocios.activos],
-                  ['Negocios', 'Ingresos', datos.negocios.ingresos],
-                  ['Comunicación', 'Publicaciones', datos.comunicacion.publicaciones],
-                  ['Comunicación', 'Alcance', datos.comunicacion.alcance],
-                ];
-                exportCSV(h, r, `reporte-lemgil-${ymNow}.csv`);
+                exportCSV(['Módulo', 'Métrica', 'Valor'], buildCsvRows(datos), `reporte-lemgil-${ymNow}.csv`);
                 showToast('CSV exportado');
               }}>📥 Exportar CSV</button>
             </div>
@@ -329,7 +385,7 @@ export default function Reportes() {
             <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               <ModuleCard color="var(--mision-purple)" emoji="✝️" title="Misión Bíblica" rows={[
                 ['Conversiones (período)', datos.conv.total],
-                ['Mes actual', datos.conv.mesActual],
+                ['Conversiones del período', datos.conv.mesActual],
                 ['Integrados', datos.conv.integrados],
                 ['Grupos activos', datos.conv.grupos],
                 ['Evangelismos', datos.evang.total],
@@ -487,7 +543,12 @@ export default function Reportes() {
           onClose={() => setModal(null)}
           title={`📄 ${selReporte?.titulo || ''}`}
           wide
-          footer={<button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button>}
+          footer={<>
+            <button className="btn btn-secondary" onClick={handleSelPDF}>📄 PDF</button>
+            <button className="btn btn-secondary" onClick={handleSelTXT}>📥 TXT</button>
+            <button className="btn btn-secondary" onClick={handleSelCSV}>📥 CSV</button>
+            <button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button>
+          </>}
         >
           {selReporte && selResumen && (
             <>
@@ -497,7 +558,7 @@ export default function Reportes() {
               <div className="detail-row"><span className="detail-label">Por</span><span className="detail-value">{selReporte.generadoPor}</span></div>
 
               <div className="form-section" style={{ marginTop: 14 }}>✝️ Misión Bíblica</div>
-              <div className="detail-row"><span className="detail-label">Conversiones</span><span className="detail-value">{selResumen.conv.total} (mes actual: {selResumen.conv.mesActual})</span></div>
+              <div className="detail-row"><span className="detail-label">Conversiones</span><span className="detail-value">{selResumen.conv.total} (del período: {selResumen.conv.mesActual})</span></div>
               <div className="detail-row"><span className="detail-label">Integrados</span><span className="detail-value">{selResumen.conv.integrados}</span></div>
               <div className="detail-row"><span className="detail-label">Grupos</span><span className="detail-value">{selResumen.conv.grupos}</span></div>
               <div className="detail-row"><span className="detail-label">Evangelismos</span><span className="detail-value">{selResumen.evang.total} ({num(selResumen.evang.contactos)} contactos)</span></div>

@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { exportCSV } from '../../lib/csvExport';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { showToast } from '../../lib/notification';
-import { exportRegistrosPDF } from '../../lib/pdfExport';
+import { exportRegistrosPDF, safeExport } from '../../lib/pdfExport';
 import { money, MS_SHORT } from '../../lib/utils';
 import type { AporteComun, Diezmador, Grupo } from '../../lib/types';
 
@@ -34,7 +34,7 @@ export function RegistrosTab(props: RegistrosTabProps) {
             <div className="page-content">
                 <div className="actions-row">
                     <button className="btn btn-gold" onClick={onNuevoAporte}>➕ Registrar Aporte</button>
-                    <button className="btn btn-secondary" onClick={() => exportRegistrosPDF({ aportes: registrosFiltrados, colaboradores, grupos, filters: { tipo: filterTipo, mes: filterMes, dador: filterDiezmador } })}>📄 Exportar PDF</button>
+                    <button className="btn btn-secondary" onClick={() => safeExport(() => exportRegistrosPDF({ aportes: registrosFiltrados, colaboradores, grupos, filters: { tipo: filterTipo, mes: filterMes, dador: filterDiezmador } }))}>📄 Exportar PDF</button>
                     <button className="btn btn-secondary" onClick={() => {
                         if (!registrosFiltrados.length) return showToast('No hay registros para exportar');
                         const h = ['Fecha', 'Colaborador', 'Tipo', 'Monto', 'Método', 'Referencia', 'Notas'];

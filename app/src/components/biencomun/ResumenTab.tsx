@@ -7,6 +7,8 @@ import {
   exportTopPDF,
   exportMetasPDF,
   exportCumplimientoPDF,
+  safeExport,
+  type MesResumenBC,
 } from '../../lib/pdfExport';
 import { money, MS_SHORT, monthKey } from '../../lib/utils';
 import type { Diezmador, AporteComun, Grupo } from '../../lib/types';
@@ -46,7 +48,7 @@ export function ResumenTab({ aportes, colaboradores, grupos }: ResumenTabProps) 
     const diezmosPrev = regsAnioPrev.filter(a => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
     const ofrendasPrev = regsAnioPrev.filter(a => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
     const mesesConData = mesesData.filter((m: { total: number }) => m.total > 0);
-    const mejorMes = mesesConData.length > 0 ? mesesConData.reduce((max: { mes: string; total: number }, m: { mes: string; total: number }) => m.total > max.total ? m : max, mesesConData[0]) : null;
+    const mejorMes = mesesConData.length > 0 ? mesesConData.reduce((max: MesResumenBC, m: MesResumenBC) => m.total > max.total ? m : max, mesesConData[0]) : null;
     const promedioMensual = mesesConData.length > 0 ? mesesConData.reduce((s: number, m: { total: number }) => s + m.total, 0) / mesesConData.length : 0;
     const idsActivos = new Set(regsAnio.map(a => a.diezmadorId).filter(Boolean));
     const diezmadoresActivosAnio = colaboradores.filter(c => idsActivos.has(c.id)).length;
@@ -134,11 +136,13 @@ export function ResumenTab({ aportes, colaboradores, grupos }: ResumenTabProps) 
   }, [aportes, anioResumen, colaboradores, grupos]);
 
   const handleExportPDF = () => {
-    if (subTab === 'general') exportResumenGeneralPDF({ resumenAnual, resumenCompleto, anio: anioResumen });
-    else if (subTab === 'mensual') exportResumenMensualPDF({ mesesData: resumenCompleto.mesesData, resumenAnual, anio: anioResumen });
-    else if (subTab === 'top') exportTopPDF({ topDadores: resumenCompleto.topDiezmadores, topGrupos: resumenCompleto.topGrupos, anio: anioResumen });
-    else if (subTab === 'metas') exportMetasPDF({ cumplimiento, anio: anioResumen, colaboradores, grupos });
-    else if (subTab === 'cumplimiento') exportCumplimientoPDF({ cumplimiento, anio: anioResumen });
+    safeExport(() => {
+      if (subTab === 'general') exportResumenGeneralPDF({ resumenAnual, resumenCompleto, anio: anioResumen });
+      else if (subTab === 'mensual') exportResumenMensualPDF({ mesesData: resumenCompleto.mesesData, resumenAnual, anio: anioResumen });
+      else if (subTab === 'top') exportTopPDF({ topDadores: resumenCompleto.topDiezmadores, topGrupos: resumenCompleto.topGrupos, anio: anioResumen });
+      else if (subTab === 'metas') exportMetasPDF({ cumplimiento, anio: anioResumen });
+      else if (subTab === 'cumplimiento') exportCumplimientoPDF({ cumplimiento, anio: anioResumen });
+    });
   };
 
   const handleExportCSV = () => {

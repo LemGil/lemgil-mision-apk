@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
-import { exportHitosPDF } from '../../lib/pdfExport';
+import { exportHitosPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
 import type { Hito, Miembro } from '../../lib/types';
@@ -28,7 +28,7 @@ export function HitosTab(props: HitosTabProps) {
                 <div className="card-sub">Hitos y eventos en la vida de cada miembro</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportHitosPDF({ hitos, miembros })}>📄 Exportar PDF</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportHitosPDF({ hitos, miembros }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!hitos.length) return showToast('No hay hitos para exportar');
                   const h = ['Fecha', 'Miembro', 'Tipo', 'Descripción'];

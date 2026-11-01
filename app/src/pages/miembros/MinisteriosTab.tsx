@@ -1,7 +1,7 @@
 import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
-import { exportMinisteriosPDF } from '../../lib/pdfExport';
+import { exportMinisteriosPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import type { Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
 
@@ -29,7 +29,7 @@ export function MinisteriosTab(props: MinisteriosTabProps) {
                 <div className="card-sub">Gestiona tus ministerios y sus integrantes</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportMinisteriosPDF({ ministerios, asignaciones, miembros })}>📄 Exportar PDF</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportMinisteriosPDF({ ministerios, asignaciones, miembros }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!ministerios.length) return showToast('No hay ministerios para exportar');
                   const h = ['Ministerio', 'Líder', 'Miembros'];

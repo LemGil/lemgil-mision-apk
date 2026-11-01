@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
-import { exportMiembrosPDF } from '../../lib/pdfExport';
+import { exportMiembrosPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import type { Grupo, Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
 import { EST_BADGE, calcAge } from './constants';
@@ -35,7 +35,7 @@ export function DirectorioTab(props: DirectorioTabProps) {
                 <div className="card-sub">Datos personales, contacto y ministerios</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportMiembrosPDF({ miembros: miembrosFiltrados, filtros: { estado: filterEstado, zona: filterZona, contacto: filterContacto } })}>📄 Exportar PDF</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportMiembrosPDF({ miembros: miembrosFiltrados, filtros: { estado: filterEstado, zona: filterZona, contacto: filterContacto } }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!miembrosFiltrados.length) return showToast('No hay miembros para exportar');
                   const h = ['#', 'Nombre', 'Apellido', 'Estado Civil', 'Zona', 'Teléfono', 'Email', 'Estado'];
