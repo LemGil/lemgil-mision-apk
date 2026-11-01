@@ -1,6 +1,17 @@
 import type { CSSProperties } from 'react';
+import type { Conversion } from './types';
 
 export const today = () => new Date().toISOString().split('T')[0];
+
+/**
+ * Fecha en que una conversión alcanzó un estado, según su historial.
+ * Si el historial no lo registra, se usa la fecha de registro de la conversión.
+ * (Lógica que antes vivía como `getFechaEstado` dentro de MisionBiblica.)
+ */
+export const fechaDeEstado = (c: Conversion, estado: string): string => {
+  const entry = c.historial?.find((h) => h.estado === estado);
+  return entry?.fecha || c.fecha || '';
+};
 
 export const fmt = (d: string) => {
   if (!d) return '—';

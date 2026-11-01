@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../lib/database';
 import { Modal } from './Modal';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
+import { claveZona } from '../lib/zonas';
 
 interface ZonaSelectProps {
   value: string;
@@ -24,7 +25,9 @@ export function ZonaSelect({ value, onChange, className, required, allowEmpty = 
   const guardarNueva = async () => {
     const nombre = nuevo.trim();
     if (!nombre) return;
-    const dup = zonas.find((z) => z.nombre.toLowerCase() === nombre.toLowerCase());
+    // B5: la comparación usa la clave canónica (ignora acentos y espacios),
+    // así «PÓSITO» selecciona la zona oficial en vez de crear una duplicada.
+    const dup = zonas.find((z) => claveZona(z.nombre) === claveZona(nombre));
     if (dup) {
       onChange(dup.nombre);
       setAdding(false);

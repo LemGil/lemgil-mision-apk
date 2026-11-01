@@ -1,7 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Modal } from '../../components/Modal';
 import { accentStyle, fmt } from '../../lib/utils';
-import type { Conversion, Grupo } from '../../lib/types';
+import type { Conversion, Grupo, Hito, Miembro } from '../../lib/types';
+import { EST_BADGE as MIEMBRO_EST_BADGE, HITO_BADGE } from '../miembros/constants';
 import { ESTADOS, ESTADOS_COLOR, ESTADOS_EMOJI, EST_BADGE } from './constants';
 
 const updateSteps = (est: string) => {
@@ -16,8 +17,14 @@ interface ConversionDetailModalProps {
   open: boolean;
   onClose: () => void;
   onEliminar: () => void;
+  onPermitirRecrear: () => void;
   saveSeg: () => void;
   selConv: Conversion | undefined;
+  /** C1: el miembro REAL vinculado a esta conversión (si existe). */
+  miembroVinculado: Miembro | undefined;
+  /** C2: hitos de ese miembro, de solo lectura. */
+  hitosVinculado: Hito[];
+  onVerMiembro: (id: string) => void;
   grupos: Grupo[];
   tempEst: string | null; setTempEst: Dispatch<SetStateAction<string | null>>;
   sNota: string; setSNota: Dispatch<SetStateAction<string>>;
@@ -25,7 +32,7 @@ interface ConversionDetailModalProps {
 }
 
 export function ConversionDetailModal(props: ConversionDetailModalProps) {
-  const { open, onClose, onEliminar, saveSeg, selConv, grupos, tempEst, setTempEst, sNota, setSNota, sHito, setSHito } = props;
+  const { open, onClose, onEliminar, onPermitirRecrear, saveSeg, selConv, miembroVinculado, hitosVinculado, onVerMiembro, grupos, tempEst, setTempEst, sNota, setSNota, sHito, setSHito } = props;
   return (
       <Modal open={open} onClose={onClose} title={`📄 ${selConv?.nombre} ${selConv?.apellido}`} wide footer={<><button className="btn btn-danger btn-sm" onClick={onEliminar}>🗑️ Eliminar</button><button className="btn btn-secondary" onClick={onClose}>Cerrar</button><button className="btn btn-gold" onClick={saveSeg}>💾 Guardar Cambios</button></>}>
         {selConv && (() => {
@@ -136,14 +143,39 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
                 </div>
               </div>
             )}
-            {selConv.estado === 'Integrado' && (
+            {/* C1: la tarjeta refleja el miembro REAL vinculado, no solo el estado */}
+            {miembroVinculado ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, background: 'var(--gold-glow)', border: '1px solid var(--gold)', marginBottom: 18 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--gold)', color: 'var(--carbon)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700 }}>✓</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Miembro de la iglesia</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--oro-sombra)' }}>Activo en el sistema</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Visible en la pestaña Miembros</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--oro-sombra)' }}>{miembroVinculado.nombre} {miembroVinculado.apellido}</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className={`badge ${MIEMBRO_EST_BADGE[miembroVinculado.estado]}`} style={{ fontSize: 10 }}>{miembroVinculado.estado}</span>
+                    <span>desde {fmt(miembroVinculado.fechaIngreso)}</span>
+                  </div>
                 </div>
+                <button type="button" className="btn btn-gold btn-sm" onClick={() => onVerMiembro(miembroVinculado.id)}>Ver miembro →</button>
+              </div>
+            ) : selConv.estado === 'Integrado' && !selConv.miembroDescartado && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 18 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⚠</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Miembro de la iglesia</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>Sin miembro vinculado</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión está «Integrado», pero no existe un miembro nacido de ella (dato anterior a este vínculo).</div>
+                </div>
+              </div>
+            )}
+            {selConv.miembroDescartado && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--red, #ef4444)', marginBottom: 18 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--red, #ef4444)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🗑️</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Miembro eliminado</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--red, #ef4444)' }}>Su miembro fue eliminado — no se recreará</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión sigue «Integrado», pero el miembro borrado desde Miembros no volverá a crearse automáticamente.</div>
+                </div>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={onPermitirRecrear}>Permitir recrear</button>
               </div>
             )}
 
@@ -178,6 +210,27 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
                   );
                 })}
               </div>
+            </>}
+
+            {/* C2: hitos del miembro vinculado (solo lectura; se gestionan en Miembros) */}
+            {miembroVinculado && <>
+              <div className="form-section" style={{ marginTop: 20 }}>📍 Hitos en la iglesia</div>
+              {hitosVinculado.length === 0 ? (
+                <div style={{ color: 'var(--dim)', fontSize: 13, padding: 12, textAlign: 'center', background: 'var(--surface-2)', borderRadius: 8 }}>Sin hitos registrados para su miembro vinculado</div>
+              ) : (
+                <div className="timeline">
+                  {hitosVinculado.map((h) => (
+                    <div key={h.id} className="timeline-item">
+                      <div className="timeline-dot" style={{ background: 'var(--gold)' }} />
+                      <div className="timeline-date">{fmt(h.fecha)}</div>
+                      <div className="timeline-content">
+                        <span className={`badge ${HITO_BADGE[h.tipo] || 'badge-blue'}`} style={{ fontSize: 10 }}>{h.tipo}</span>
+                        <div style={{ fontSize: 12, marginTop: 4, whiteSpace: 'pre-wrap' }}>{h.descripcion}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>}
 
             {/* AGREGAR NOTA */}

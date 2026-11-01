@@ -39,4 +39,4 @@ export const diasEnIglesia = (fechaIngreso: string) => {
 };
 
 export type Tab = 'directorio' | 'ministerios' | 'hitos';
-export type ModalType = 'miembro' | 'ministerio' | 'asignar' | 'hito' | 'detail' | 'delM' | 'delMin' | 'delAsig' | 'delH';
+export type ModalType = 'miembro' | 'ministerio' | 'asignar' | 'hito' | 'detail' | 'delM' | 'delMin' | 'delAsig' | 'delH' | 'vincular';

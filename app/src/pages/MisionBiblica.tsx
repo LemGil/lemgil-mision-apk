@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { exportCSV } from '../lib/csvExport';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
-import type { Conversion } from '../lib/types';
-import { MS, today } from '../lib/utils';
+import type { Conversion, Miembro } from '../lib/types';
+import { camposAPropagar } from '../lib/propagacion';
+import { MS, today, fechaDeEstado as getFechaEstado } from '../lib/utils';
+import { zonaCanonica } from '../lib/zonas';
+import { conteoGrupo } from '../lib/grupoStats';
 import { showToast } from '../lib/notification';
 import { CsvImportButton } from '../components/CsvImportButton';
 import { ESTADOS, ESTADOS_TIPO_HITO } from './mision-biblica/constants';
@@ -27,7 +31,11 @@ export default function MisionBiblica() {
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
   const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+  const hitos = useLiveQuery(() => db.hitos.toArray(), []) ?? [];
   const zonas = useLiveQuery(() => db.zonas.toArray(), []) ?? [];
+
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [dataTab, setDataTab] = useState<DataTab>('conv');
   const [search, setSearch] = useState('');
@@ -68,6 +76,7 @@ export default function MisionBiblica() {
   const [fFecha, setFFecha] = useState(today());
   const [fZona, setFZona] = useState('');
   const [fLider, setFLider] = useState('');
+  const [fHermanoMayorId, setFHermanoMayorId] = useState('');
   const [fLiderCustom, setFLiderCustom] = useState(false);
   const [fEstado, setFEstado] = useState('Nuevo');
   const [fGrupoId, setFGrupoId] = useState('');
@@ -102,19 +111,12 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   const [tempEst, setTempEst] = useState<string | null>(null);
 
   // const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
-  const resetForm = () => { setEditConvId(null); setFNombre(''); setFApellido(''); setFTelefono(''); setFEdad(''); setFDireccion(''); setFFamilia('No'); setFFecha(today()); setFZona(''); setFLider(''); setFLiderCustom(false); setFEstado('Nuevo'); setFGrupoId(''); setFNotas(''); setFEmail(''); setFProfesion(''); setFBautizado(false); setFFechaBautismo(''); setFConyuge(''); setFHijos(''); setFHistorial([]); };
+  const resetForm = () => { setEditConvId(null); setFNombre(''); setFApellido(''); setFTelefono(''); setFEdad(''); setFDireccion(''); setFFamilia('No'); setFFecha(today()); setFZona(''); setFLider(''); setFHermanoMayorId(''); setFLiderCustom(false); setFEstado('Nuevo'); setFGrupoId(''); setFNotas(''); setFEmail(''); setFProfesion(''); setFBautizado(false); setFFechaBautismo(''); setFConyuge(''); setFHijos(''); setFHistorial([]); };
   const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); setGMeta(''); };
   const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELider(''); setELiderCustom(false); setEParticipantes([]); setEPartCustom(''); setEContactos('0'); setEConvs('0'); setENotas(''); };
 
   const mo = new Date().toISOString().slice(0, 7);
   const mesCount = convs.filter((c) => c.fecha?.startsWith(mo)).length;
-
-  // Helper híbrido: obtiene la fecha en que una conversión alcanzó un estado
-  // Usa historial si existe, fallback a fecha de registro
-  const getFechaEstado = (c: Conversion, estado: string): string => {
-    const entry = c.historial?.find((h) => h.estado === estado);
-    return entry?.fecha || c.fecha || '';
-  };
 
   const discCount = convs.filter((c) => c.estado === 'Discipulado').length;
   const bautCount = convs.filter((c) => c.estado === 'Bautizado').length;
@@ -157,9 +159,8 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     if (filterGZona && g.zona !== filterGZona) return false;
     if (filterGDia && g.dia !== filterGDia) return false;
     if (filterGEstado) {
-      const convsEnProceso = convs.filter(c => c.grupoId === g.id && c.estado !== 'Integrado');
-      const cantMiembros = miembros.filter(m => m.grupoId === g.id).length;
-      const total = cantMiembros + convsEnProceso.length;
+      // B4: misma semántica que la tarjeta y el PDF (helper único).
+      const total = conteoGrupo(g.id, miembros, convs).totalAsignados;
       const capacidad = parseInt(g.capacidad) || 0;
       const pct = capacidad > 0 ? (total / capacidad) * 100 : 0;
       if (filterGEstado === 'disponible' && (pct >= 70 || capacidad === 0)) return false;
@@ -189,6 +190,26 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
 
   const selConv = convs.find((c) => c.id === selectedId);
 
+  // B2+B3: tras guardar una conversión que ya tiene miembro vinculado,
+  // propagar los cambios «sin pisar» (B2) y reflejar Fallecido/Apartado en
+  // el miembro (B3). Si el miembro se acaba de crear en este mismo guardado,
+  // la propagación resulta vacía por construcción (sus datos ya son los
+  // nuevos). Con la bandera de descarte (A1) o sin miembro, no se toca nada.
+  const postGuardadoConversion = async (convAntes: Conversion, convDespues: Conversion) => {
+    if (convDespues.miembroDescartado) return;
+    const vinculado = await db.miembros.where('conversionId').equals(convDespues.id).first();
+    if (!vinculado) return;
+    const updates: Partial<Miembro> = { ...camposAPropagar(convAntes, convDespues, vinculado) };
+    if (convDespues.estado === 'Fallecido' && vinculado.estado !== 'Fallecido') {
+      updates.estado = 'Fallecido';
+    } else if (convDespues.estado === 'Apartado' && vinculado.estado === 'Activo') {
+      updates.estado = 'Inactivo';
+    }
+    if (Object.keys(updates).length > 0) {
+      await db.miembros.update(vinculado.id, { ...updates, actualizado: new Date().toISOString() });
+    }
+  };
+
   // ── CONVERSIONES ──
   const openNewConv = () => { resetForm(); setModal('conv'); };
   const openEditConv = (id: string) => {
@@ -198,6 +219,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     setFZona(c.zona); setFLider(c.lider);
     const enLista = miembros.some((m) => `${m.nombre} ${m.apellido}` === c.lider);
     setFLiderCustom(!enLista && !!c.lider);
+    // B1: cargar el id del hermano mayor; si falta pero el nombre coincide
+    // con un miembro, se resuelve a su id (sana registros viejos al editar).
+    if (c.hermanoMayorId) {
+      setFHermanoMayorId(c.hermanoMayorId);
+    } else {
+      const porNombre = miembros.find((m) => `${m.nombre} ${m.apellido}` === c.lider);
+      setFHermanoMayorId(porNombre ? porNombre.id : '');
+    }
   setFEstado(c.estado); setFGrupoId(c.grupoId || ''); setFNotas(c.notas);
   setFEmail(c.email || ''); setFProfesion(c.profesion || '');
   setFBautizado(!!c.bautizado); setFFechaBautismo(c.fechaBautismo || '');
@@ -209,13 +238,15 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     if (!fNombre.trim() || !fApellido.trim()) return showToast('Nombre y apellido son obligatorios');
     if (!fZona) return showToast('Selecciona una zona');
     if (!fLider.trim()) return showToast('Selecciona o escribe el hermano mayor');
-    const data = { nombre: fNombre.trim(), apellido: fApellido.trim(), telefono: fTelefono.trim(), edad: fEdad, direccion: fDireccion.trim(), familia: fFamilia, fecha: fFecha, zona: fZona, lider: fLider.trim(), grupoId: fGrupoId, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), hermanoMayorId: editConvId ? (convs.find(x => x.id === editConvId)?.hermanoMayorId ?? null) : null, email: fEmail.trim(), profesion: fProfesion.trim(), bautizado: fBautizado, fechaBautismo: fFechaBautismo, conyuge: fConyuge.trim(), hijos: fHijos.trim(), historial: fHistorial, updatedAt: Date.now() };
+    const data = { nombre: fNombre.trim(), apellido: fApellido.trim(), telefono: fTelefono.trim(), edad: fEdad, direccion: fDireccion.trim(), familia: fFamilia, fecha: fFecha, zona: zonaCanonica(fZona, zonas), lider: fLider.trim(), grupoId: fGrupoId, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), hermanoMayorId: fHermanoMayorId || null, email: fEmail.trim(), profesion: fProfesion.trim(), bautizado: fBautizado, fechaBautismo: fFechaBautismo, conyuge: fConyuge.trim(), hijos: fHijos.trim(), historial: fHistorial, updatedAt: Date.now() };
     if (editConvId) {
-      await db.conversiones.update(editConvId, data);
       const c = convs.find((x) => x.id === editConvId);
+      await db.conversiones.update(editConvId, data);
       if (c) {
-        const synced = await syncMemberFromConversion({ ...c, ...data });
+        const despues: Conversion = { ...c, ...data };
+        const synced = await syncMemberFromConversion(despues);
         if (synced) showToast(`🧑 ${fNombre} integrado → Miembros`);
+        await postGuardadoConversion(c, despues);
       }
       showToast(`${fNombre} ${fApellido} actualizado/a`);
     } else {
@@ -232,25 +263,55 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     await db.conversiones.delete(selectedId);
     showToast('Registro eliminado'); setModal(null);
   };
+  // A1: vía de vuelta explícita para la bandera anti-resurrección.
+  const permitirRecrear = async () => {
+    if (!selConv) return;
+    await db.conversiones.update(selConv.id, { miembroDescartado: false });
+    showToast('Se permitirá recrear el miembro en el próximo guardado de esta conversión');
+  };
+  // A3: miembro vinculado a la conversión seleccionada (para la confirmación de borrado).
+  const miembroVinculado = selectedId ? miembros.find((m) => m.conversionId === selectedId) : undefined;
+  // C2: hitos del miembro vinculado, para mostrarlos (solo lectura) en el
+  // detalle de su conversión.
+  const hitosVinculado = miembroVinculado
+    ? hitos.filter((h) => h.miembroId === miembroVinculado.id).slice().sort((a, b) => b.fecha.localeCompare(a.fecha))
+    : [];
   const quickAdv = async (id: string) => {
     const c = convs.find((x) => x.id === id); if (!c) return;
     if (c.estado === 'Apartado' || c.estado === 'Fallecido') return;
     const i = ESTADOS.indexOf(c.estado);
     if (i >= 0 && i < ESTADOS.length - 1) {
       const next = ESTADOS[i + 1];
-      await db.conversiones.update(id, { estado: next, historial: [...c.historial, { fecha: today(), estado: next, nota: 'Avance rápido' }] });
+      const despues: Conversion = { ...c, estado: next, historial: [...c.historial, { fecha: today(), estado: next, nota: 'Avance rápido' }] };
+      await db.conversiones.update(id, { estado: next, historial: despues.historial });
       const synced = await syncMemberFromConversion({ ...c, estado: next });
+      await postGuardadoConversion(c, despues);
       showToast(synced ? `🧑 ${c.nombre} integrado → Miembros` : `${c.nombre} avanzó a ${next}`);
     }
   };
   const openDetail = (id: string) => { setSelectedId(id); setTempEst(null); setSNota(''); setSHito(false); setModal('detail'); };
+  // C1: enlace cruzado «Ver conversión» (?ver=<id> en el hash): abre el
+  // detalle pedido y limpia el parámetro para que no se reabra al navegar.
+  useEffect(() => {
+    const ver = searchParams.get('ver');
+    if (!ver) return;
+    const existe = convs.some((c) => c.id === ver);
+    if (!existe && convs.length === 0) return; // datos aún cargando
+    if (existe) openDetail(ver);
+    const limpios = new URLSearchParams(searchParams);
+    limpios.delete('ver');
+    setSearchParams(limpios, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, convs]);
   const saveSeg = async () => {
     if (!selConv) return;
     const ne = tempEst || selConv.estado;
     const hist = [...selConv.historial];
     if (sNota.trim() || ne !== selConv.estado) hist.push({ fecha: today(), estado: ne, nota: sNota.trim() || `Estado: ${selConv.estado} → ${ne}` });
-    await db.conversiones.update(selConv.id, { estado: ne as Conversion['estado'], historial: hist });
-    const synced = await syncMemberFromConversion({ ...selConv, estado: ne as Conversion['estado'] });
+    const despues: Conversion = { ...selConv, estado: ne as Conversion['estado'], historial: hist };
+    await db.conversiones.update(selConv.id, { estado: despues.estado, historial: hist });
+    const synced = await syncMemberFromConversion({ ...selConv, estado: despues.estado });
+    await postGuardadoConversion(selConv, despues);
     let hitoCreado = false;
     if (sHito && sNota.trim()) {
       const vinculado = await db.miembros.where('conversionId').equals(selConv.id).first();
@@ -284,7 +345,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     if (!gNombre.trim()) return showToast('El nombre del grupo es obligatorio');
     if (!gZona) return showToast('Selecciona una zona');
     if (!gLider.trim()) return showToast('Indica el líder del grupo');
-    const data = { nombre: gNombre.trim(), zona: gZona, lider: gLider.trim(), dia: gDia, hora: gHora, capacidad: gCap, lugar: gLugar.trim(), planOfrendasMensual: parseInt(gMeta) || 0 };
+    const data = { nombre: gNombre.trim(), zona: zonaCanonica(gZona, zonas), lider: gLider.trim(), dia: gDia, hora: gHora, capacidad: gCap, lugar: gLugar.trim(), planOfrendasMensual: parseInt(gMeta) || 0 };
     if (editGrupoId) {
       await db.grupos.update(editGrupoId, data);
       showToast(`Grupo "${gNombre}" actualizado`);
@@ -315,7 +376,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   };
   const saveEvang = async () => {
     if (!eFecha) return showToast('La fecha es obligatoria');
-    const data = { fecha: eFecha, tipo: eTipo, zona: eZona, lider: eLider.trim(), participantes: eParticipantes, contactos: parseInt(eContactos) || 0, conversiones: parseInt(eConvs) || 0, notas: eNotas.trim() };
+    const data = { fecha: eFecha, tipo: eTipo, zona: zonaCanonica(eZona, zonas), lider: eLider.trim(), participantes: eParticipantes, contactos: parseInt(eContactos) || 0, conversiones: parseInt(eConvs) || 0, notas: eNotas.trim() };
     if (editEvangId) {
       await db.evangelismos.update(editEvangId, data);
       showToast('Actividad actualizada');
@@ -563,6 +624,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         fFecha={fFecha} setFFecha={setFFecha}
         fZona={fZona} setFZona={setFZona}
         fLider={fLider} setFLider={setFLider}
+        fHermanoMayorId={fHermanoMayorId} setFHermanoMayorId={setFHermanoMayorId}
         fLiderCustom={fLiderCustom} setFLiderCustom={setFLiderCustom}
         fEstado={fEstado} setFEstado={setFEstado}
         fGrupoId={fGrupoId} setFGrupoId={setFGrupoId}
@@ -613,8 +675,12 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         open={modal === 'detail'}
         onClose={() => setModal(null)}
         onEliminar={() => setModal('confirm')}
+        onPermitirRecrear={permitirRecrear}
         saveSeg={saveSeg}
         selConv={selConv}
+        miembroVinculado={miembroVinculado}
+        hitosVinculado={hitosVinculado}
+        onVerMiembro={(id) => navigate(`/miembros?ver=${id}`)}
         grupos={grupos}
         tempEst={tempEst} setTempEst={setTempEst}
         sNota={sNota} setSNota={setSNota}
@@ -624,6 +690,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       <ConfirmModals
         modal={modal}
         selConv={selConv}
+        miembroVinculadoNombre={miembroVinculado ? `${miembroVinculado.nombre} ${miembroVinculado.apellido}` : undefined}
         grupoNombre={grupos.find((g) => g.id === selectedId)?.nombre}
         onClose={() => setModal(null)}
         delConv={delConv}

@@ -2,6 +2,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
 import { exportGruposMisionPDF, safeExport } from '../../lib/pdfExport';
+import { conteoGrupo } from '../../lib/grupoStats';
 import { showToast } from '../../lib/notification';
 import type { Conversion, Grupo, Miembro } from '../../lib/types';
 
@@ -24,7 +25,7 @@ export function GruposTab(props: GruposTabProps) {
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{gruposFiltrados.length} de {grupos.length} grupos</div>
              </div>
              <div style={{ display: 'flex', gap: 5 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportGruposMisionPDF({ grupos, miembros }))}>📄 Exportar PDF</button>
+               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportGruposMisionPDF({ grupos, miembros, conversiones: convs }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!grupos.length) return showToast('No hay grupos para exportar');
                   const h = ['Nombre', 'Zona', 'Líder', 'Día', 'Hora', 'Capacidad', 'Lugar'];
@@ -58,12 +59,13 @@ export function GruposTab(props: GruposTabProps) {
             ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
               {gruposFiltrados.map((g) => {
-      const convsEnProceso = convs.filter(c => c.grupoId === g.id && c.estado !== 'Integrado' && c.estado !== 'Apartado' && c.estado !== 'Fallecido');
-                const cantNuevo = convsEnProceso.filter(c => c.estado === 'Nuevo').length;
-                const cantDiscip = convsEnProceso.filter(c => c.estado === 'Discipulado').length;
-                const cantBaut = convsEnProceso.filter(c => c.estado === 'Bautizado').length;
-                const cantMiembros = miembros.filter(m => m.grupoId === g.id).length;
-                const totalAsignados = cantMiembros + convsEnProceso.length;
+      // B4: conteo único (misma semántica que el filtro de Misión y el PDF).
+      const conteo = conteoGrupo(g.id, miembros, convs);
+                const cantNuevo = conteo.nuevo;
+                const cantDiscip = conteo.discipulado;
+                const cantBaut = conteo.bautizado;
+                const cantMiembros = conteo.miembrosActivos;
+                const totalAsignados = conteo.totalAsignados;
                 const capacidad = parseInt(g.capacidad) || 0;
                 const pctCap = capacidad > 0 ? (totalAsignados / capacidad) * 100 : 0;
                 const statusColor = pctCap >= 100 ? 'var(--red)' : pctCap >= 70 ? 'var(--yellow)' : 'var(--green)';

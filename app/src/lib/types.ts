@@ -19,6 +19,8 @@ export interface Conversion {
   hijos: string;
   estado: 'Nuevo' | 'Discipulado' | 'Bautizado' | 'Integrado' | 'Apartado' | 'Fallecido';
   notas: string;
+  /** A1: si el miembro nacido de esta conversión fue eliminado a propósito, no recrearlo. */
+  miembroDescartado?: boolean;
   historial: HistorialEntry[];
   creado: string;
   version: number;

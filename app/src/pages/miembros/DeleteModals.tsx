@@ -22,6 +22,9 @@ export function DeleteModals(props: DeleteModalsProps) {
     <>
       <Modal open={modal === 'delM'} onClose={onClose} title="Eliminar miembro">
         <p>¿Eliminar a <strong>{selMiembro?.nombre} {selMiembro?.apellido}</strong> y todas sus asignaciones e hitos?</p>
+        {selMiembro?.conversionId && (
+          <p style={{ color: 'var(--red, #ef4444)', fontSize: 13, lineHeight: 1.6 }}>✝️ Este miembro se creó desde una conversión «Integrado»: su conversión quedará marcada para <strong>no recrearlo</strong> automáticamente.</p>
+        )}
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
           <button className="btn btn-danger" onClick={delM}>Eliminar todo</button>

@@ -1,15 +1,19 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { db } from '../../lib/database';
 import { showToast } from '../../lib/notification';
 import { accentStyle, fmt } from '../../lib/utils';
-import type { Grupo, Hito, Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
+import { reflejarFallecimientoEnConversion } from '../../lib/propagacion';
+import type { Conversion, Grupo, Hito, Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
 import { CIVIL_BADGE, EST_BADGE, HITO_BADGE, HITO_TIPOS, ROLES, aniosEnIglesia, calcAge, diasEnIglesia, diasHastaCumple } from './constants';
 
 interface MiembroDetailModalProps {
   open: boolean;
   onClose: () => void;
   selMiembro: Miembro | undefined;
+  conversiones: Conversion[];
+  onDesvincular: () => void;
   asignacionesPorMiembro: Record<string, MiembroMinisterio[]>;
   hitosPorMiembro: Record<string, Hito[]>;
   grupos: Grupo[];
@@ -28,7 +32,8 @@ interface MiembroDetailModalProps {
 }
 
 export function MiembroDetailModal(props: MiembroDetailModalProps) {
-  const { open, onClose, selMiembro, asignacionesPorMiembro, hitosPorMiembro, grupos, ministerios, qhTipo, setQhTipo, qhFecha, setQhFecha, qhDesc, setQhDesc, quickAddHito, updateAsigRol, quickRemoveAsig, openEditH, onAsignar, onEditarPerfil, onEliminar, onEliminarHito } = props;
+  const navigate = useNavigate();
+  const { open, onClose, selMiembro, conversiones, onDesvincular, asignacionesPorMiembro, hitosPorMiembro, grupos, ministerios, qhTipo, setQhTipo, qhFecha, setQhFecha, qhDesc, setQhDesc, quickAddHito, updateAsigRol, quickRemoveAsig, openEditH, onAsignar, onEditarPerfil, onEliminar, onEliminarHito } = props;
   return (
       <Modal open={open} onClose={onClose} title="Perfil del miembro" wide>
         {selMiembro && (() => {
@@ -41,6 +46,9 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
           const diasIglesia = diasEnIglesia(selMiembro.fechaIngreso);
           const aniosIglesia = aniosEnIglesia(selMiembro.fechaIngreso);
           const dCumple = diasHastaCumple(selMiembro.fechaNacimiento);
+          const esHuerfano = !!selMiembro.conversionId && !conversiones.some((c) => c.id === selMiembro.conversionId);
+          // C1: la conversión de origen, cuando el vínculo resuelve.
+          const conversionOrigen = selMiembro.conversionId ? conversiones.find((c) => c.id === selMiembro.conversionId) : undefined;
           const ultimoHito = histo.length > 0 ? histo[0] : null;
           const diasUltimoHito = ultimoHito ? Math.max(0, Math.floor((Date.now() - new Date(ultimoHito.fecha).getTime()) / 86400000)) : null;
           const sinHitoReciente = diasUltimoHito !== null && diasUltimoHito > 180;
@@ -58,6 +66,12 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
                 <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 6 }}>
                   {edad !== null ? `🎂 ${edad} años` : '🎂 Sin edad'} · 📍 {selMiembro.zona || 'Sin zona'} · ⛪ {aniosIglesia === 0 ? 'menos de 1 año' : `${aniosIglesia} ${aniosIglesia === 1 ? 'año' : 'años'} en la iglesia`}
                 </div>
+                {esHuerfano && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--red, #ef4444)' }}>⚠ Conversión de origen eliminada</span>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={onDesvincular}>Desvincular</button>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                   {dCumple !== null && dCumple === 0 && <span className="badge badge-green" style={{ fontSize: 11 }}>🎂 ¡Cumple hoy!</span>}
                   {dCumple !== null && dCumple > 0 && dCumple <= 7 && <span className="badge badge-yellow" style={{ fontSize: 11 }}>🎂 Cumple en {dCumple} {dCumple === 1 ? 'día' : 'días'}</span>}
@@ -113,6 +127,18 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--oro-sombra)' }}>{grupoAsignado.nombre}</div>
                   <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>📍 {grupoAsignado.zona} · 🗓️ {grupoAsignado.dia} {grupoAsignado.hora} · 📌 {grupoAsignado.lugar || 'Sin lugar'} · 👤 {grupoAsignado.lider || 'Sin mentor'}</div>
                 </div>
+              </div>
+            )}
+            {/* C1: origen del miembro — su conversión, con enlace cruzado */}
+            {conversionOrigen && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--gold)', marginBottom: 10 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--gold-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>✝️</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Origen — Conversión</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--oro-sombra)' }}>Convertido el {fmt(conversionOrigen.fecha)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Estado en Misión Bíblica: <strong>{conversionOrigen.estado}</strong>{conversionOrigen.lider ? ` · Mayor: ${conversionOrigen.lider}` : ''}</div>
+                </div>
+                <button type="button" className="btn btn-gold btn-sm" onClick={() => navigate(`/mision?ver=${conversionOrigen.id}`)}>Ver conversión →</button>
               </div>
             )}
             {/* INFO GRID */}
@@ -213,6 +239,9 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
                   onClick={async () => {
                     if (window.confirm(`¿Está seguro de registrar el fallecimiento de ${selMiembro.nombre} ${selMiembro.apellido}?`)) {
                       await db.miembros.update(selMiembro.id, { estado: 'Fallecido', actualizado: new Date().toISOString() });
+                      // B3 (sentido inverso): el mismo reflejo en la
+                      // conversión vinculada que produce guardarMiembro.
+                      await reflejarFallecimientoEnConversion({ estado: 'Fallecido', conversionId: selMiembro.conversionId });
                       showToast('Fallecimiento registrado');
                     }
                   }}

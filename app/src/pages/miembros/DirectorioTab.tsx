@@ -4,11 +4,12 @@ import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
 import { exportMiembrosPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
-import type { Grupo, Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
+import type { Conversion, Grupo, Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
 import { EST_BADGE, calcAge } from './constants';
 
 interface DirectorioTabProps {
   miembrosFiltrados: Miembro[];
+  conversiones: Conversion[];
   asignacionesPorMiembro: Record<string, MiembroMinisterio[]>;
   ministerios: Ministerio[];
   grupos: Grupo[];
@@ -26,7 +27,7 @@ interface DirectorioTabProps {
 }
 
 export function DirectorioTab(props: DirectorioTabProps) {
-  const { miembrosFiltrados, asignacionesPorMiembro, ministerios, grupos, zonas, search, setSearch, filterEstado, setFilterEstado, filterZona, setFilterZona, filterGrupo, setFilterGrupo, filterEstadoCivil, setFilterEstadoCivil, filterContacto, setFilterContacto, openNewM, openEditM, onVer, onEliminar } = props;
+  const { miembrosFiltrados, conversiones, asignacionesPorMiembro, ministerios, grupos, zonas, search, setSearch, filterEstado, setFilterEstado, filterZona, setFilterZona, filterGrupo, setFilterGrupo, filterEstadoCivil, setFilterEstadoCivil, filterContacto, setFilterContacto, openNewM, openEditM, onVer, onEliminar } = props;
   return (
         <div className="card">
            <div className="card-header">
@@ -111,11 +112,13 @@ export function DirectorioTab(props: DirectorioTabProps) {
                     return mn ? `${mn.emoji}${mn.nombre.split(' ')[0]}` : '';
                   }).filter(Boolean).join(' ');
                   const grupoAsignado = m.grupoId ? grupos.find(g => g.id === m.grupoId) : null;
+                  const esHuerfano = !!m.conversionId && !conversiones.some((c) => c.id === m.conversionId);
                   return (
                     <tr key={m.id}>
                       <td>
                         <strong>{m.nombre} {m.apellido}</strong>
                         {m.profesion && <div style={{ fontSize: 11, color: 'var(--dim)' }}>{m.profesion}</div>}
+                        {esHuerfano && <div style={{ fontSize: 11, color: 'var(--red, #ef4444)', fontWeight: 600 }}>⚠ Conversión de origen eliminada</div>}
                       </td>
                       <td>
                         <div style={{ fontSize: 12 }}>

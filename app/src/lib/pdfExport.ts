@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { showToast } from './notification';
 import { fmt } from './utils';
+import { conteoGrupo } from './grupoStats';
 import type {
   AporteComun,
   Certificado,
@@ -1093,24 +1094,25 @@ export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtro
   doc.save(`mision-conversiones-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro[] }) {
-  const { grupos, miembros } = opts;
+export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro[]; conversiones: Conversion[] }) {
+  const { grupos, miembros, conversiones } = opts;
   const doc = new jsPDF();
   header(doc, 'Directorio de Grupos de Misión', `${grupos.length} grupos activos`, 'Misión Bíblica');
 
-  const totalMiembros = grupos.reduce((sum, g) => {
-    const m = miembros.filter(mi => mi.grupoId === g.id).length;
-    return sum + m;
-  }, 0);
+  // B4: conteo único — «Miembros» son los miembros activos y la ocupación se
+  // mide sobre el total asignado (activos + conversiones en proceso), igual
+  // que en la tarjeta de Grupos y en el filtro de Misión.
+  const totalMiembros = grupos.reduce((sum, g) => sum + conteoGrupo(g.id, miembros, conversiones).miembrosActivos, 0);
 
   kpiBox(doc, 14, 34, 58, 18, 'Total Grupos', grupos.length.toString(), COLORS.gold);
   kpiBox(doc, 76, 34, 58, 18, 'Miembros Totales', totalMiembros.toString(), COLORS.green);
   kpiBox(doc, 138, 34, 58, 18, 'Promedio/Grupo', grupos.length > 0 ? (totalMiembros / grupos.length).toFixed(1) : '0', COLORS.blue);
 
   const rows = grupos.map(g => {
-    const mCount = miembros.filter(mi => mi.grupoId === g.id).length;
+    const conteo = conteoGrupo(g.id, miembros, conversiones);
+    const mCount = conteo.miembrosActivos;
     const cap = parseInt(g.capacidad) || 0;
-    const pct = cap > 0 ? (mCount / cap * 100).toFixed(0) : '—';
+    const pct = cap > 0 ? (conteo.totalAsignados / cap * 100).toFixed(0) : '—';
     return [
       g.nombre,
       g.zona || '—',

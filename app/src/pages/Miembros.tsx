@@ -1,11 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
+import { Modal } from '../components/Modal';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
-import type { Hito, Miembro, MiembroMinisterio } from '../lib/types';
-import { today } from '../lib/utils';
+import type { Conversion, Hito, Miembro, MiembroMinisterio } from '../lib/types';
+import { fmt, today } from '../lib/utils';
+import { zonaCanonica } from '../lib/zonas';
+import { reflejarFallecimientoEnConversion } from '../lib/propagacion';
 import { showToast } from '../lib/notification';
 import { diasHastaCumple } from './miembros/constants';
 import type { ModalType, Tab } from './miembros/constants';
@@ -27,7 +31,10 @@ export default function Miembros() {
   const ministerios = useLiveQuery(() => db.ministerios.toArray(), []) ?? [];
   const asignaciones = useLiveQuery(() => db.miembrosMinisterios.toArray(), []) ?? [];
   const hitos = useLiveQuery(() => db.hitos.toArray(), []) ?? [];
+  const conversiones = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
    const zonasDb = useLiveQuery(() => db.zonas.toArray(), []) ?? [];
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [tab, setTab] = useState<Tab>('directorio');
   const [search, setSearch] = useState('');
@@ -151,6 +158,20 @@ export default function Miembros() {
   const selAsigMinisterio = selAsig ? ministerios.find((x) => x.id === selAsig.ministerioId) : null;
   const selHitoMiembro = selHito ? miembros.find((m) => m.id === selHito.miembroId) : null;
 
+  // C1: enlace cruzado «Ver miembro» (?ver=<id> en el hash): abre el
+  // detalle pedido y limpia el parámetro para que no se reabra al navegar.
+  useEffect(() => {
+    const ver = searchParams.get('ver');
+    if (!ver) return;
+    const existe = miembros.some((m) => m.id === ver);
+    if (!existe && miembros.length === 0) return; // datos aún cargando
+    if (existe) { setSelectedId(ver); setModal('detail'); }
+    const limpios = new URLSearchParams(searchParams);
+    limpios.delete('ver');
+    setSearchParams(limpios, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, miembros]);
+
   const openNewM = () => { resetM(); setModal('miembro'); };
   const openEditM = (id: string) => {
     const m = miembros.find((x) => x.id === id); if (!m) return;
@@ -162,28 +183,52 @@ export default function Miembros() {
     setMConv(m.conversionId || ''); setMHermanoMayorId(m.hermanoMayorId || ''); setMNotas(m.notas);
     setModal('miembro');
   };
-  const saveM = async () => {
-    if (!mNombre.trim() || !mApellido.trim()) return showToast('Nombre y apellido son obligatorios');
-    if (mEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mEmail.trim())) return showToast('Email no válido');
-    if (mNac && mIngreso && mNac > mIngreso) return showToast('La fecha de nacimiento no puede ser posterior al ingreso');
-    if (mBautismo && !mBautizado) return showToast('Marca "Bautizado" si indicas fecha de bautismo');
+  // A2: conversión que coincide con el alta manual en curso (diálogo de vínculo).
+  const [convCoincidente, setConvCoincidente] = useState<Conversion | null>(null);
+  const guardarMiembro = async (conversionId: string | null) => {
     const data = {
       nombre: mNombre.trim(), apellido: mApellido.trim(), telefono: mTel.trim(), email: mEmail.trim(),
-      direccion: mDir.trim(), zona: mZona.trim(), grupoId: mGrupo || null, fechaNacimiento: mNac, fechaIngreso: mIngreso,
+      direccion: mDir.trim(), zona: zonaCanonica(mZona, zonasDb), grupoId: mGrupo || null, fechaNacimiento: mNac, fechaIngreso: mIngreso,
       estado: mEstado as Miembro['estado'], contactoPreferido: mContacto as Miembro['contactoPreferido'],
       profesion: mProfesion.trim(), estadoCivil: mCivil as Miembro['estadoCivil'],
       bautizado: mBautizado, fechaBautismo: mBautizado ? mBautismo : '',
       conyuge: mConyuge.trim(), hijos: mHijos.trim(),
-      conversionId: mConv || null, hermanoMayorId: mHermanoMayorId || null, notas: mNotas.trim(),
+      conversionId, hermanoMayorId: mHermanoMayorId || null, notas: mNotas.trim(),
     };
     if (editMId) {
       await db.miembros.update(editMId, { ...data, actualizado: new Date().toISOString() });
       showToast(`Miembro "${mNombre} ${mApellido}" actualizado`);
     } else {
       await db.miembros.add(createBaseRecord({ id: uuid(), ...data, actualizado: new Date().toISOString() }));
-      showToast(`Miembro "${mNombre} ${mApellido}" registrado`);
+      showToast(conversionId
+        ? `Miembro "${mNombre} ${mApellido}" registrado y vinculado a su conversión`
+        : `Miembro "${mNombre} ${mApellido}" registrado`);
     }
+    // B3 (sentido inverso): si el miembro queda «Fallecido», reflejarlo en
+    // su conversión vinculada, dejando la entrada en su historial.
+    await reflejarFallecimientoEnConversion({ estado: data.estado, conversionId });
+    setConvCoincidente(null);
     resetM(); setModal(null);
+  };
+  const saveM = async () => {
+    if (!mNombre.trim() || !mApellido.trim()) return showToast('Nombre y apellido son obligatorios');
+    if (mEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mEmail.trim())) return showToast('Email no válido');
+    if (mNac && mIngreso && mNac > mIngreso) return showToast('La fecha de nacimiento no puede ser posterior al ingreso');
+    if (mBautismo && !mBautizado) return showToast('Marca "Bautizado" si indicas fecha de bautismo');
+    if (!editMId) {
+      // A2: ¿esta persona ya existe como conversión? Ofrecer el vínculo antes
+      // de crear un miembro suelto que luego se duplicaría al integrarse.
+      const nombreCompleto = `${mNombre.trim()} ${mApellido.trim()}`.toLowerCase();
+      const tel = mTel.trim();
+      const coincidente = conversiones.find((c) => `${c.nombre} ${c.apellido}`.trim().toLowerCase() === nombreCompleto)
+        || (tel ? conversiones.find((c) => (c.telefono || '').trim() === tel) : undefined);
+      if (coincidente) {
+        setConvCoincidente(coincidente);
+        setModal('vincular');
+        return;
+      }
+    }
+    await guardarMiembro(mConv || null);
   };
   const delM = async () => {
     if (!selectedId) return;
@@ -191,8 +236,18 @@ export default function Miembros() {
     await db.miembros.delete(selectedId);
     await db.miembrosMinisterios.where('miembroId').equals(selectedId).delete();
     await db.hitos.where('miembroId').equals(selectedId).delete();
+    // A1: marcar la conversión de origen para que el miembro no resucite.
+    if (m?.conversionId) {
+      await db.conversiones.update(m.conversionId, { miembroDescartado: true });
+    }
     showToast(`Miembro "${m ? `${m.nombre} ${m.apellido}` : ''}" y sus datos eliminados`);
     setSelectedId(null); setModal(null);
+  };
+  // A3: quitar el vínculo con una conversión que ya no existe.
+  const desvincularOrigen = async () => {
+    if (!selMiembro) return;
+    await db.miembros.update(selMiembro.id, { conversionId: null, actualizado: new Date().toISOString() });
+    showToast('Miembro desvinculado de su conversión de origen');
   };
 
   const openNewMin = () => { resetMin(); setModal('ministerio'); };
@@ -363,6 +418,7 @@ export default function Miembros() {
       {tab === 'directorio' && (
         <DirectorioTab
           miembrosFiltrados={miembrosFiltrados}
+          conversiones={conversiones}
           asignacionesPorMiembro={asignacionesPorMiembro}
           ministerios={ministerios}
           grupos={grupos}
@@ -478,6 +534,8 @@ export default function Miembros() {
         open={modal === 'detail' && !!selMiembro}
         onClose={() => setModal(null)}
         selMiembro={selMiembro}
+        conversiones={conversiones}
+        onDesvincular={desvincularOrigen}
         asignacionesPorMiembro={asignacionesPorMiembro}
         hitosPorMiembro={hitosPorMiembro}
         grupos={grupos}
@@ -505,6 +563,26 @@ export default function Miembros() {
         onAsignar={() => { if (selMinisterio) { setModal(null); openNewAsig(undefined, selMinisterio.id); } }}
         onEliminar={() => setModal('delMin')}
       />
+
+      <Modal
+        open={modal === 'vincular'}
+        onClose={() => setModal('miembro')}
+        title="🔗 ¿Vincular con su conversión?"
+        footer={<>
+          <button className="btn btn-ghost" onClick={() => setModal('miembro')}>Volver</button>
+          <button className="btn btn-secondary" onClick={() => guardarMiembro(null)}>Crear de todos modos</button>
+          <button className="btn btn-primary" onClick={() => convCoincidente && guardarMiembro(convCoincidente.id)}>Vincular y guardar</button>
+        </>}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 44, marginBottom: 10 }}>✝️</div>
+          <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>
+            Ya existe una conversión de <strong style={{ color: 'var(--txt)' }}>{convCoincidente?.nombre} {convCoincidente?.apellido}</strong>
+            {convCoincidente ? <> (estado: <strong style={{ color: 'var(--txt)' }}>{convCoincidente.estado}</strong>, {fmt(convCoincidente.fecha)})</> : null}.
+            ¿Quieres vincular este miembro con esa conversión? Así la persona quedará registrada una sola vez y no se duplicará cuando la conversión se integre.
+          </p>
+        </div>
+      </Modal>
 
       <DeleteModals
         modal={modal}

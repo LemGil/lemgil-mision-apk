@@ -2,6 +2,8 @@ import { db } from './database';
 import { createBaseRecord } from './utils/recordHelpers';
 import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Metas, Miembro, Hito, Zona } from './types';
 import { v4 as uuid } from 'uuid';
+import type { Table } from 'dexie';
+import { zonaCanonica } from './zonas';
 
 const PREFIX = 'lemgil_';
 
@@ -175,6 +177,33 @@ export async function ensureZonas(): Promise<Zona[]> {
   const zonas = ZONAS_DEFAULT.map((nombre) => createBaseRecord({ id: uuid(), nombre, creado: now, version: 1 }));
   await db.zonas.bulkAdd(zonas);
   return zonas;
+}
+
+// B5: pase único e idempotente que unifica la grafía del campo zona en
+// conversiones, miembros, grupos y evangelismos cuando coincide con una zona
+// del catálogo (sin distinguir acentos ni mayúsculas). Lo que no coincide con
+// ninguna zona del catálogo queda intacto.
+export async function canonizarZonas(): Promise<number> {
+  const FLAG_KEY = 'lemgil_zonas_canon_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  const zonas = await db.zonas.toArray();
+  const oficiales = new Set(zonas.map((z) => z.nombre));
+  let cambios = 0;
+  const tablas = [db.conversiones, db.miembros, db.grupos, db.evangelismos] as unknown as Table<{ id: string; zona?: string }, string>[];
+  for (const tabla of tablas) {
+    const registros = await tabla.toArray();
+    for (const r of registros) {
+      const original = r.zona || '';
+      const canonica = zonaCanonica(original, zonas);
+      if (canonica !== original && oficiales.has(canonica)) {
+        await tabla.update(r.id, { zona: canonica });
+        cambios++;
+      }
+    }
+  }
+  localStorage.setItem(FLAG_KEY, '1');
+  if (cambios > 0) console.log(`Zonas canonizadas: ${cambios} registro(s) unificado(s)`);
+  return cambios;
 }
 
 
