@@ -144,6 +144,7 @@ body {
 .kpi-sub { font-size: 11px; color: var(--dim); }
 .kpi-change { font-size: 11px; }
 .kpi-change.up { color: var(--green); }
+.kpi-change.down { color: var(--red); }
 .kpi-icon { position: absolute; right: 14px; top: 14px; font-size: 22px; opacity: .12; }
 
 /* ═══ TABLE ═══ */

@@ -1,14 +1,22 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { Modal } from '../components/Modal';
+import { CumpleanosCard } from './miembros/CumpleanosCard';
+import { diasHastaCumple } from './miembros/constants';
 import { db } from '../lib/database';
 
-import { MS, monthKey } from '../lib/utils';
+import { MS } from '../lib/utils';
 import { showToast } from '../lib/notification';
 import { contarPersonasUnicas } from '../lib/personaVista';
-import { evangelismoConDatos, mapaPersonas } from '../lib/personaDatos';
+import { mapaPersonas } from '../lib/personaDatos';
+import {
+  actividadReciente, alertasDelPanel, barrasCrecimiento, certificadosDelPeriodo,
+  kpiConversiones, resumenGrupos, sostenimientoContraMeta,
+} from '../lib/panel';
+import type { TipoAlerta } from '../lib/panel';
 
 const fmtDate = (d: string) => {
   if (!d) return '—';
@@ -29,25 +37,45 @@ const relTime = (iso: string) => {
   return fmtDate(iso.slice(0, 10));
 };
 
-type Activity = { icon: string; bg: string; title: string; meta: string; time: string; href?: string };
-type Alert = { type: 'danger' | 'warn' | 'info'; text: string };
+const ALERTA_ICONO: Record<TipoAlerta, string> = { danger: '🔴', warn: '🟡', info: '🔵', ok: '🟢' };
+const ALERTA_FONDO: Record<TipoAlerta, string> = {
+  danger: 'rgba(199,80,80,0.06)', warn: 'rgba(245,215,122,0.06)', info: 'rgba(74,127,212,0.06)', ok: 'rgba(46,160,90,0.07)',
+};
+const ALERTA_BORDE: Record<TipoAlerta, string> = {
+  danger: 'var(--red)', warn: 'var(--oro-luz)', info: 'var(--blue)', ok: 'var(--green)',
+};
 
 export default function Dashboard() {
-  const convs = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
-  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
-  const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
-  const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
-  const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
-  // P7: el líder de un evangelismo se resuelve desde las personas (la
-  // vista); el Panel ya no lee ningún texto guardado en la actividad.
-  const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
-  const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
-  const estudiantes = useLiveQuery(() => db.estudiantes.toArray(), []) ?? [];
-  const certs = useLiveQuery(() => db.certificados.toArray(), []) ?? [];
-  const aportes = useLiveQuery(() => db.aportes.toArray(), []) ?? [];
-  const entregas = useLiveQuery(() => db.entregas.toArray(), []) ?? [];
-  const beneficiarios = useLiveQuery(() => db.beneficiarios.toArray(), []) ?? [];
+  // Bloque 3: mientras las consultas principales no respondan, el Panel
+  // muestra «Cargando…» en vez de un tablero en ceros que parece roto.
+  const convsQ = useLiveQuery(() => db.conversiones.toArray(), []);
+  const miembrosQ = useLiveQuery(() => db.miembros.toArray(), []);
+  const gruposQ = useLiveQuery(() => db.grupos.toArray(), []);
+  const evangelsQ = useLiveQuery(() => db.evangelismos.toArray(), []);
+  const personasQ = useLiveQuery(() => db.personas.toArray(), []);
+  const cursosQ = useLiveQuery(() => db.cursos.toArray(), []);
+  const estudiantesQ = useLiveQuery(() => db.estudiantes.toArray(), []);
+  const certsQ = useLiveQuery(() => db.certificados.toArray(), []);
+  const aportesQ = useLiveQuery(() => db.aportes.toArray(), []);
+  const entregasQ = useLiveQuery(() => db.entregas.toArray(), []);
+  const beneficiariosQ = useLiveQuery(() => db.beneficiarios.toArray(), []);
   const metasDoc = useLiveQuery(() => db.metas.get('default'), []);
+
+  const cargando = [convsQ, miembrosQ, gruposQ, evangelsQ, personasQ, cursosQ, estudiantesQ, certsQ, aportesQ, entregasQ, beneficiariosQ]
+    .some((v) => v === undefined);
+
+  const convs = convsQ ?? [];
+  const miembros = miembrosQ ?? [];
+  const grupos = gruposQ ?? [];
+  const evangels = evangelsQ ?? [];
+  const personas = personasQ ?? [];
+  const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
+  const cursos = cursosQ ?? [];
+  const estudiantes = estudiantesQ ?? [];
+  const certs = certsQ ?? [];
+  const aportes = aportesQ ?? [];
+  const entregas = entregasQ ?? [];
+  const beneficiarios = beneficiariosQ ?? [];
 
   const [impactView, setImpactView] = useState<'familias' | 'personas'>('personas');
   const [editMetas, setEditMetas] = useState(false);
@@ -71,7 +99,6 @@ export default function Dashboard() {
 
   const today = new Date();
   const dateStr = today.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const mo = today.toISOString().slice(0, 7);
 
   const anos = useMemo(() => {
     const years = new Set<string>();
@@ -84,84 +111,65 @@ export default function Dashboard() {
 
   const convsF = useMemo(() => filterAno ? convs.filter((c) => c.fecha?.startsWith(filterAno)) : convs, [convs, filterAno]);
   const evangelsF = useMemo(() => filterAno ? evangels.filter((e) => e.fecha?.startsWith(filterAno)) : evangels, [evangels, filterAno]);
-  const aportesF = useMemo(() => filterAno ? aportes.filter((a) => a.fecha?.startsWith(filterAno)) : aportes, [aportes, filterAno]);
   const entregasF = useMemo(() => filterAno ? entregas.filter((e) => e.fecha?.startsWith(filterAno)) : entregas, [entregas, filterAno]);
 
   const kpis = useMemo(() => {
-    const totalConv = convsF.length;
-    const mesCount = filterAno
-      ? convsF.filter((c) => monthKey(c.fecha) === `${filterAno}-${String(today.getMonth() + 1).padStart(2, '0')}`).length
-      : convs.filter((c) => monthKey(c.fecha) === mo).length;
-    const activos = grupos.filter((g) => g.miembros > 0).length;
+    // Bloque 1: KPI de conversiones honesto (lib/panel), grupos desde el
+    // conteo derivado de grupoStats y certificados del período (año en
+    // curso sin filtro), no todo el histórico.
+    const kpiConv = kpiConversiones(convs, filterAno, today);
+    const gruposResumen = resumenGrupos(grupos, miembros, convs);
     // P6: la membresía cuenta PERSONAS ÚNICAS con proceso de miembro
     // (una persona, un conteo), no sumas de fichas ni contadores por
     // grupo: la misma persona no puede contar dos veces.
     const miembrosUnicos = contarPersonasUnicas(miembros);
     const estActivos = estudiantes.filter((e) => e.estado === 'Activo').length;
-    const certCount = filterAno
-      ? certs.filter((c) => c.emitido?.startsWith(filterAno)).length
-      : certs.length;
-    return { totalConv, mesCount, activos, miembrosUnicos, estActivos, certCount };
-  }, [convsF, grupos, miembros, estudiantes, certs, mo, filterAno, today]);
+    const certCount = certificadosDelPeriodo(certs, filterAno, today);
+    return {
+      totalConv: kpiConv.total, mesCount: kpiConv.mesCount,
+      kpiEtiqueta: kpiConv.etiqueta, kpiChange: kpiConv.change, kpiChangeDir: kpiConv.changeDir,
+      activos: gruposResumen.activos, miembrosUnicos, estActivos, certCount,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convs, grupos, miembros, estudiantes, certs, filterAno]);
 
-  const chart = useMemo(() => {
-    const counts: Record<string, number> = {};
-    convsF.forEach((c) => {
-      const k = monthKey(c.fecha);
-      if (k) counts[k] = (counts[k] || 0) + 1;
-    });
-    const last: { key: string; label: string; val: number }[] = [];
-    const chartYear = filterAno ? parseInt(filterAno) : today.getFullYear();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(chartYear, today.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      last.push({ key, label: MS[d.getMonth()], val: counts[key] || 0 });
-    }
-    const max = Math.max(1, ...last.map((x) => x.val));
-    const curKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    return last.map((x) => ({ ...x, pct: Math.round((x.val / max) * 100), highlight: x.key === curKey }));
-  }, [convsF, today, filterAno]);
+  const chart = useMemo(() => barrasCrecimiento(convs, filterAno, today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [convs, filterAno]);
 
-  const activities = useMemo<Activity[]>(() => {
-    const all: Activity[] = [];
-    convsF.slice(-5).forEach((c) => all.push({ icon: '🌱', bg: 'var(--mision-purple-soft)', title: `${c.nombre} ${c.apellido} — ${c.estado}`, meta: `${c.zona} · ${c.lider || 'Sin líder'}`, time: relTime(c.creado) }));
-    evangelsF.slice(-5).forEach((e) => all.push({ icon: '📢', bg: 'var(--oro-luz-soft)', title: `${e.tipo} — ${e.contactos} contactos`, meta: `${e.zona} · ${evangelismoConDatos(e, personasMap).liderNombre || 'Sin líder'}`, time: relTime(e.creado) }));
-    estudiantes.slice(-5).forEach((e) => {
-      const curso = cursos.find((c) => c.id === e.cursoId);
-      all.push({ icon: '🎓', bg: 'var(--academia-teal-soft)', title: `${e.nombre} ${e.apellido} matriculado/a`, meta: curso ? `${curso.emoji} ${curso.nombre}` : 'Sin curso', time: relTime(e.creado) });
-    });
-    certs.slice(-5).forEach((c) => {
-      const est = estudiantes.find((e) => e.id === c.estId);
-      all.push({ icon: '🏆', bg: 'var(--gold-soft)', title: `Certificado emitido — ${c.calificacion}`, meta: est ? `${est.nombre} ${est.apellido}` : 'Estudiante', time: relTime(c.emitido) });
-    });
-    return all.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 5);
-  }, [convsF, evangelsF, estudiantes, certs, cursos, personasMap]);
+  // Bloque 1: actividad resuelta desde la persona y ordenada por
+  // timestamp real (lib/panel). El texto relativo se calcula al pintar.
+  const activities = useMemo(() => actividadReciente({
+    conversiones: convsF, evangelismos: evangelsF, estudiantes,
+    certificados: certs, cursos, personasMap,
+  }), [convsF, evangelsF, estudiantes, certs, cursos, personasMap]);
 
-  const alerts = useMemo<Alert[]>(() => {
-    const out: Alert[] = [];
-    const gruposVacios = grupos.filter((g) => !g.miembros || g.miembros === 0).length;
-    if (gruposVacios > 0) out.push({ type: 'warn', text: `🟡 ${gruposVacios} grupo(s) sin miembros activos` });
-    const estPausados = estudiantes.filter((e) => e.estado === 'Pausado').length;
-    if (estPausados > 0) out.push({ type: 'warn', text: `🟡 ${estPausados} estudiante(s) en pausa` });
-    const cursosBorrador = cursos.filter((c) => c.estado === 'Borrador').length;
-    if (cursosBorrador > 0) out.push({ type: 'info', text: `🔵 ${cursosBorrador} curso(s) en borrador` });
-    const cursosArch = cursos.filter((c) => c.estado === 'Archivado').length;
-    if (cursosArch > 0) out.push({ type: 'warn', text: `🟡 ${cursosArch} curso(s) archivado(s)` });
-    const evangSinLider = evangels.filter((e) => !evangelismoConDatos(e, personasMap).liderNombre).length;
-    if (evangSinLider > 0) out.push({ type: 'info', text: `🔵 ${evangSinLider} actividad(es) sin líder asignado` });
-    if (kpis.mesCount === 0 && convs.length > 0) out.push({ type: 'danger', text: '🔴 Sin conversiones registradas este mes' });
-    if (out.length === 0) out.push({ type: 'info', text: '🟢 Todo en orden — sin alertas activas' });
-    return out.slice(0, 5);
-  }, [grupos, estudiantes, cursos, evangels, kpis.mesCount, convs.length, personasMap]);
+  // Bloque 2: alertas accionables y con señal (lib/panel).
+  const alerts = useMemo(() => alertasDelPanel({
+    grupos, miembros, conversiones: convs, estudiantes, cursos,
+    evangelismos: evangels, personasMap,
+    mesCount: kpis.mesCount, hayConversiones: convs.length > 0,
+    filterAno, hoy: today,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [grupos, miembros, convs, estudiantes, cursos, evangels, personasMap, kpis.mesCount, filterAno]);
 
   const impact = useMemo(() => {
     const uniqIds = new Set(entregasF.map((e) => e.beneficiarioId));
     const familias = uniqIds.size;
-    const personas = beneficiarios
+    const personasImpactadas = beneficiarios
       .filter((b) => uniqIds.has(b.id))
       .reduce((s, b) => s + (b.familia || 1), 0);
-    return { familias, personas };
+    return { familias, personas: personasImpactadas };
   }, [entregasF, beneficiarios]);
+
+  // Bloque 2: los cumpleaños llegan al Panel — la misma tarjeta de
+  // Miembros, alimentada con las personas (P6), sin bifurcarla.
+  const proximosCumples = useMemo(() => {
+    return personas
+      .map(p => ({ p, dias: diasHastaCumple(p.fechaNacimiento) }))
+      .filter(x => x.dias !== null && x.dias <= 30)
+      .sort((a, b) => (a.dias || 0) - (b.dias || 0));
+  }, [personas]);
 
   const goals = useMemo(() => {
     const m = metasDoc || { membresia: 500, academia: 150, sostenimiento: 8000, familias: 200, personas: 800 };
@@ -169,31 +177,32 @@ export default function Dashboard() {
     // (la misma persona contaba dos veces). Ahora es el conteo único.
     const membresiaActual = kpis.miembrosUnicos;
     const graduados = kpis.certCount;
-    const sostenimiento = filterAno
-      ? aportesF.reduce((s, a) => s + (a.monto || 0), 0)
-      : aportesF.filter((a) => monthKey(a.fecha) === mo).reduce((s, a) => s + (a.monto || 0), 0);
+    // Bloque 1: sostenimiento con período coherente (mes contra meta
+    // mensual; año filtrado contra meta × 12, dicho en la etiqueta).
+    const sost = sostenimientoContraMeta(aportes, filterAno, m.sostenimiento, today);
     const impactCurrent = impactView === 'familias' ? impact.familias : impact.personas;
     const impactTotal = impactView === 'familias' ? m.familias : m.personas;
     return [
       { label: `👥 Membresía: ${m.membresia} miembros`, current: membresiaActual, total: m.membresia, color: 'var(--green)' },
       { label: `🎓 Academia: ${m.academia} graduados`, current: graduados, total: m.academia, color: 'var(--academia-teal)' },
-      { label: `💰 Sostenimiento: $${m.sostenimiento.toLocaleString()}/mes`, current: sostenimiento, total: m.sostenimiento, color: 'var(--oro-apostolico)', prefix: '$' },
+      { label: sost.etiqueta, current: sost.actual, total: sost.meta, color: 'var(--oro-apostolico)', prefix: '$' },
       { label: `🤲 ${impactView === 'familias' ? 'Familias' : 'Personas'} impactadas: ${impactTotal.toLocaleString()}`, current: impactCurrent, total: impactTotal, color: 'var(--manos-terracota)' },
     ];
-  }, [metasDoc, kpis.miembrosUnicos, kpis.certCount, aportesF, mo, impactView, impact, filterAno]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metasDoc, kpis.miembrosUnicos, kpis.certCount, aportes, impactView, impact, filterAno]);
 
   const saveMetas = async () => {
     const membresia = parseInt(mMembresia) || 0;
     const academia = parseInt(mAcademia) || 0;
     const sostenimiento = parseInt(mSostenimiento) || 0;
     const familias = parseInt(mFamilias) || 0;
-    const personas = parseInt(mPersonas) || 0;
-    if (membresia <= 0 || academia <= 0 || sostenimiento <= 0 || familias <= 0 || personas <= 0) {
+    const personasMeta = parseInt(mPersonas) || 0;
+    if (membresia <= 0 || academia <= 0 || sostenimiento <= 0 || familias <= 0 || personasMeta <= 0) {
       return showToast('Todos los valores deben ser mayores a 0');
     }
     const existing = await db.metas.get('default');
     const nextVersion = (existing?.version || 0) + 1;
-    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas, actualizado: new Date().toISOString(), version: nextVersion });
+    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas: personasMeta, actualizado: new Date().toISOString(), version: nextVersion });
     setEditMetas(false);
     showToast('Metas actualizadas');
       };
@@ -203,7 +212,7 @@ export default function Dashboard() {
       <div style={{ marginBottom: 28 }}>
         <div style={{
           fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700,
-          background: 'linear-gradient(135deg, var(--oro-luz), var(--oro-apostolico))',
+          background: 'linear-gradient(135deg, var(--oro-sombra), var(--oro-apostolico))',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
           letterSpacing: 1,
         }}>
@@ -214,6 +223,12 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {cargando ? (
+        <div className="card" style={{ padding: 28, textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}>
+          Cargando el panel…
+        </div>
+      ) : (
+      <>
       {anos.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <span style={{ fontSize: 12, color: 'var(--dim)', fontWeight: 600 }}>📅 Filtrar por año:</span>
@@ -226,7 +241,7 @@ export default function Dashboard() {
       )}
 
       <div className="kpis">
-        <KpiCard label="Conversiones Totales" value={kpis.totalConv} icon="✝️" accent="var(--mision-purple)" change={`▲ +${kpis.mesCount} este mes`} changeDir="up" />
+        <KpiCard label={kpis.kpiEtiqueta} value={kpis.totalConv} icon="✝️" accent="var(--mision-purple)" change={kpis.kpiChange} changeDir={kpis.kpiChangeDir} />
         <KpiCard label="Grupos Activos" value={kpis.activos} icon="👥" accent="var(--oro-apostolico)" change={`${kpis.miembrosUnicos} miembros`} changeDir="up" />
         <KpiCard label="Estudiantes Activos" value={kpis.estActivos} icon="🎓" accent="var(--academia-teal)" change={`${kpis.certCount} certificados`} changeDir="up" />
         <KpiCard
@@ -238,40 +253,44 @@ export default function Dashboard() {
           changeDir="up"
           extra={
             <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 6, padding: 2 }}>
-              <button onClick={() => setImpactView('familias')} style={{ padding: '3px 8px', fontSize: 10, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: impactView === 'familias' ? 'var(--manos-terracota)' : 'transparent', color: impactView === 'familias' ? '#fff' : 'var(--dim)' }}>👪</button>
-              <button onClick={() => setImpactView('personas')} style={{ padding: '3px 8px', fontSize: 10, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: impactView === 'personas' ? 'var(--manos-terracota)' : 'transparent', color: impactView === 'personas' ? '#fff' : 'var(--dim)' }}>🧑</button>
+              <button onClick={() => setImpactView('familias')} style={{ padding: '3px 8px', fontSize: 10, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: impactView === 'familias' ? 'var(--manos-terracota)' : 'transparent', color: impactView === 'familias' ? '#fff' : 'var(--dim)' }}>👪 Familias</button>
+              <button onClick={() => setImpactView('personas')} style={{ padding: '3px 8px', fontSize: 10, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: impactView === 'personas' ? 'var(--manos-terracota)' : 'transparent', color: impactView === 'personas' ? '#fff' : 'var(--dim)' }}>🧑 Personas</button>
             </div>
           }
         />
       </div>
 
       <div className="card" style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt)' }}>🚀 Acceso Rápido al Sistema</div>
-            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>Consulta el estado ministerial, genera reportes o gestiona métricas.</div>
-          </div>
-          <a href="/reportes" className="btn btn-gold">Generar Reporte</a>
+        <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt)' }}>🚀 Acceso Rápido</div>
+        <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2, marginBottom: 12 }}>Lo que más se hace cada semana, a un toque: registrar, entregar y reportar.</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <Link to="/mision-biblica" className="btn btn-gold">🌱 Nueva conversión</Link>
+          <Link to="/mision-biblica" className="btn btn-secondary">📢 Evangelismo</Link>
+          <Link to="/manos-abiertas" className="btn btn-secondary">🤲 Nueva entrega</Link>
+          <Link to="/reportes" className="btn btn-secondary">📊 Generar Reporte</Link>
         </div>
       </div>
 
       <div className="grid-2" style={{ marginBottom: 18 }}>
         <div className="card">
           <div className="card-header">
-            <div className="card-title">📈 Crecimiento Ministerial — Últimos 6 meses</div>
+            <div className="card-title">📈 Crecimiento Ministerial — Últimos 6 meses{filterAno ? ` · ${filterAno}` : ''}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 130 }}>
             {chart.map((b) => (
-              <div key={b.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
-                <div
-                  style={{
-                    width: '100%', borderRadius: '5px 5px 0 0', height: `${b.pct}%`, minHeight: 4, cursor: 'pointer',
-                    background: b.highlight
-                      ? 'linear-gradient(180deg, var(--oro-apostolico), rgba(201,162,74,0.15))'
-                      : 'linear-gradient(180deg, var(--oro-sombra), rgba(138,106,47,0.15))',
-                  }}
-                  title={`Conversiones: ${b.val}`}
-                />
+              <div key={b.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt)' }}>{b.val}</div>
+                <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                  <div
+                    style={{
+                      width: '100%', borderRadius: '5px 5px 0 0', height: `${b.pct}%`, minHeight: 4, cursor: 'pointer',
+                      background: b.highlight
+                        ? 'linear-gradient(180deg, var(--oro-apostolico), rgba(201,162,74,0.15))'
+                        : 'linear-gradient(180deg, var(--oro-sombra), rgba(138,106,47,0.15))',
+                    }}
+                    title={`Conversiones: ${b.val}`}
+                  />
+                </div>
                 <div style={{ fontSize: 10, color: 'var(--dim)', fontWeight: 600 }}>{b.label}</div>
               </div>
             ))}
@@ -286,14 +305,14 @@ export default function Dashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {activities.map((a, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <Link key={i} to={a.href ?? '#'} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)', textDecoration: 'none' }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: a.bg, flexShrink: 0 }}>{a.icon}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{a.title}</div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{a.meta}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>{a.time}</div>
-                </div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>{relTime(a.ts)}</div>
+                </Link>
               ))}
             </div>
           )}
@@ -303,18 +322,28 @@ export default function Dashboard() {
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="card-header"><div className="card-title">⚠️ Alertas del Sistema</div></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {alerts.map((a, i) => (
-            <div key={i} style={{
-              padding: '12px 16px', borderRadius: 10, fontSize: 13,
-              background: a.type === 'danger' ? 'rgba(199,80,80,0.06)' : a.type === 'warn' ? 'rgba(245,215,122,0.06)' : 'rgba(74,127,212,0.06)',
-              borderLeft: `4px solid ${a.type === 'danger' ? 'var(--red)' : a.type === 'warn' ? 'var(--oro-luz)' : 'var(--blue)'}`,
-              color: 'var(--txt-2)'
-            }}>
-              {a.text}
-            </div>
-          ))}
+          {alerts.map((a, i) => {
+            const estilo: React.CSSProperties = {
+              padding: '12px 16px', borderRadius: 10, fontSize: 13, display: 'block',
+              background: ALERTA_FONDO[a.tipo],
+              borderLeft: `4px solid ${ALERTA_BORDE[a.tipo]}`,
+              color: 'var(--txt-2)', textDecoration: 'none',
+            };
+            const contenido = (
+              <>
+                <span style={{ marginRight: 6 }}>{ALERTA_ICONO[a.tipo]}</span>
+                {a.texto}
+                {a.href && <span style={{ float: 'right', fontWeight: 700, color: 'var(--oro-apostolico)' }}>Ver →</span>}
+              </>
+            );
+            return a.href
+              ? <Link key={i} to={a.href} style={estilo}>{contenido}</Link>
+              : <div key={i} style={estilo}>{contenido}</div>;
+          })}
         </div>
       </div>
+
+      <CumpleanosCard proximosCumples={proximosCumples} />
 
       {anos.length > 1 && (
         <div className="card" style={{ marginBottom: 18 }}>
@@ -344,7 +373,7 @@ export default function Dashboard() {
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">📊 Metas Anuales — Progreso</div>
+          <div className="card-title">🎯 Metas del Ministerio — Progreso</div>
           <button className="btn btn-secondary btn-sm" onClick={() => setEditMetas(true)}>✏️ Editar Metas</button>
         </div>
         {goals.map((g, i) => (
@@ -361,6 +390,8 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      </>
+      )}
 
       <Modal
         open={editMetas}
@@ -397,7 +428,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div style={{ marginTop: 14, padding: 12, background: 'var(--surface-2)', borderRadius: 8, fontSize: 12, color: 'var(--dim)' }}>
-          💡 <strong>Tip:</strong> Las metas impactan directamente el cálculo de progreso y el semáforo del Dashboard.
+          💡 <strong>Cómo se mide cada meta:</strong> Membresía cuenta las personas únicas con proceso de miembro; Academia, los certificados emitidos en el año en curso (o en el año que filtres arriba); Sostenimiento compara los aportes de este mes con la meta mensual — y con un año filtrado, el total de ese año contra la meta mensual × 12; Familias y Personas impactadas cuentan las entregas del período mostrado.
         </div>
       </Modal>
 
