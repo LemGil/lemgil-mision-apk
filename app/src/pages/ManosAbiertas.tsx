@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { KpiCard } from '../components/KpiCard';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
+import { beneficiarioConDatos, conversionConDatos, mapaPersonas, miembroConDatos } from '../lib/personaDatos';
+import { asegurarPersonaDeBeneficiario } from '../lib/personas';
 import type { Beneficiario, Campana } from '../lib/types';
 import { showToast } from '../lib/notification';
 import { today, money, monthKey } from '../lib/utils';
@@ -20,11 +22,37 @@ import { CampanaDetailModal } from './manos-abiertas/CampanaDetailModal';
 import { DeleteModals } from './manos-abiertas/DeleteModals';
 
 export default function ManosAbiertas() {
-  const beneficiarios = useLiveQuery(() => db.beneficiarios.toArray(), []) ?? [];
+  const beneficiariosCrudos = useLiveQuery(() => db.beneficiarios.toArray(), []) ?? [];
   const campanas = useLiveQuery(() => db.campanas.toArray(), []) ?? [];
   const entregas = useLiveQuery(() => db.entregas.toArray(), []) ?? [];
   const zonas = useLiveQuery(() => db.zonas.toArray(), []) ?? [];
   const metasDoc = useLiveQuery(() => db.metas.get('default'), []);
+  const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  const conversionesCrudas = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  const miembrosCrudos = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+
+  // P5 (ficha única): las LECTURAS pintan a los beneficiarios DECORADOS —
+  // su nombre/contacto se resuelven desde el núcleo `personas` (única
+  // fuente): para Persona/Vulnerable, los de la propia persona; para
+  // «Casa de Familia»/«Grupo», los de su REPRESENTANTE. Las escrituras
+  // usan las fichas CRUDAS; los satélites (entregas) siguen colgando del
+  // proceso beneficiario, sin cambio de FK. Conversiones y miembros
+  // también se decoran: el nombre que una entrega guarda como foto
+  // histórica (`beneficiarioNombre`) nace de la persona, no de la copia
+  // dormida del proceso.
+  const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
+  const beneficiarios = useMemo(
+    () => beneficiariosCrudos.map((b) => beneficiarioConDatos(b, personasMap)),
+    [beneficiariosCrudos, personasMap],
+  );
+  const conversiones = useMemo(
+    () => conversionesCrudas.map((c) => conversionConDatos(c, personasMap)),
+    [conversionesCrudas, personasMap],
+  );
+  const miembros = useMemo(
+    () => miembrosCrudos.map((m) => miembroConDatos(m, personasMap)),
+    [miembrosCrudos, personasMap],
+  );
 
   const [tab, setTab] = useState<Tab>('ben');
   const [search, setSearch] = useState('');
@@ -32,7 +60,6 @@ export default function ManosAbiertas() {
   const [filterZona, setFilterZona] = useState('');
   const [filterFamilia, setFilterFamilia] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
-  const [filterSource, setFilterSource] = useState('');
   const [filterTipoCamp, setFilterTipoCamp] = useState('');
   const [filterEstadoCamp, setFilterEstadoCamp] = useState('');
   const [filterAnio, setFilterAnio] = useState(new Date().getFullYear().toString());
@@ -45,59 +72,19 @@ export default function ManosAbiertas() {
   const [editEntId, setEditEntId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const [bNombre, setBNombre] = useState('');
-  const [bApellido, setBApellido] = useState('');
-  const [bTel, setBTel] = useState('');
-  const [bDir, setBDir] = useState('');
-  const [bZona, setBZona] = useState('');
+  // P5: los datos personales del beneficiario ya NO viven en estados del
+  // formulario — viven en la ficha única de la persona enlazada
+  // (bPersonaId): para Persona/Vulnerable, la persona ayudada; para Casa
+  // de Familia/Grupo, su representante. Murió el useEffect que copiaba
+  // nombre/teléfono/dirección/zona/estado desde la conversión o el
+  // miembro elegidos como «origen»: la persona ES el origen.
+  const [bPersonaId, setBPersonaId] = useState('');
   const [bFamilia, setBFamilia] = useState('1');
   const [bEstado, setBEstado] = useState('Activo');
   const [bNotas, setBNotas] = useState('');
 
-  const [benefSource, setBenefSource] = useState<'Convertido' | 'Miembro' | 'Manual'>('Manual');
-  const [benefSourceId, setBenefSourceId] = useState('');
   const [benefType, setBenefType] = useState<'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable'>('Persona');
-  const [benefRepresentativeName, setBenefRepresentativeName] = useState('');
-  const [benefName, setBenefName] = useState(''); // Nombre del grupo o grupo de vulnerables
-
-  const conversiones = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
-  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
-
-  useEffect(() => {
-    if (benefSource === 'Convertido' && benefSourceId) {
-      const conv = conversiones.find(c => c.id === benefSourceId);
-      if (conv) {
-        setBNombre(conv.nombre);
-        setBApellido(conv.apellido);
-        setBTel(conv.telefono);
-        setBDir(conv.direccion || '');
-        setBZona(conv.zona);
-        setBEstado(conv.estado === 'Integrado' ? 'Activo' : conv.estado === 'Bautizado' ? 'Activo' : 'Inactivo');
-        setBenefType('Persona');
-        setBenefRepresentativeName('');
-      }
-    } else if (benefSource === 'Miembro' && benefSourceId) {
-      const member = miembros.find(m => m.id === benefSourceId);
-      if (member) {
-        setBNombre(member.nombre);
-        setBApellido(member.apellido);
-        setBTel(member.telefono);
-        setBDir(member.direccion || '');
-        setBZona(member.zona);
-        setBEstado(member.estado === 'Activo' ? 'Activo' : 'Inactivo');
-        setBenefType('Persona');
-        setBenefRepresentativeName('');
-      }
-    } else if (benefSource === 'Manual') {
-      setBNombre('');
-      setBApellido('');
-      setBTel('');
-      setBDir('');
-      setBZona('');
-      setBEstado('Activo');
-      setBenefRepresentativeName('');
-    }
-  }, [benefSource, benefSourceId, conversiones, miembros]);
+  const [benefName, setBenefName] = useState(''); // Nombre del hogar o grupo (Casa de Familia/Grupo)
 
   const [cNombre, setCNombre] = useState('');
   const [cInicio, setCInicio] = useState(today());
@@ -125,18 +112,11 @@ export default function ManosAbiertas() {
 
   const resetBen = () => {
     setEditBenId(null);
-    setBNombre('');
-    setBApellido('');
-    setBTel('');
-    setBDir('');
-    setBZona('');
+    setBPersonaId('');
     setBFamilia('1');
     setBEstado('Activo');
     setBNotas('');
-    setBenefSource('Manual');
-    setBenefSourceId('');
     setBenefType('Persona');
-    setBenefRepresentativeName('');
     setBenefName('');
   };
   const resetCamp = () => {
@@ -190,10 +170,9 @@ export default function ManosAbiertas() {
         && (!filterEstado || b.estado === filterEstado)
         && (!filterZona || b.zona === filterZona)
         && matchFamilia
-        && (!filterTipo || b.tipo === filterTipo)
-        && (!filterSource || b.source === filterSource);
+        && (!filterTipo || b.tipo === filterTipo);
     });
-  }, [beneficiarios, search, filterEstado, filterZona, filterFamilia, filterTipo, filterSource]);
+  }, [beneficiarios, search, filterEstado, filterZona, filterFamilia, filterTipo]);
 
   const campFiltradas = useMemo(() => {
     const s = search.toLowerCase();
@@ -233,49 +212,66 @@ export default function ManosAbiertas() {
     setBenefType(type);
     setModal('ben');
   };
-  const openEditBen = (id: string) => {
-    const b = beneficiarios.find((x) => x.id === id);
+  const openEditBen = async (id: string) => {
+    const b = beneficiariosCrudos.find((x) => x.id === id);
     if (!b) return;
     setEditBenId(id);
-    setBNombre(b.nombre);
-    setBApellido(b.apellido);
-    setBTel(b.telefono);
-    setBDir(b.direccion);
-    setBZona(b.zona);
+    let personaId = b.personaId ?? '';
+    // P5: un beneficiario Persona/Vulnerable viejo y sin persona (llegó de
+    // un equipo sin actualizar) se asegura la suya al editarlo, con la
+    // regla determinista de P2–P4. Una Casa/Grupo NUNCA recibe persona
+    // fabricada: su personaId es solo el representante que se elija.
+    if ((b.tipo === 'Persona' || b.tipo === 'Vulnerable') && !personaId) {
+      personaId = await asegurarPersonaDeBeneficiario(b);
+    }
+    setBPersonaId(personaId);
+    setBenefType(b.tipo || 'Persona');
+    setBenefName(b.tipo === 'Casa de Familia' || b.tipo === 'Grupo' ? b.nombre : '');
     setBFamilia(String(b.familia || 1));
     setBEstado(b.estado);
     setBNotas(b.notas);
-    setBenefSource(b.source || 'Manual');
-    setBenefSourceId(b.sourceId || '');
-    setBenefType(b.tipo || 'Persona');
-    setBenefRepresentativeName(b.representativeName || '');
-    setBenefName(b.nombre); // Assuming nombre stores the group/vulnerable name
     setModal('ben');
   };
   const saveBen = async () => {
-    if (benefType === 'Persona' && (!bNombre.trim() || !bApellido.trim())) return showToast('Nombre y apellido son obligatorios');
-    if ((benefType === 'Grupo' || benefType === 'Vulnerable') && !benefName.trim()) return showToast('El nombre es obligatorio');
-    
-    const data = { 
-      nombre: benefType === 'Persona' ? bNombre.trim() : benefName.trim(), 
-      apellido: benefType === 'Persona' ? bApellido.trim() : '', 
-      telefono: bTel.trim(), 
-      direccion: bDir.trim(), 
-      zona: bZona, 
-      familia: parseInt(bFamilia) || 1, 
-      estado: bEstado as Beneficiario['estado'], 
-      notas: bNotas.trim(), 
-      tipo: benefType, 
-      source: benefSource, 
-      sourceId: benefSource !== 'Manual' ? benefSourceId : undefined,
-      representativeName: (benefType === 'Casa de Familia' || benefType === 'Grupo') ? benefRepresentativeName.trim() : undefined 
+    const esPersona = benefType === 'Persona' || benefType === 'Vulnerable';
+    if (esPersona && !bPersonaId) return showToast('Elige la persona beneficiaria (o créala con «➕ Nueva persona»)');
+    if (!esPersona && !benefName.trim()) return showToast('El nombre es obligatorio');
+    const persona = bPersonaId ? personas.find((p) => p.id === bPersonaId) : undefined;
+    if (bPersonaId && !persona) return showToast('La persona elegida ya no existe');
+    const nombrePersona = persona ? `${persona.nombre} ${persona.apellido}`.trim() : '';
+    const nombreVisible = esPersona ? nombrePersona : benefName.trim();
+    // P5: solo datos del PROCESO y el enlace. La identidad vive en la
+    // persona enlazada; ninguna escritura nueva produce source/sourceId.
+    const proceso = {
+      tipo: benefType,
+      familia: parseInt(bFamilia) || 1,
+      estado: bEstado as Beneficiario['estado'],
+      notas: bNotas.trim(),
+      personaId: esPersona ? bPersonaId : (bPersonaId || null),
     };
     if (editBenId) {
-      await db.beneficiarios.update(editBenId, data);
-      showToast(`Beneficiario "${bNombre} ${bApellido}" actualizado`);
+      // La edición NO reescribe los personales dormidos: quedan como
+      // última foto en la ficha, pero ya nadie los lee. En Casa/Grupo sí
+      // se guarda su nombre (es del proceso) y la foto del representante.
+      await db.beneficiarios.update(editBenId, esPersona
+        ? proceso
+        : { ...proceso, nombre: benefName.trim(), representativeName: nombrePersona });
+      showToast(`Beneficiario "${nombreVisible}" actualizado`);
     } else {
-      await db.beneficiarios.add(createBaseRecord({ id: uuid(), ...data }));
-      showToast(`Beneficiario "${bNombre} ${bApellido}" registrado`);
+      // El proceso nace SIN datos personales (vacíos a propósito): viven
+      // en la persona enlazada, una sola vez. En Casa/Grupo el nombre es
+      // el del hogar/grupo y el contacto nacerá del representante.
+      await db.beneficiarios.add(createBaseRecord({
+        id: uuid(),
+        nombre: esPersona ? '' : benefName.trim(),
+        apellido: '',
+        telefono: '',
+        direccion: '',
+        zona: '',
+        representativeName: esPersona ? '' : nombrePersona,
+        ...proceso,
+      }));
+      showToast(`Beneficiario "${nombreVisible}" registrado`);
     }
     resetBen();
     setModal(null);
@@ -452,7 +448,6 @@ export default function ManosAbiertas() {
             filterZona={filterZona} setFilterZona={setFilterZona}
             filterFamilia={filterFamilia} setFilterFamilia={setFilterFamilia}
             filterTipo={filterTipo} setFilterTipo={setFilterTipo}
-            filterSource={filterSource} setFilterSource={setFilterSource}
             openEditBen={openEditBen}
             onEntregaParaBen={(b) => { openNewEnt(); setTimeout(() => { setEBenefOrigen('Manual'); setEBenefManual(`${b.nombre} ${b.apellido}`); }, 50); }}
             onDeleteBen={(id) => { setSelectedId(id); setModal('delBen'); }}
@@ -497,19 +492,11 @@ export default function ManosAbiertas() {
           editBenId={editBenId}
           saveBen={saveBen}
           typeAccent={typeAccent}
+          personas={personas}
           benefType={benefType} setBenefType={setBenefType}
-          benefSource={benefSource} setBenefSource={setBenefSource}
-          benefSourceId={benefSourceId} setBenefSourceId={setBenefSourceId}
-          conversiones={conversiones}
-          miembros={miembros}
-          bNombre={bNombre} setBNombre={setBNombre}
-          bApellido={bApellido} setBApellido={setBApellido}
+          bPersonaId={bPersonaId} setBPersonaId={setBPersonaId}
           benefName={benefName} setBenefName={setBenefName}
-          benefRepresentativeName={benefRepresentativeName} setBenefRepresentativeName={setBenefRepresentativeName}
-          bTel={bTel} setBTel={setBTel}
-          bDir={bDir} setBDir={setBDir}
           bFamilia={bFamilia} setBFamilia={setBFamilia}
-          bZona={bZona} setBZona={setBZona}
           bEstado={bEstado} setBEstado={setBEstado}
           bNotas={bNotas} setBNotas={setBNotas}
         />

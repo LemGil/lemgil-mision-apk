@@ -1,4 +1,4 @@
-import type { Conversion, Diezmador, Estudiante, Grupo, Miembro, Persona } from './types';
+import type { Beneficiario, Conversion, Diezmador, Estudiante, Grupo, Miembro, Persona } from './types';
 import { edadDesde } from './personaVista';
 
 /**
@@ -117,6 +117,43 @@ export function diezmadorConDatos(d: Diezmador, mapa: Map<string, Persona>, grup
     zona: p.zona,
     numeroIdentidad: p.numeroIdentidad,
     grupo: p.grupoId ? (grupos?.get(p.grupoId)?.nombre ?? '') : '',
+  };
+}
+
+/**
+ * El beneficiario, listo para pintar (P5): si es una PERSONA (tipos
+ * Persona/Vulnerable), nombre, apellido, teléfono, dirección, zona y
+ * carné vienen del núcleo, como en los demás procesos. Si es una «Casa
+ * de Familia» o un «Grupo», el nombre es el del hogar/grupo (vive en el
+ * proceso) y el CONTACTO se resuelve desde su REPRESENTANTE — la persona
+ * enlazada en `personaId` (§3.4 del diseño): su teléfono, dirección y
+ * zona mandan, y `representativeName` se pinta con su nombre vigente,
+ * no con la foto dormida. Sin persona enlazada, la ficha se devuelve
+ * tal cual, con sus campos dormidos (tolerancia §4.3.3). El proceso
+ * conserva lo suyo: tipo, familia (tamaño del hogar), estado y notas.
+ * Los satélites (Entrega.beneficiarioId) no cambian ninguna FK; el
+ * nombre histórico de cada entrega sigue siendo su foto al crearla.
+ */
+export function beneficiarioConDatos(b: Beneficiario, mapa: Map<string, Persona>): Beneficiario {
+  const p = b.personaId ? mapa.get(b.personaId) : undefined;
+  if (!p) return b;
+  if (b.tipo === 'Casa de Familia' || b.tipo === 'Grupo') {
+    return {
+      ...b,
+      telefono: p.telefono,
+      direccion: p.direccion,
+      zona: p.zona,
+      representativeName: `${p.nombre} ${p.apellido}`.trim(),
+    };
+  }
+  return {
+    ...b,
+    nombre: p.nombre,
+    apellido: p.apellido,
+    telefono: p.telefono,
+    direccion: p.direccion,
+    zona: p.zona,
+    numeroIdentidad: p.numeroIdentidad,
   };
 }
 

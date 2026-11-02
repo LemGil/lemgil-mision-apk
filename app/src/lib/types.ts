@@ -251,16 +251,27 @@ export interface Beneficiario {
   /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
   numeroIdentidad?: string;
   /**
-   * Ficha única (P0): la persona dueña de este proceso (→ personas.id).
-   * Solo para tipo Persona/Vulnerable; «Casa de Familia» y «Grupo» no son
-   * una persona del núcleo (su enlace por representante llega en P5).
+   * Ficha única (P0; enlace completado en P5): la persona de este proceso
+   * (→ personas.id). Para Persona/Vulnerable es la propia persona ayudada;
+   * para «Casa de Familia»/«Grupo» — que NO son una persona del núcleo —
+   * es su REPRESENTANTE: la persona que recibe y firma, de cuya ficha se
+   * resuelven el teléfono, la dirección y la zona de contacto. Nullable:
+   * un hogar o grupo puede no tener representante enlazado todavía.
    */
   personaId?: string | null;
   notas: string;
   creado: string;
   tipo: 'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable';
   representativeName?: string;
-  source: 'Convertido' | 'Miembro' | 'Manual';
+  /**
+   * MUERTOS en P5 (ficha única): el «origen» solo recordaba de qué ficha se
+   * copiaron los datos al registrar; con `personaId`, la persona ES el
+   * origen. Ninguna escritura nueva los produce (ni el alta, ni la
+   * edición, ni la importación CSV); quedan opcionales solo porque los
+   * registros viejos los traen dormidos (retirada del tipo en P6, con los
+   * demás campos dormidos).
+   */
+  source?: 'Convertido' | 'Miembro' | 'Manual';
   sourceId?: string;
   version: number;
   updatedAt?: string | number;

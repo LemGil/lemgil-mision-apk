@@ -477,11 +477,13 @@ interface FichaAsegurable {
  * migración (§5.2): la persona hereda el id del propio proceso, y su
  * núcleo nace de los datos dormidos de la ficha. Si la persona ya existe,
  * solo se escribe el enlace. Devuelve el personaId vigente. La comparten
- * la conversión (al integrarse, P2), el estudiante (al editarlo, P3) y el
- * diezmador (al editarlo, P4).
+ * la conversión (al integrarse, P2), el estudiante (al editarlo, P3), el
+ * diezmador (al editarlo, P4) y el beneficiario (al editarlo, P5 — solo
+ * tipos Persona/Vulnerable: una «Casa de Familia» o un «Grupo» no son una
+ * persona y nunca se les fabrica una; su enlace es el representante).
  */
 async function asegurarPersonaDeProceso(
-  tabla: 'conversiones' | 'estudiantes' | 'dadores',
+  tabla: 'conversiones' | 'estudiantes' | 'dadores' | 'beneficiarios',
   ficha: FichaAsegurable,
 ): Promise<string> {
   if (ficha.personaId) return ficha.personaId;
@@ -537,6 +539,11 @@ export async function asegurarPersonaDeEstudiante(e: Estudiante): Promise<string
 /** P4: el diezmador viejo sin persona se la asegura al ser editado. */
 export async function asegurarPersonaDeDiezmador(d: Diezmador): Promise<string> {
   return asegurarPersonaDeProceso('dadores', d);
+}
+
+/** P5: el beneficiario Persona/Vulnerable viejo sin persona se la asegura al ser editado. */
+export async function asegurarPersonaDeBeneficiario(b: Beneficiario): Promise<string> {
+  return asegurarPersonaDeProceso('beneficiarios', b);
 }
 
 /**

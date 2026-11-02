@@ -13,14 +13,13 @@ interface BeneficiariosTabProps {
   filterZona: string; setFilterZona: Dispatch<SetStateAction<string>>;
   filterFamilia: string; setFilterFamilia: Dispatch<SetStateAction<string>>;
   filterTipo: string; setFilterTipo: Dispatch<SetStateAction<string>>;
-  filterSource: string; setFilterSource: Dispatch<SetStateAction<string>>;
   openEditBen: (id: string) => void;
   onEntregaParaBen: (b: Beneficiario) => void;
   onDeleteBen: (id: string) => void;
 }
 
 export function BeneficiariosTab(props: BeneficiariosTabProps) {
-  const { benFiltrados, beneficiarios, entregas, zonas, search, setSearch, filterEstado, setFilterEstado, filterZona, setFilterZona, filterFamilia, setFilterFamilia, filterTipo, setFilterTipo, filterSource, setFilterSource, openEditBen, onEntregaParaBen, onDeleteBen } = props;
+  const { benFiltrados, beneficiarios, entregas, zonas, search, setSearch, filterEstado, setFilterEstado, filterZona, setFilterZona, filterFamilia, setFilterFamilia, filterTipo, setFilterTipo, openEditBen, onEntregaParaBen, onDeleteBen } = props;
   return (
           <>
             <div className="search-bar">
@@ -47,14 +46,8 @@ export function BeneficiariosTab(props: BeneficiariosTabProps) {
                   <option value="Grupo">Grupo</option>
                   <option value="Vulnerable">Vulnerable</option>
               </select>
-              <select className="filter-select" value={filterSource} onChange={(e) => setFilterSource(e.target.value)}>
-                  <option value="">Todos los orígenes</option>
-                  <option value="Convertido">Converso</option>
-                  <option value="Miembro">Miembro</option>
-                  <option value="Manual">Manual</option>
-              </select>
-              {(search || filterEstado || filterZona || filterFamilia || filterTipo || filterSource) && (
-                <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterEstado(''); setFilterZona(''); setFilterFamilia(''); setFilterTipo(''); setFilterSource(''); }}>✕ Limpiar</button>
+              {(search || filterEstado || filterZona || filterFamilia || filterTipo) && (
+                <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterEstado(''); setFilterZona(''); setFilterFamilia(''); setFilterTipo(''); }}>✕ Limpiar</button>
               )}
             </div>
 

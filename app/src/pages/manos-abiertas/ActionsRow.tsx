@@ -67,7 +67,7 @@ export function ActionsRow(props: ActionsRowProps) {
                   'Tipo': 'tipo',
                 }}
                 requiredFields={['nombre', 'apellido']}
-                defaults={{ estado: 'Activo', familia: 1, tipo: 'Persona', source: 'Manual' }}
+                defaults={{ estado: 'Activo', familia: 1, tipo: 'Persona' }}
                 onImport={(n) => showToast(`${n} beneficiario(s) importado(s)`)}
               />
             </>
