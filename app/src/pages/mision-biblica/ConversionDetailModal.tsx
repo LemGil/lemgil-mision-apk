@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { accentStyle, fmt } from '../../lib/utils';
 import type { Conversion, Grupo, Hito, Miembro } from '../../lib/types';
@@ -33,8 +34,9 @@ interface ConversionDetailModalProps {
 
 export function ConversionDetailModal(props: ConversionDetailModalProps) {
   const { open, onClose, onEliminar, onPermitirRecrear, saveSeg, selConv, miembroVinculado, hitosVinculado, onVerMiembro, grupos, tempEst, setTempEst, sNota, setSNota, sHito, setSHito } = props;
+  const navigate = useNavigate();
   return (
-      <Modal open={open} onClose={onClose} title={`📄 ${selConv?.nombre} ${selConv?.apellido}`} wide footer={<><button className="btn btn-danger btn-sm" onClick={onEliminar}>🗑️ Eliminar</button><button className="btn btn-secondary" onClick={onClose}>Cerrar</button><button className="btn btn-gold" onClick={saveSeg}>💾 Guardar Cambios</button></>}>
+      <Modal open={open} onClose={onClose} title={`📄 ${selConv?.nombre} ${selConv?.apellido}`} wide footer={<><button className="btn btn-danger btn-sm" onClick={onEliminar}>🗑️ Eliminar</button>{selConv?.personaId && <button className="btn btn-secondary" onClick={() => navigate(`/personas?ver=${selConv.personaId}`)}>👤 Ver ficha completa</button>}<button className="btn btn-secondary" onClick={onClose}>Cerrar</button><button className="btn btn-gold" onClick={saveSeg}>💾 Guardar Cambios</button></>}>
         {selConv && (() => {
           const iniciales = `${selConv.nombre[0] || ''}${selConv.apellido[0] || ''}`.toUpperCase();
           const fechaCreado = new Date(selConv.creado);

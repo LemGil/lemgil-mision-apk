@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { money, monthKey } from '../../lib/utils';
 import type { AporteComun, Diezmador } from '../../lib/types';
@@ -13,8 +14,9 @@ interface DiezmadorDetailModalProps {
 
 export function DiezmadorDetailModal(props: DiezmadorDetailModalProps) {
   const { open, onClose, onEliminar, onEditar, viewDiezmador, aportes } = props;
+  const navigate = useNavigate();
   return (
-        <Modal open={open} onClose={onClose} title={`🙏 Detalle del Diezmador`} footer={<><button className="btn btn-danger btn-sm" onClick={onEliminar}>🗑️ Eliminar</button><button className="btn btn-secondary" onClick={onClose}>Cerrar</button><button className="btn btn-gold" onClick={onEditar}>✏️ Editar Diezmador</button></>}>
+        <Modal open={open} onClose={onClose} title={`🙏 Detalle del Diezmador`} footer={<><button className="btn btn-danger btn-sm" onClick={onEliminar}>🗑️ Eliminar</button>{viewDiezmador?.personaId && <button className="btn btn-secondary" onClick={() => navigate(`/personas?ver=${viewDiezmador.personaId}`)}>👤 Ver ficha completa</button>}<button className="btn btn-secondary" onClick={onClose}>Cerrar</button><button className="btn btn-gold" onClick={onEditar}>✏️ Editar Diezmador</button></>}>
             {viewDiezmador && (() => {
                 const regs = aportes.filter(a => a.diezmadorId === viewDiezmador.id);
                 const total = regs.reduce((s, a) => s + (a.monto || 0), 0);

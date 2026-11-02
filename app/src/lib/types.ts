@@ -18,6 +18,10 @@ export interface Conversion {
   conyuge: string;
   hijos: string;
   estado: 'Nuevo' | 'Discipulado' | 'Bautizado' | 'Integrado' | 'Apartado' | 'Fallecido';
+  /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
+  numeroIdentidad?: string;
+  /** Ficha única (P0): la persona dueña de este proceso (→ personas.id). */
+  personaId?: string | null;
   notas: string;
   /** A1: si el miembro nacido de esta conversión fue eliminado a propósito, no recrearlo. */
   miembroDescartado?: boolean;
@@ -31,6 +35,44 @@ export interface HistorialEntry {
   fecha: string;
   estado: string;
   nota: string;
+}
+
+/**
+ * FICHA ÚNICA (P0): la persona, una sola vez. Identidad y contacto viven aquí;
+ * cada módulo conserva su tabla como PROCESO de la persona (conversiones,
+ * miembros, estudiantes, dadores de Bien Común y beneficiarios guardan solo
+ * `personaId` + los datos de su proceso). La Red de Colaboradores NO participa
+ * (decisión de LemGil 2026-11-01: apoyo financiero externo, no membresía).
+ */
+export interface Persona {
+  id: string;
+  nombre: string;
+  apellido: string;
+  /**
+   * P0.1: Nº de Identidad (carné) — la identificación PRINCIPAL de la
+   * persona: única e intransferible (corrección de LemGil 2026-11-01).
+   * El teléfono queda como respaldo para unir fichas viejas sin carné.
+   */
+  numeroIdentidad: string;
+  telefono: string;
+  email: string;
+  direccion: string;
+  zona: string;
+  fechaNacimiento: string;
+  profesion: string;
+  estadoCivil: 'Soltero' | 'Casado' | 'Viudo' | 'Divorciado' | 'Unión';
+  contactoPreferido: 'Teléfono' | 'WhatsApp' | 'Email' | 'Visita' | 'Otro';
+  bautizado: boolean;
+  fechaBautismo: string;
+  conyuge: string;
+  hijos: string;
+  /** Grupo actual de la persona (→ grupos.id). Uno solo: es de la persona. */
+  grupoId: string | null;
+  /** Mentor de la persona (→ personas.id, otra persona). */
+  hermanoMayorId: string | null;
+  creado: string;
+  version: number;
+  updatedAt?: string | number;
 }
 
 export interface Grupo {
@@ -99,6 +141,10 @@ export interface Estudiante {
   cursoId: string;
   fecha: string;
   estado: 'Activo' | 'Completado' | 'Pausado';
+  /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
+  numeroIdentidad?: string;
+  /** Ficha única (P0): la persona dueña de este proceso (→ personas.id). */
+  personaId?: string | null;
   notas: string;
   creado: string;
   origen: 'convertido' | 'miembro' | 'manual';
@@ -139,6 +185,10 @@ export interface Diezmador {
   estado: 'Activo' | 'Inactivo';
   zona: string;
   grupo: string;
+  /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
+  numeroIdentidad?: string;
+  /** Ficha única (P0): la persona dueña de este proceso (→ personas.id). */
+  personaId?: string | null;
   planDiezmo: number;
   notas: string;
   creado: string;
@@ -169,6 +219,14 @@ export interface Beneficiario {
   zona: string;
   familia: number;
   estado: 'Activo' | 'Inactivo';
+  /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
+  numeroIdentidad?: string;
+  /**
+   * Ficha única (P0): la persona dueña de este proceso (→ personas.id).
+   * Solo para tipo Persona/Vulnerable; «Casa de Familia» y «Grupo» no son
+   * una persona del núcleo (su enlace por representante llega en P5).
+   */
+  personaId?: string | null;
   notas: string;
   creado: string;
   tipo: 'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable';
@@ -325,6 +383,10 @@ export interface Miembro {
   hijos: string;
   hermanoMayorId: string | null;
   conversionId: string | null;
+  /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
+  numeroIdentidad?: string;
+  /** Ficha única (P0): la persona dueña de este proceso (→ personas.id). */
+  personaId?: string | null;
   notas: string;
   creado: string;
   actualizado: string;

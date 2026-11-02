@@ -4,6 +4,7 @@ import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certif
 import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
+import { ejecutarMigracionPersonas } from './personas';
 
 const PREFIX = 'lemgil_';
 
@@ -177,6 +178,23 @@ export async function ensureZonas(): Promise<Zona[]> {
   const zonas = ZONAS_DEFAULT.map((nombre) => createBaseRecord({ id: uuid(), nombre, creado: now, version: 1 }));
   await db.zonas.bulkAdd(zonas);
   return zonas;
+}
+
+// Ficha única (P0): pase único e idempotente que crea la colección
+// `personas` y enlaza los 5 procesos del alcance con su personaId (reglas en
+// lib/personas.ts). Es ADITIVO: no borra ni sobrescribe ninguna ficha ni
+// campo; lo viejo queda dormido como respaldo. Va DESPUÉS de canonizarZonas
+// para que el núcleo nazca con las zonas ya limpias (B5). La salva en CSV
+// (paso P-1 del diseño) es previa y manual: este pase no la sustituye.
+export async function unificarPersonas(): Promise<number> {
+  const FLAG_KEY = 'lemgil_personas_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  const { personasCreadas, procesosEnlazados } = await ejecutarMigracionPersonas();
+  localStorage.setItem(FLAG_KEY, '1');
+  if (personasCreadas > 0 || procesosEnlazados > 0) {
+    console.log(`Ficha única: ${personasCreadas} persona(s) creada(s), ${procesosEnlazados} proceso(s) enlazado(s)`);
+  }
+  return personasCreadas;
 }
 
 // B5: pase único e idempotente que unifica la grafía del campo zona en

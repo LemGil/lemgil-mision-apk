@@ -22,6 +22,7 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T> {
 }
 
 export const SYNC_TABLES = [
+  "personas",
   "conversiones", "grupos", "evangelismos", "cursos", "lecciones",
   "estudiantes", "certificados", "dadores", "aportes", "beneficiarios",
   "campanas", "entregas", "metas", "negocios", "publicaciones",
@@ -32,6 +33,7 @@ export const SYNC_TABLES = [
 ] as const satisfies readonly SyncTableName[];
 
 const DEXIE_TO_SUPABASE: Record<SyncTableName, string> = {
+  personas: "personas",
   aportesComun: "aportescomun",
   miembrosComun: "miembroscomun",
   miembrosMinisterios: "miembrosministerios",
@@ -83,6 +85,7 @@ const SUPABASE_TO_DEXIE: Record<string, string> = {
   estid: "estId", estudianteid: "estudianteId", certificadoid: "certificadoId",
   ministerioid: "ministerioId", miembroministerioid: "miembroMinisterioId",
   hermanomayorid: "hermanoMayorId", conversionid: "conversionId", origenid: "origenId",
+  personaid: "personaId", numeroidentidad: "numeroIdentidad",
   mescorrespondiente: "mesCorrespondiente", planofrendasmensual: "planOfrendasMensual",
   planofrendatipo: "planOfrendaTipo", planofrendamonto: "planOfrendaMonto",
   planediezmo: "planDiezmo", tipoplanid: "tipoPlanId", colaboradorid: "colaboradorId",
@@ -107,6 +110,7 @@ export function toCamelCaseKeys(obj: unknown): unknown {
 }
 
 export const tableMap: Record<SyncTableName, Table<any, string>> = {
+  personas: db.personas as Table<any, string>,
   conversiones: db.conversiones as Table<any, string>,
   grupos: db.grupos as Table<any, string>,
   evangelismos: db.evangelismos as Table<any, string>,

@@ -11,6 +11,7 @@ export type SyncStatus = {
 };
 
 export type SyncTableName =
+  | "personas"
   | "conversiones"
   | "grupos"
   | "evangelismos"

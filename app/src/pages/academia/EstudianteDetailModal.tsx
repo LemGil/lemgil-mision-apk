@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { accentStyle, fmt } from '../../lib/utils';
 import type { Certificado, Conversion, Curso, Estudiante, Grupo, Hito, Miembro } from '../../lib/types';
@@ -22,6 +23,7 @@ interface EstudianteDetailModalProps {
 
 export function EstudianteDetailModal(props: EstudianteDetailModalProps) {
   const { open, onClose, selEst, selEstData, cursos, qhTipo, setQHTipo, qhDesc, setQHDesc, qhFecha, setQHFecha, saveHito, resetHito, onEditarPerfil, onEliminar } = props;
+  const navigate = useNavigate();
   return (
       <Modal open={open} onClose={onClose} title="Perfil del Estudiante" wide>
         {selEstData ? (
@@ -180,6 +182,9 @@ export function EstudianteDetailModal(props: EstudianteDetailModalProps) {
 
             {/* ─── FOOTER ─── */}
             <div className="modal-footer" style={{ marginTop: 20 }}>
+              {selEst?.personaId && (
+                <button className="btn btn-secondary" onClick={() => navigate(`/personas?ver=${selEst.personaId}`)}>👤 Ver ficha completa</button>
+              )}
               <button className="btn btn-secondary" onClick={onEditarPerfil}>✏ Editar perfil</button>
               <button className="btn btn-danger" onClick={onEliminar}>🗑 Eliminar</button>
             </div>

@@ -249,6 +249,9 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
                   ✝️ Registrar Fallecimiento
                 </button>
               )}
+              {selMiembro.personaId && (
+                <button className="btn btn-secondary" onClick={() => navigate(`/personas?ver=${selMiembro.personaId}`)}>👤 Ver ficha completa</button>
+              )}
               <button className="btn btn-secondary" onClick={onEditarPerfil}>✏ Editar perfil</button>
               <button className="btn btn-danger" onClick={onEliminar}>🗑 Eliminar</button>
             </div>

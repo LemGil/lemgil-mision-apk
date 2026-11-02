@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { SyncTableName } from './sync/types';
-import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Diezmador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, Colaborador, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador } from './types';
+import type { Persona, Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Diezmador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, Colaborador, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador } from './types';
 
 /** Entrada de la bandeja de salida: un registro local cambió y falta subirlo. */
 export interface SyncOutboxEntry {
@@ -19,6 +19,7 @@ export interface SyncTombstone {
 }
 
 const database = new Dexie('LemGilDB') as Dexie & {
+  personas: EntityTable<Persona, 'id'>;
   conversiones: EntityTable<Conversion, 'id'>;
   grupos: EntityTable<Grupo, 'id'>;
   evangelismos: EntityTable<Evangelismo, 'id'>;
@@ -258,6 +259,21 @@ database.version(19).stores({
 database.version(20).stores({
   syncQueue: '++id, table, [table+recordId]',
   syncTombstones: 'id, table, recordId',
+});
+
+// Ficha única (P0): nace la tabla `personas` (identidad y contacto, una sola
+// vez) y los 5 procesos del alcance ganan el índice `personaId`. La Red de
+// Colaboradores (colaboradores/miembrosComun) queda fuera por decisión de
+// LemGil. Los campos personales viejos de cada proceso NO se tocan: quedan
+// dormidos como respaldo (la migración que rellena personaId vive en
+// lib/migrate.ts, pase con marca, no en un upgrade de Dexie).
+database.version(21).stores({
+  personas: 'id, nombre, apellido, telefono, numeroIdentidad, zona',
+  conversiones: 'id, zona, estado, fecha, lider, creado, grupoId, hermanoMayorId, personaId',
+  miembros: 'id, nombre, apellido, zona, estado, fechaIngreso, conversionId, creado, personaId',
+  estudiantes: 'id, cursoId, estado, origen, zona, grupoId, creado, personaId',
+  dadores: 'id, nombre, apellido, estado, tipo, creado, personaId',
+  beneficiarios: 'id, nombre, apellido, zona, estado, creado, personaId',
 });
 
 export { database as db };

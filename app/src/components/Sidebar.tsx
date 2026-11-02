@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Globe, BookOpen, Heart, Briefcase, Radio, CircleDollarSign, FileBarChart, Menu, X, HandCoins, Users } from 'lucide-react';
+import { LayoutDashboard, Globe, BookOpen, Heart, Briefcase, Radio, CircleDollarSign, FileBarChart, Menu, X, HandCoins, Users, ContactRound } from 'lucide-react';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
 
@@ -14,6 +14,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { section: 'Principal' },
   { to: '/', label: 'Panel', icon: LayoutDashboard },
+  { to: '/personas', label: 'Personas', icon: ContactRound },
   { section: 'Ministerio' },
   { to: '/mision', label: 'Misión Bíblica', icon: Globe, badge: 3 },
   { to: '/academia', label: 'Academia', icon: BookOpen },

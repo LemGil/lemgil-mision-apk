@@ -12,6 +12,7 @@ import Dadores from './pages/Dadores';
 import BienComun from './pages/BienComun';
 import Reportes from './pages/Reportes';
 import Miembros from './pages/Miembros';
+import Personas from './pages/Personas';
 
 function AppRoutes() {
   const { session, loading } = useAuth();
@@ -31,6 +32,7 @@ function AppRoutes() {
         <Route path="/dadores" element={<Dadores />} />
         <Route path="/bien-comun" element={<BienComun />} />
         <Route path="/miembros" element={<Miembros />} />
+        <Route path="/personas" element={<Personas />} />
         <Route path="/reportes" element={<Reportes />} />
       </Routes>
     </HashRouter>
