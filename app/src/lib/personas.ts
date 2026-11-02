@@ -441,6 +441,35 @@ export function buscarPorIdentidad(
 }
 
 /**
+ * Vista mínima de una ficha de proceso para asegurarle su persona: cada
+ * proceso trae un subconjunto distinto de campos dormidos (el diezmador,
+ * por ejemplo, no tiene dirección ni bautismo, y su grupo es TEXTO), así
+ * que todos son opcionales salvo el id. Las interfaces reales (Conversion,
+ * Estudiante, Diezmador) son asignables a esta vista estructural.
+ */
+interface FichaAsegurable {
+  id: string;
+  personaId?: string | null;
+  nombre?: string;
+  apellido?: string;
+  numeroIdentidad?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  zona?: string;
+  profesion?: string;
+  bautizado?: boolean;
+  fechaBautismo?: string;
+  conyuge?: string;
+  hijos?: string;
+  grupoId?: string | null;
+  hermanoMayorId?: string | null;
+  /** Solo dadores: su grupo como texto libre (pista §5.3.6). */
+  grupo?: string;
+  creado?: string;
+}
+
+/**
  * P2 — Todo proceso que se usa necesita su persona. Las altas nuevas nacen
  * ya enlazadas (PersonaSelect), pero un proceso viejo o bajado de un
  * equipo sin actualizar puede llegar sin `personaId` (§4.3.3 del diseño).
@@ -448,16 +477,25 @@ export function buscarPorIdentidad(
  * migración (§5.2): la persona hereda el id del propio proceso, y su
  * núcleo nace de los datos dormidos de la ficha. Si la persona ya existe,
  * solo se escribe el enlace. Devuelve el personaId vigente. La comparten
- * la conversión (al integrarse, P2) y el estudiante (al editarlo, P3).
+ * la conversión (al integrarse, P2), el estudiante (al editarlo, P3) y el
+ * diezmador (al editarlo, P4).
  */
 async function asegurarPersonaDeProceso(
-  tabla: 'conversiones' | 'estudiantes',
-  ficha: Conversion | Estudiante,
+  tabla: 'conversiones' | 'estudiantes' | 'dadores',
+  ficha: FichaAsegurable,
 ): Promise<string> {
   if (ficha.personaId) return ficha.personaId;
   const existente = await db.personas.get(ficha.id);
   if (!existente) {
     const ahora = new Date().toISOString();
+    // §5.3.6: el grupo TEXTO del diezmador solo vale como pista si coincide
+    // con un grupo existente; si no coincide, el núcleo nace sin grupo (el
+    // texto queda dormido en la ficha, como manda el diseño).
+    let grupoId = ficha.grupoId || null;
+    if (!grupoId && ficha.grupo) {
+      const grupos = await db.grupos.toArray();
+      grupoId = grupos.find((g) => normalizeField(g.nombre) === normalizeField(ficha.grupo!))?.id ?? null;
+    }
     await db.personas.add(createBaseRecord({
       id: ficha.id,
       nombre: ficha.nombre || '',
@@ -475,7 +513,7 @@ async function asegurarPersonaDeProceso(
       fechaBautismo: ficha.fechaBautismo || '',
       conyuge: ficha.conyuge || '',
       hijos: ficha.hijos || '',
-      grupoId: ficha.grupoId || null,
+      grupoId,
       hermanoMayorId: ficha.hermanoMayorId || null,
       creado: ficha.creado || ahora,
     }));
@@ -494,6 +532,11 @@ export async function asegurarPersonaDeConversion(c: Conversion): Promise<string
 /** P3: el estudiante viejo sin persona se la asegura al ser editado. */
 export async function asegurarPersonaDeEstudiante(e: Estudiante): Promise<string> {
   return asegurarPersonaDeProceso('estudiantes', e);
+}
+
+/** P4: el diezmador viejo sin persona se la asegura al ser editado. */
+export async function asegurarPersonaDeDiezmador(d: Diezmador): Promise<string> {
+  return asegurarPersonaDeProceso('dadores', d);
 }
 
 /**

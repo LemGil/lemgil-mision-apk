@@ -197,6 +197,15 @@ export interface Certificado {
 
 export interface Diezmador {
   id: string;
+  /**
+   * Datos personales DORMIDOS desde P4 (ficha única): la identidad vive en
+   * la persona enlazada (`personaId`) y las lecturas la resuelven desde el
+   * núcleo (`diezmadorConDatos`). Las altas nuevas los escriben vacíos;
+   * los registros viejos conservan su última copia, que ya nadie lee. El
+   * `grupo` era TEXTO tecleado: murió — el grupo es el de la persona
+   * (`grupoId` del núcleo, resuelto a nombre al pintar). Retirada de estos
+   * campos del tipo en P6, con los demás campos dormidos.
+   */
   nombre: string;
   apellido: string;
   telefono: string;

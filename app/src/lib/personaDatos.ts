@@ -1,4 +1,4 @@
-import type { Conversion, Estudiante, Miembro, Persona } from './types';
+import type { Conversion, Diezmador, Estudiante, Grupo, Miembro, Persona } from './types';
 import { edadDesde } from './personaVista';
 
 /**
@@ -91,6 +91,32 @@ export function estudianteConDatos(e: Estudiante, mapa: Map<string, Persona>): E
     edad: edad != null ? String(edad) : e.edad,
     grupoId: p.grupoId,
     hermanoMayorId: p.hermanoMayorId,
+  };
+}
+
+/**
+ * El diezmador, listo para pintar (P4): nombre, teléfono, email, zona y
+ * carné vienen del núcleo, como en los demás procesos. Su `grupo` era
+ * TEXTO tecleado en la ficha: murió — el grupo ahora es el de la persona
+ * (`grupoId` del núcleo), resuelto a su nombre con el mapa de grupos; si
+ * la persona no tiene grupo, el diezmador pinta sin grupo (el texto viejo
+ * queda dormido en la ficha, nunca se lee). El proceso conserva lo suyo:
+ * fechaIngreso, estado, planDiezmo y notas. Los satélites financieros
+ * (AporteComun.diezmadorId, PlanColaborador.diezmadorId) no cambian: el
+ * nombre de un aporte se resuelve aporte → proceso → persona.
+ */
+export function diezmadorConDatos(d: Diezmador, mapa: Map<string, Persona>, grupos?: Map<string, Grupo>): Diezmador {
+  const p = d.personaId ? mapa.get(d.personaId) : undefined;
+  if (!p) return d;
+  return {
+    ...d,
+    nombre: p.nombre,
+    apellido: p.apellido,
+    telefono: p.telefono,
+    email: p.email,
+    zona: p.zona,
+    numeroIdentidad: p.numeroIdentidad,
+    grupo: p.grupoId ? (grupos?.get(p.grupoId)?.nombre ?? '') : '',
   };
 }
 

@@ -4,7 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
-import type { Diezmador, Grupo, Miembro, TipoPlan, PlanColaborador, AporteComun } from '../lib/types';
+import type { Diezmador, Grupo, TipoPlan, PlanColaborador, AporteComun } from '../lib/types';
+import { diezmadorConDatos, mapaPersonas } from '../lib/personaDatos';
+import { asegurarPersonaDeDiezmador } from '../lib/personas';
 import { showToast } from '../lib/notification';
 import { ResumenTab } from '../components/biencomun/ResumenTab';
 import { OfrendasGruposTab } from '../components/biencomun/OfrendasGruposTab';
@@ -23,9 +25,19 @@ import { PlanDiezmadorFormModal } from './bien-comun/PlanDiezmadorFormModal';
 import { DeleteModals } from './bien-comun/DeleteModals';
 
 export default function BienComun() {
-  const colaboradores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
+  const colaboradoresCrudos = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
-  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+  const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  // P4 (ficha única): las LECTURAS pintan a los diezmadores DECORADOS — su
+  // nombre/contacto/zona/grupo se resuelven desde el núcleo `personas`
+  // (única fuente). Las escrituras usan las fichas CRUDAS; los satélites
+  // (aportes, planes) siguen colgando del proceso, sin cambio de FK.
+  const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
+  const gruposMap = useMemo(() => new Map<string, Grupo>(grupos.map((g) => [g.id, g])), [grupos]);
+  const colaboradores = useMemo(
+    () => colaboradoresCrudos.map((d) => diezmadorConDatos(d, personasMap, gruposMap)),
+    [colaboradoresCrudos, personasMap, gruposMap],
+  );
   const aportes = useLiveQuery(() => db.aportesComun.toArray(), []) ?? [];
   const tiposPlanes = useLiveQuery(() => db.tiposPlanes.filter(t => t.activo).toArray(), []) ?? [];
   const todosTiposPlanes = useLiveQuery(() => db.tiposPlanes.toArray(), []) ?? [];
@@ -59,12 +71,7 @@ export default function BienComun() {
   const [filterGZona, setFilterGZona] = useState('');
   const [filterGEstado, setFilterGEstado] = useState('');
 
-  const [dNombre, setDNombre] = useState('');
-  const [dApellido, setDApellido] = useState('');
-  const [dTel, setDTel] = useState('');
-  const [dEmail, setDEmail] = useState('');
-  const [dZona, setDZona] = useState('');
-  const [dGrupo, setDGrupo] = useState('');
+  const [dPersonaId, setDPersonaId] = useState('');
   const [dEstado, setDEstado] = useState('Activo');
   const [dPlanDiezmo, setDPlanDiezmo] = useState('');
   const [dNotas, setDNotas] = useState('');
@@ -90,36 +97,39 @@ export default function BienComun() {
   const [aServicio, setAServicio] = useState('General');
   const [aNotas, setANotas] = useState('');
 
-    const resetD = () => { setEditDId(null); setDNombre(''); setDApellido(''); setDTel(''); setDEmail(''); setDZona(''); setDGrupo(''); setDEstado('Activo'); setDPlanDiezmo(''); setDNotas(''); setPlanTipoId(''); setPlanMonto(''); };
+    const resetD = () => { setEditDId(null); setDPersonaId(''); setDEstado('Activo'); setDPlanDiezmo(''); setDNotas(''); setPlanTipoId(''); setPlanMonto(''); };
   const resetA = () => { setEditAId(null); setAMiembro(''); setAGrupo(''); setAFecha(today()); setAMonto(''); setATipo('Diezmo'); setAMetodo('Efectivo'); setAServicio('General'); setANotas(''); };
 
   const saveD = async () => {
-    if (!dNombre.trim() || !dApellido.trim()) return showToast('Nombre y apellido obligatorios');
-    const data = { nombre: dNombre.trim(), apellido: dApellido.trim(), telefono: dTel.trim(), email: dEmail.trim(), zona: dZona, grupo: dGrupo, estado: dEstado as Diezmador['estado'], planDiezmo: parseFloat(dPlanDiezmo) || 0, notas: dNotas.trim(), creado: new Date().toISOString(), fechaIngreso: today() };
+    if (!dPersonaId) return showToast('Elige la persona de este diezmador (o créala con «➕ Nueva persona»)');
+    const persona = personas.find((p) => p.id === dPersonaId);
+    if (!persona) return showToast('La persona elegida ya no existe');
+    const nombrePersona = `${persona.nombre} ${persona.apellido}`;
+    // P4: solo datos del PROCESO (estado, plan, notas y el enlace). La
+    // identidad vive en la persona enlazada; murió el «Buscar en Miembros»
+    // que copiaba sin guardar el id — la persona ES el origen.
+    const data = { estado: dEstado as Diezmador['estado'], planDiezmo: parseFloat(dPlanDiezmo) || 0, notas: dNotas.trim(), personaId: dPersonaId };
     if (editDId) {
+      // La edición ya NO reescribe los personales (quedan dormidos) ni
+      // re-sella fechaIngreso/creado: son la fecha del proceso, no de hoy.
       await db.dadores.update(editDId, data);
-      showToast('Diezmador actualizado');
+      showToast(`${nombrePersona} actualizado/a`);
     } else {
       const newId = uuid();
-      await db.dadores.add(createBaseRecord({ id: newId, ...data }));
+      // El proceso nace SIN datos personales (vacíos a propósito): viven
+      // en la persona enlazada, una sola vez.
+      const nuevo: Diezmador = {
+        id: newId, nombre: '', apellido: '', telefono: '', email: '', zona: '', grupo: '', numeroIdentidad: undefined,
+        fechaIngreso: today(), creado: new Date().toISOString(), version: 1,
+        ...data,
+      };
+      await db.dadores.add(createBaseRecord(nuevo));
       if (planTipoId && parseFloat(planMonto) > 0) {
         await db.planesColaborador.add(createBaseRecord({ id: uuid(), diezmadorId: newId, tipoPlanId: planTipoId, montoMensual: parseFloat(planMonto) || 0, notas: '', creado: new Date().toISOString() }));
       }
-      showToast('Diezmador registrado');
+      showToast(`${nombrePersona} registrado/a como diezmador`);
     }
     resetD(); setModal(null);
-  };
-
-  const selectMiembro = (m: Miembro) => {
-    const grupo = grupos.find(g => g.id === m.grupoId);
-    setDNombre(m.nombre);
-    setDApellido(m.apellido);
-    setDTel(m.telefono || '');
-    setDEmail(m.email || '');
-    setDZona(m.zona || '');
-    setDGrupo(grupo ? grupo.nombre : '');
-    setDEstado(m.estado === 'Activo' ? 'Activo' : 'Inactivo');
-    setDNotas(m.notas || '');
   };
 
   const saveA = async () => {
@@ -137,17 +147,19 @@ export default function BienComun() {
     resetA(); setModal(null);
   };
 
-  const handleEditDiezmador = (d: Diezmador) => {
-    setEditDId(d.id);
-    setDNombre(d.nombre);
-    setDApellido(d.apellido);
-    setDTel(d.telefono || '');
-    setDEmail(d.email || '');
-    setDZona(d.zona || '');
-    setDGrupo(d.grupo || '');
-    setDEstado(d.estado);
-    setDPlanDiezmo(d.planDiezmo?.toString() || '');
-    setDNotas(d.notas || '');
+  const handleEditDiezmador = async (d: Diezmador) => {
+    // Se trabaja sobre la ficha CRUDA (la vista puede traerla decorada):
+    // la persona se hereda del proceso; si es un diezmador viejo aún sin
+    // persona (llegó de un equipo sin actualizar), se le asegura la suya
+    // con la regla determinista del diseño (id = el del propio diezmador,
+    // núcleo nacido de sus datos dormidos) y queda elegida en el selector.
+    const crudo = colaboradoresCrudos.find((x) => x.id === d.id) ?? d;
+    setEditDId(crudo.id);
+    const personaId = await asegurarPersonaDeDiezmador(crudo);
+    setDPersonaId(personaId);
+    setDEstado(crudo.estado);
+    setDPlanDiezmo(crudo.planDiezmo?.toString() || '');
+    setDNotas(crudo.notas || '');
     setModal('dador');
   };
 
@@ -355,20 +367,15 @@ export default function BienComun() {
           onClose={() => setModal(null)}
           editDId={editDId}
           saveD={saveD}
-          miembros={miembros}
-          selectMiembro={selectMiembro}
+          personas={personas}
+          grupos={grupos}
           tiposPlanes={tiposPlanes}
           todosTiposPlanes={todosTiposPlanes}
           planesColaborador={planesColaborador}
           openEditPlan={openEditPlan}
           onAgregarPlan={() => { setPlanDiezmadorId(editDId); setPlanTipoId(''); setPlanMonto(''); setPlanNotas(''); setEditPlanId(null); setModal('planDiezmador'); }}
           onDeletePlan={(id) => { setDelPlanId(id); setModal('delPlanDiezmador'); }}
-          dNombre={dNombre} setDNombre={setDNombre}
-          dApellido={dApellido} setDApellido={setDApellido}
-          dTel={dTel} setDTel={setDTel}
-          dEmail={dEmail} setDEmail={setDEmail}
-          dZona={dZona} setDZona={setDZona}
-          dGrupo={dGrupo} setDGrupo={setDGrupo}
+          dPersonaId={dPersonaId} setDPersonaId={setDPersonaId}
           dEstado={dEstado} setDEstado={setDEstado}
           dPlanDiezmo={dPlanDiezmo} setDPlanDiezmo={setDPlanDiezmo}
           dNotas={dNotas} setDNotas={setDNotas}
