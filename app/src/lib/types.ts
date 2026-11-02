@@ -160,8 +160,15 @@ export interface Estudiante {
   personaId?: string | null;
   notas: string;
   creado: string;
-  origen: 'convertido' | 'miembro' | 'manual';
-  origenId: string | null;
+  /**
+   * MUERTOS en P3 (ficha única): el «origen» solo recordaba de qué ficha se
+   * copiaron los datos al matricular; con `personaId`, la persona ES el
+   * origen y sus otros procesos se ven en su ficha. Ninguna escritura nueva
+   * los produce; quedan opcionales solo porque los registros viejos los
+   * traen dormidos (retirada del tipo en P6, con los demás campos dormidos).
+   */
+  origen?: 'convertido' | 'miembro' | 'manual';
+  origenId?: string | null;
   zona: string;
   grupoId: string | null;
   hermanoMayorId: string | null;

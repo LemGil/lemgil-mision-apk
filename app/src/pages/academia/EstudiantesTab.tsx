@@ -17,7 +17,6 @@ interface EstudiantesTabProps {
   search: string; setSearch: Dispatch<SetStateAction<string>>;
   filterCursoEst: string; setFilterCursoEst: Dispatch<SetStateAction<string>>;
   filterEstadoEst: string; setFilterEstadoEst: Dispatch<SetStateAction<string>>;
-  filterOrigenEst: string; setFilterOrigenEst: Dispatch<SetStateAction<string>>;
   filterZonaEst: string; setFilterZonaEst: Dispatch<SetStateAction<string>>;
   filterGrupoEst: string; setFilterGrupoEst: Dispatch<SetStateAction<string>>;
   filterBautizadoEst: string; setFilterBautizadoEst: Dispatch<SetStateAction<string>>;
@@ -28,7 +27,7 @@ interface EstudiantesTabProps {
 }
 
 export function EstudiantesTab(props: EstudiantesTabProps) {
-  const { estudiantes, filteredEst, cursos, zonas, grupos, search, setSearch, filterCursoEst, setFilterCursoEst, filterEstadoEst, setFilterEstadoEst, filterOrigenEst, setFilterOrigenEst, filterZonaEst, setFilterZonaEst, filterGrupoEst, setFilterGrupoEst, filterBautizadoEst, setFilterBautizadoEst, openNewEst, openEditEst, onVerEst, onCertificar } = props;
+  const { estudiantes, filteredEst, cursos, zonas, grupos, search, setSearch, filterCursoEst, setFilterCursoEst, filterEstadoEst, setFilterEstadoEst, filterZonaEst, setFilterZonaEst, filterGrupoEst, setFilterGrupoEst, filterBautizadoEst, setFilterBautizadoEst, openNewEst, openEditEst, onVerEst, onCertificar } = props;
   return (
     <>
         <div className="actions-row">
@@ -47,12 +46,6 @@ export function EstudiantesTab(props: EstudiantesTabProps) {
             <option value="">Todos los estados</option>
             <option>Activo</option><option>Completado</option><option>Pausado</option>
           </select>
-          <select className="filter-select" value={filterOrigenEst} onChange={(e) => setFilterOrigenEst(e.target.value)}>
-            <option value="">Todos los orígenes</option>
-            <option value="convertido">Convertido</option>
-            <option value="miembro">Miembro</option>
-            <option value="manual">Manual</option>
-          </select>
           <select className="filter-select" value={filterZonaEst} onChange={(e) => setFilterZonaEst(e.target.value)}>
             <option value="">Todas las zonas</option>
             {zonas.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
@@ -66,8 +59,8 @@ export function EstudiantesTab(props: EstudiantesTabProps) {
             <option value="si">Sí</option>
             <option value="no">No</option>
           </select>
-          {(search || filterCursoEst || filterEstadoEst || filterOrigenEst || filterZonaEst || filterGrupoEst || filterBautizadoEst) && (
-            <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterCursoEst(''); setFilterEstadoEst(''); setFilterOrigenEst(''); setFilterZonaEst(''); setFilterGrupoEst(''); setFilterBautizadoEst(''); }}>✕ Limpiar</button>
+          {(search || filterCursoEst || filterEstadoEst || filterZonaEst || filterGrupoEst || filterBautizadoEst) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setFilterCursoEst(''); setFilterEstadoEst(''); setFilterZonaEst(''); setFilterGrupoEst(''); setFilterBautizadoEst(''); }}>✕ Limpiar</button>
           )}
         </div>
         <div className="card">
@@ -102,7 +95,7 @@ export function EstudiantesTab(props: EstudiantesTabProps) {
                   'Notas': 'notas',
                 }}
                 requiredFields={['nombre', 'apellido']}
-                defaults={{ estado: 'Activo', origen: 'manual' }}
+                defaults={{ estado: 'Activo' }}
                 onImport={(n) => showToast(`${n} estudiante(s) importado(s)`)}
               />
            </div>

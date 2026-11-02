@@ -1,4 +1,4 @@
-import type { Conversion, Miembro, Persona } from './types';
+import type { Conversion, Estudiante, Miembro, Persona } from './types';
 import { edadDesde } from './personaVista';
 
 /**
@@ -58,6 +58,39 @@ export function conversionConDatos(c: Conversion, mapa: Map<string, Persona>): C
     grupoId: p.grupoId ?? '',
     hermanoMayorId: p.hermanoMayorId,
     lider: lider || c.lider,
+  };
+}
+
+/**
+ * El estudiante, listo para pintar (P3): los datos personales vienen del
+ * núcleo, igual que en conversión y miembro. Grupo y hermano mayor también
+ * son de la persona (el `hermanoMayorId` decorado es ya un `personas.id`);
+ * la edad se deriva de la fecha de nacimiento cuando existe, con la
+ * dormida del proceso como respaldo. El proceso conserva sus datos
+ * propios: cursoId, fecha de matrícula, estado y notas. `origen`/
+ * `origenId` no se leen: murieron en P3 (la persona ES el origen).
+ */
+export function estudianteConDatos(e: Estudiante, mapa: Map<string, Persona>): Estudiante {
+  const p = e.personaId ? mapa.get(e.personaId) : undefined;
+  if (!p) return e;
+  const edad = edadDesde(p.fechaNacimiento);
+  return {
+    ...e,
+    nombre: p.nombre,
+    apellido: p.apellido,
+    telefono: p.telefono,
+    email: p.email,
+    direccion: p.direccion,
+    zona: p.zona,
+    profesion: p.profesion,
+    bautizado: p.bautizado,
+    fechaBautismo: p.fechaBautismo,
+    conyuge: p.conyuge,
+    hijos: p.hijos,
+    numeroIdentidad: p.numeroIdentidad,
+    edad: edad != null ? String(edad) : e.edad,
+    grupoId: p.grupoId,
+    hermanoMayorId: p.hermanoMayorId,
   };
 }
 

@@ -1,7 +1,9 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Modal } from '../../components/Modal';
-import { ZonaSelect } from '../../components/ZonaSelect';
-import type { Conversion, Curso, Grupo, Miembro } from '../../lib/types';
+import { PersonaSelect } from '../../components/PersonaSelect';
+import { PersonaFormModal } from '../../components/PersonaFormModal';
+import { edadDesde } from '../../lib/personaVista';
+import type { Curso, Grupo, Persona } from '../../lib/types';
 
 interface EstudianteFormModalProps {
   open: boolean;
@@ -9,119 +11,61 @@ interface EstudianteFormModalProps {
   editEstId: string | null;
   delEst: () => void;
   saveEst: () => void;
-  autoFillOrigen: (origen: 'convertido' | 'miembro' | 'manual', id: string) => void;
-  conversiones: Conversion[];
-  miembros: Miembro[];
+  personas: Persona[];
   grupos: Grupo[];
   cursos: Curso[];
-  eOrigen: 'convertido' | 'miembro' | 'manual'; setEOrigen: Dispatch<SetStateAction<'convertido' | 'miembro' | 'manual'>>;
-  eOrigenId: string; setEOrigenId: Dispatch<SetStateAction<string>>;
-  eNombre: string; setENombre: Dispatch<SetStateAction<string>>;
-  eApellido: string; setEApellido: Dispatch<SetStateAction<string>>;
-  eEdad: string; setEEdad: Dispatch<SetStateAction<string>>;
-  eProfesion: string; setEProfesion: Dispatch<SetStateAction<string>>;
-  eTel: string; setETel: Dispatch<SetStateAction<string>>;
-  eEmail: string; setEEmail: Dispatch<SetStateAction<string>>;
-  eDireccion: string; setEDireccion: Dispatch<SetStateAction<string>>;
-  eZona: string; setEZona: Dispatch<SetStateAction<string>>;
-  eGrupoId: string; setEGrupoId: Dispatch<SetStateAction<string>>;
-  eHermanoMayorId: string; setEHermanoMayorId: Dispatch<SetStateAction<string>>;
-  eBautizado: boolean; setEBautizado: Dispatch<SetStateAction<boolean>>;
-  eFechaBautismo: string; setEFechaBautismo: Dispatch<SetStateAction<string>>;
-  eConyuge: string; setEConyuge: Dispatch<SetStateAction<string>>;
-  eHijos: string; setEHijos: Dispatch<SetStateAction<string>>;
+  ePersonaId: string; setEPersonaId: Dispatch<SetStateAction<string>>;
   eCurso: string; setECurso: Dispatch<SetStateAction<string>>;
   eFecha: string; setEFecha: Dispatch<SetStateAction<string>>;
   eEstado: string; setEEstado: Dispatch<SetStateAction<string>>;
   eNotas: string; setENotas: Dispatch<SetStateAction<string>>;
 }
 
+/**
+ * P3 (ficha única): el formulario del estudiante ya NO teclea los datos
+ * personales ni pregunta el «origen». Primero se elige la PERSONA
+ * (PersonaSelect: buscar y elegir, o crearla ahí mismo una sola vez con
+ * su Nº de Identidad y el aviso anti-duplicado del núcleo); la persona ES
+ * el origen — lo que antes expresaban `origen`/`origenId` y la copia de
+ * `autoFillOrigen` hoy lo dice su enlace y sus otros procesos. Aquí solo
+ * se teclea el PROCESO: curso, fecha de matrícula, estado y notas.
+ */
 export function EstudianteFormModal(props: EstudianteFormModalProps) {
-  const { open, onClose, editEstId, delEst, saveEst, autoFillOrigen, conversiones, miembros, grupos, cursos, eOrigen, setEOrigen, eOrigenId, setEOrigenId, eNombre, setENombre, eApellido, setEApellido, eEdad, setEEdad, eProfesion, setEProfesion, eTel, setETel, eEmail, setEEmail, eDireccion, setEDireccion, eZona, setEZona, eGrupoId, setEGrupoId, eHermanoMayorId, setEHermanoMayorId, eBautizado, setEBautizado, eFechaBautismo, setEFechaBautismo, eConyuge, setEConyuge, eHijos, setEHijos, eCurso, setECurso, eFecha, setEFecha, eEstado, setEEstado, eNotas, setENotas } = props;
+  const { open, onClose, editEstId, delEst, saveEst, personas, grupos, cursos, ePersonaId, setEPersonaId, eCurso, setECurso, eFecha, setEFecha, eEstado, setEEstado, eNotas, setENotas } = props;
+  const [editandoPersona, setEditandoPersona] = useState(false);
+  const persona = personas.find((p) => p.id === ePersonaId);
+  const grupo = persona?.grupoId ? grupos.find((g) => g.id === persona.grupoId) : undefined;
+  const mentor = persona?.hermanoMayorId ? personas.find((p) => p.id === persona.hermanoMayorId) : undefined;
+  const edad = persona ? edadDesde(persona.fechaNacimiento) : null;
+
   return (
+    <>
       <Modal open={open} onClose={onClose} title={editEstId ? '✏️ Editar Estudiante' : '🎓 Matricular Estudiante'} footer={<>{editEstId && <button className="btn btn-danger btn-sm" style={{ marginRight: 'auto' }} onClick={delEst}>🗑️ Eliminar</button>}<button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-gold" onClick={saveEst}>{editEstId ? '💾 Guardar Cambios' : '💾 Matricular'}</button></>} wide>
 
-        {/* ─── SECCIÓN: ORIGEN ─── */}
-        <div className="form-section">📋 Origen del Estudiante</div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Fuente de datos</label>
-            <select className="form-select" value={eOrigen} onChange={(e) => { const v = e.target.value as 'convertido' | 'miembro' | 'manual'; setEOrigen(v); setEOrigenId(''); if (v === 'manual') { setENombre(''); setEApellido(''); setETel(''); setEEdad(''); setEEmail(''); setEDireccion(''); setEProfesion(''); setEBautizado(false); setEFechaBautismo(''); setEConyuge(''); setEHijos(''); setEZona(''); setEGrupoId(''); setEHermanoMayorId(''); } }}>
-              <option value="manual">— Ingreso manual —</option>
-              <option value="convertido">🕊 Nuevo Convertido</option>
-              <option value="miembro">👥 Miembro de la Iglesia</option>
-            </select>
-          </div>
-          {eOrigen !== 'manual' && (
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label className="form-label">{eOrigen === 'convertido' ? 'Seleccionar Convertido' : 'Seleccionar Miembro'}</label>
-              <select className="form-select" value={eOrigenId} onChange={(e) => { setEOrigenId(e.target.value); autoFillOrigen(eOrigen, e.target.value); }}>
-                <option value="">— Seleccionar —</option>
-                {(eOrigen === 'convertido' ? conversiones : miembros.filter(m => m.estado === 'Activo')).map((item: any) => (
-                  <option key={item.id} value={item.id}>{item.nombre} {item.apellido}</option>
-                ))}
-              </select>
+        {/* ─── SECCIÓN: PERSONA ─── */}
+        <div className="form-section">👤 Persona (se teclea una sola vez)</div>
+        <div className="form-group">
+          <label className="form-label">Persona de este estudiante *</label>
+          <PersonaSelect value={ePersonaId} onChange={setEPersonaId} emptyLabel="🔍 Buscar persona o crearla…" />
+        </div>
+        {persona && (
+          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <strong>{persona.nombre} {persona.apellido}</strong>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditandoPersona(true)}>✏️ Editar datos de la persona</button>
             </div>
-          )}
-        </div>
-
-        {/* ─── SECCIÓN: PERSONAL ─── */}
-        <div className="form-section">👤 Datos Personales</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={eNombre} onChange={(e) => setENombre(e.target.value)} placeholder="Nombre" /></div>
-          <div className="form-group"><label className="form-label">Apellido *</label><input className="form-input" value={eApellido} onChange={(e) => setEApellido(e.target.value)} placeholder="Apellido" /></div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Edad</label><input className="form-input" type="number" value={eEdad} onChange={(e) => setEEdad(e.target.value)} placeholder="25" min="5" max="120" /></div>
-          <div className="form-group"><label className="form-label">Profesión</label><input className="form-input" value={eProfesion} onChange={(e) => setEProfesion(e.target.value)} placeholder="Ej: Maestro, Ingeniero…" /></div>
-        </div>
-
-        {/* ─── SECCIÓN: CONTACTO ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>📞 Contacto</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Teléfono</label><input className="form-input" value={eTel} onChange={(e) => setETel(e.target.value)} placeholder="+1 555 000 0000" /></div>
-          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={eEmail} onChange={(e) => setEEmail(e.target.value)} placeholder="email@ejemplo.com" /></div>
-        </div>
-        <div className="form-group"><label className="form-label">Dirección</label><input className="form-input" value={eDireccion} onChange={(e) => setEDireccion(e.target.value)} placeholder="Calle, número, ciudad" /></div>
-
-        {/* ─── SECCIÓN: IGLESIA ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>⛪ Ubicación en la Iglesia</div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Zona / Sector</label><ZonaSelect value={eZona} onChange={setEZona} emptyLabel="Sin zona" /></div>
-          <div className="form-group"><label className="form-label">Grupo de Misión</label>
-            <select className="form-select" value={eGrupoId} onChange={(e) => setEGrupoId(e.target.value)}>
-              <option value="">— Sin grupo —</option>
-              {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-            </select>
+            <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 4, lineHeight: 1.7 }}>
+              {persona.numeroIdentidad && <>🪪 {persona.numeroIdentidad} · </>}
+              {persona.telefono && <>📱 {persona.telefono} · </>}
+              {persona.zona && <>📍 {persona.zona} · </>}
+              {edad !== null && <>🎂 {edad} años · </>}
+              {grupo && <>👥 {grupo.nombre} · </>}
+              {mentor && <>👤 Mayor: {mentor.nombre} {mentor.apellido} · </>}
+              {persona.bautizado ? '💧 Bautizado' : 'Sin bautizar'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Estos datos viven en la ficha única de la persona: se corrigen una vez y se ven en todos sus procesos.</div>
           </div>
-        </div>
-        <div className="form-group"><label className="form-label">Hermano Mayor (Líder/Mentor)</label>
-          <select className="form-select" value={eHermanoMayorId} onChange={(e) => setEHermanoMayorId(e.target.value)}>
-            <option value="">— Sin hermano mayor asignado —</option>
-            {miembros.filter(m => m.estado === 'Activo').sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)).map((m) => (
-              <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* ─── SECCIÓN: FAMILIA ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>👪 Familia</div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">¿Bautizado?</label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, background: 'var(--surface-2)', borderRadius: 6, cursor: 'pointer' }}>
-              <input type="checkbox" checked={eBautizado} onChange={(e) => setEBautizado(e.target.checked)} style={{ width: 18, height: 18 }} />
-              <span style={{ fontWeight: 600 }}>{eBautizado ? '💧 Sí, bautizado' : 'No bautizado'}</span>
-            </label>
-          </div>
-          <div className="form-group"><label className="form-label">Fecha de Bautismo</label>
-            <input className="form-input" type="date" value={eFechaBautismo} onChange={(e) => setEFechaBautismo(e.target.value)} disabled={!eBautizado} />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">Cónyuge</label><input className="form-input" value={eConyuge} onChange={(e) => setEConyuge(e.target.value)} placeholder="Si aplica" /></div>
-          <div className="form-group"><label className="form-label">Hijos</label><input className="form-input" value={eHijos} onChange={(e) => setEHijos(e.target.value)} placeholder="Ej: 2 hijos (Sofía 8, Mateo 5)" /></div>
-        </div>
+        )}
 
         {/* ─── SECCIÓN: MATRÍCULA ─── */}
         <div className="form-section" style={{ marginTop: 16 }}>🎓 Matrícula</div>
@@ -132,5 +76,13 @@ export function EstudianteFormModal(props: EstudianteFormModalProps) {
         </div>
         <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Notas</label><textarea className="form-textarea" value={eNotas} onChange={(e) => setENotas(e.target.value)} placeholder="Observaciones de ingreso…" style={{ minHeight: 55 }} /></div>
       </Modal>
+
+      <PersonaFormModal
+        open={editandoPersona && !!persona}
+        onClose={() => setEditandoPersona(false)}
+        persona={persona ?? null}
+        onSaved={() => setEditandoPersona(false)}
+      />
+    </>
   );
 }

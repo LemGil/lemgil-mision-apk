@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { accentStyle, fmt } from '../../lib/utils';
 import type { Certificado, Conversion, Curso, Estudiante, Grupo, Hito, Miembro } from '../../lib/types';
+// Conversion/Miembro se usan en el tipo de selEstData (los otros procesos
+// de la persona); el resto de datos personales llegan ya resueltos desde
+// el núcleo en el `selEst` decorado que arma Academia (P3).
 import { CAL_BADGE, EST_BADGE } from './constants';
 import type { HitoTipo } from './constants';
 
@@ -10,7 +13,7 @@ interface EstudianteDetailModalProps {
   open: boolean;
   onClose: () => void;
   selEst: Estudiante | null | undefined;
-  selEstData: { myCerts: Certificado[]; myCurso: Curso | undefined; totalCursos: number; iniciales: string; studentHitos: Hito[]; origenConv: Conversion | null | undefined; origenMiem: Miembro | null | undefined; grupo: Grupo | undefined; hermanoMayor: Miembro | undefined } | null;
+  selEstData: { myCerts: Certificado[]; myCurso: Curso | undefined; totalCursos: number; iniciales: string; studentHitos: Hito[]; conversionDePersona: Conversion | null; miembroDePersona: Miembro | null; grupo: Grupo | undefined; hermanoMayorNombre: string } | null;
   cursos: Curso[];
   qhTipo: HitoTipo; setQHTipo: Dispatch<SetStateAction<HitoTipo>>;
   qhDesc: string; setQHDesc: Dispatch<SetStateAction<string>>;
@@ -66,22 +69,25 @@ export function EstudianteDetailModal(props: EstudianteDetailModalProps) {
               </div>
             </div>
 
-            {/* ─── ORIGEN ─── */}
-            <div className="form-section">📋 Origen</div>
-            <div style={{ marginBottom: 18 }}>
-              {selEst!.origen === 'convertido' && selEstData.origenConv ? (
+            {/* ─── LA PERSONA (P3: el «origen» murió; la persona ES el origen) ─── */}
+            <div className="form-section">🔗 Su ficha de persona</div>
+            <div style={{ marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {selEstData.conversionDePersona && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, background: 'var(--surface-2)', borderRadius: 8, fontSize: 13 }}>
                   <span>🕊</span>
-                  <span>Convertido · <strong>{selEstData.origenConv.nombre} {selEstData.origenConv.apellido}</strong></span>
-                  <span style={{ color: 'var(--dim)' }}>· {selEstData.origenConv.lider}</span>
+                  <span>Tiene conversión registrada · <strong>{selEstData.conversionDePersona.estado}</strong></span>
+                  <span style={{ color: 'var(--dim)' }}>· {fmt(selEstData.conversionDePersona.fecha)}</span>
                 </div>
-              ) : selEst!.origen === 'miembro' && selEstData.origenMiem ? (
+              )}
+              {selEstData.miembroDePersona && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, background: 'var(--surface-2)', borderRadius: 8, fontSize: 13 }}>
                   <span>👥</span>
-                  <span>Miembro · <strong>{selEstData.origenMiem.nombre} {selEstData.origenMiem.apellido}</strong></span>
+                  <span>Es miembro de la iglesia · <strong>{selEstData.miembroDePersona.estado}</strong></span>
+                  <span style={{ color: 'var(--dim)' }}>· desde {fmt(selEstData.miembroDePersona.fechaIngreso)}</span>
                 </div>
-              ) : (
-                <div style={{ color: 'var(--dim)', fontSize: 13, padding: '4px 0' }}>📝 Ingreso manual</div>
+              )}
+              {!selEstData.conversionDePersona && !selEstData.miembroDePersona && (
+                <div style={{ color: 'var(--dim)', fontSize: 13, padding: '4px 0' }}>📝 Sin otros procesos: su único proceso es este estudio</div>
               )}
             </div>
 
@@ -122,7 +128,7 @@ export function EstudianteDetailModal(props: EstudianteDetailModalProps) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px 16px', marginBottom: 18 }}>
               <div className="detail-row"><span className="detail-label">📍 Zona</span><span className="detail-value">{selEst!.zona || '—'}</span></div>
               <div className="detail-row"><span className="detail-label">👥 Grupo</span><span className="detail-value">{selEstData.grupo?.nombre || '—'}</span></div>
-              <div className="detail-row"><span className="detail-label">🧑 Hermano Mayor</span><span className="detail-value">{selEstData.hermanoMayor ? `${selEstData.hermanoMayor.nombre} ${selEstData.hermanoMayor.apellido}` : '—'}</span></div>
+              <div className="detail-row"><span className="detail-label">🧑 Hermano Mayor</span><span className="detail-value">{selEstData.hermanoMayorNombre || '—'}</span></div>
               <div className="detail-row"><span className="detail-label">💧 Bautismo</span><span className="detail-value">{selEst!.bautizado ? (selEst!.fechaBautismo ? fmt(selEst!.fechaBautismo) : 'Sí') : 'No'}</span></div>
               <div className="detail-row"><span className="detail-label">👪 Cónyuge</span><span className="detail-value">{selEst!.conyuge || '—'}</span></div>
               <div className="detail-row"><span className="detail-label">👶 Hijos</span><span className="detail-value">{selEst!.hijos || '—'}</span></div>

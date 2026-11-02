@@ -441,45 +441,59 @@ export function buscarPorIdentidad(
 }
 
 /**
- * P2 — Toda conversión que se integra necesita su persona. Las altas nuevas
- * nacen ya enlazadas (PersonaSelect), pero una conversión vieja o bajada de
- * un equipo sin actualizar puede llegar sin `personaId` (§4.3.3 del
- * diseño). Esta función se la asegura con la misma regla determinista de
- * la migración (§5.2): la persona hereda el id de la propia conversión, y
- * su núcleo nace de los datos dormidos de la ficha. Si la persona ya
- * existe, solo se escribe el enlace. Devuelve el personaId vigente.
+ * P2 — Todo proceso que se usa necesita su persona. Las altas nuevas nacen
+ * ya enlazadas (PersonaSelect), pero un proceso viejo o bajado de un
+ * equipo sin actualizar puede llegar sin `personaId` (§4.3.3 del diseño).
+ * Esta función se la asegura con la misma regla determinista de la
+ * migración (§5.2): la persona hereda el id del propio proceso, y su
+ * núcleo nace de los datos dormidos de la ficha. Si la persona ya existe,
+ * solo se escribe el enlace. Devuelve el personaId vigente. La comparten
+ * la conversión (al integrarse, P2) y el estudiante (al editarlo, P3).
  */
-export async function asegurarPersonaDeConversion(c: Conversion): Promise<string> {
-  if (c.personaId) return c.personaId;
-  const existente = await db.personas.get(c.id);
+async function asegurarPersonaDeProceso(
+  tabla: 'conversiones' | 'estudiantes',
+  ficha: Conversion | Estudiante,
+): Promise<string> {
+  if (ficha.personaId) return ficha.personaId;
+  const existente = await db.personas.get(ficha.id);
   if (!existente) {
     const ahora = new Date().toISOString();
     await db.personas.add(createBaseRecord({
-      id: c.id,
-      nombre: c.nombre || '',
-      apellido: c.apellido || '',
-      numeroIdentidad: c.numeroIdentidad || '',
-      telefono: c.telefono || '',
-      email: c.email || '',
-      direccion: c.direccion || '',
-      zona: c.zona || '',
+      id: ficha.id,
+      nombre: ficha.nombre || '',
+      apellido: ficha.apellido || '',
+      numeroIdentidad: ficha.numeroIdentidad || '',
+      telefono: ficha.telefono || '',
+      email: ficha.email || '',
+      direccion: ficha.direccion || '',
+      zona: ficha.zona || '',
       fechaNacimiento: '',
-      profesion: c.profesion || '',
+      profesion: ficha.profesion || '',
       estadoCivil: 'Soltero',
       contactoPreferido: 'WhatsApp',
-      bautizado: c.bautizado === true,
-      fechaBautismo: c.fechaBautismo || '',
-      conyuge: c.conyuge || '',
-      hijos: c.hijos || '',
-      grupoId: c.grupoId || null,
-      hermanoMayorId: c.hermanoMayorId || null,
-      creado: c.creado || ahora,
+      bautizado: ficha.bautizado === true,
+      fechaBautismo: ficha.fechaBautismo || '',
+      conyuge: ficha.conyuge || '',
+      hijos: ficha.hijos || '',
+      grupoId: ficha.grupoId || null,
+      hermanoMayorId: ficha.hermanoMayorId || null,
+      creado: ficha.creado || ahora,
     }));
-    await enqueueOutbox('personas', c.id);
+    await enqueueOutbox('personas', ficha.id);
   }
-  await db.conversiones.update(c.id, { personaId: c.id });
-  await enqueueOutbox('conversiones', c.id);
-  return c.id;
+  await TABLAS_PROCESO[tabla].update(ficha.id, { personaId: ficha.id });
+  await enqueueOutbox(tabla, ficha.id);
+  return ficha.id;
+}
+
+/** P2: la conversión se asegura su persona al integrarse (syncMember). */
+export async function asegurarPersonaDeConversion(c: Conversion): Promise<string> {
+  return asegurarPersonaDeProceso('conversiones', c);
+}
+
+/** P3: el estudiante viejo sin persona se la asegura al ser editado. */
+export async function asegurarPersonaDeEstudiante(e: Estudiante): Promise<string> {
+  return asegurarPersonaDeProceso('estudiantes', e);
 }
 
 /**

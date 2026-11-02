@@ -6,6 +6,8 @@ import { KpiCard } from '../components/KpiCard';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Curso, Estudiante, Certificado } from '../lib/types';
+import { estudianteConDatos, mapaPersonas, miembroConDatos, nombreDePersona } from '../lib/personaDatos';
+import { asegurarPersonaDeEstudiante } from '../lib/personas';
 import { showToast } from '../lib/notification';
 import { today } from '../lib/utils';
 import { q } from './academia/constants';
@@ -23,7 +25,14 @@ import { CertificadoFormModal } from './academia/CertificadoFormModal';
 export default function Academia() {
    const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
    const lecciones = useLiveQuery(() => db.lecciones.toArray(), []) ?? [];
-   const estudiantes = useLiveQuery(() => db.estudiantes.toArray(), []) ?? [];
+   const estudiantesCrudos = useLiveQuery(() => db.estudiantes.toArray(), []) ?? [];
+   const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+   // P3 (ficha única): lo que se PINTA resuelve los datos personales desde
+   // el núcleo `personas` (única fuente). Las escrituras usan las fichas
+   // crudas; las vistas (lista, detalle, certificados y sus PDF/CSV) usan
+   // las decoradas, así que el nombre/contacto sale siempre de la persona.
+   const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
+   const estudiantes = useMemo(() => estudiantesCrudos.map((e) => estudianteConDatos(e, personasMap)), [estudiantesCrudos, personasMap]);
    const certs = useLiveQuery(() => db.certificados.toArray(), []) ?? [];
    const allHitos = useLiveQuery(() => db.hitos.toArray(), []) ?? [];
    const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
@@ -37,7 +46,6 @@ export default function Academia() {
   const [filterCursoEstado, setFilterCursoEstado] = useState('');
   const [filterCursoEst, setFilterCursoEst] = useState('');
   const [filterEstadoEst, setFilterEstadoEst] = useState('');
-  const [filterOrigenEst, setFilterOrigenEst] = useState('');
   const [filterZonaEst, setFilterZonaEst] = useState('');
   const [filterGrupoEst, setFilterGrupoEst] = useState('');
   const [filterBautizadoEst, setFilterBautizadoEst] = useState('');
@@ -58,12 +66,21 @@ export default function Academia() {
      const totalCursos = myCerts.length + (selEst.cursoId ? 1 : 0);
      const iniciales = `${selEst.nombre[0] || ''}${selEst.apellido[0] || ''}`.toUpperCase();
      const studentHitos = allHitos.filter(h => h.estudianteId === selEst.id).sort((a, b) => b.fecha.localeCompare(a.fecha));
-     const origenConv = selEst.origen === 'convertido' ? conversiones.find(c => c.id === selEst.origenId) : null;
-     const origenMiem = selEst.origen === 'miembro' ? miembros.find(m => m.id === selEst.origenId) : null;
+     // P3: el «origen» murió — lo que expresaba lo dice ahora la persona:
+     // sus otros procesos (su conversión y/o su miembro) se buscan por el
+     // personaId compartido, no por una copia guardada al matricular.
+     const conversionDePersona = selEst.personaId ? (conversiones.find(c => c.personaId === selEst.personaId) ?? null) : null;
+     const miembroDePersona = selEst.personaId ? (miembros.find(m => m.personaId === selEst.personaId) ?? null) : null;
      const grupo = grupos.find(g => g.id === selEst.grupoId);
-     const hermanoMayor = miembros.find(m => m.id === selEst.hermanoMayorId);
-     return { myCerts, myCurso, totalCursos, iniciales, studentHitos, origenConv, origenMiem, grupo, hermanoMayor };
-   }, [selEst, certs, cursos, allHitos, conversiones, miembros, grupos]);
+     // El hermano mayor decorado ya es un personas.id; si es un id viejo
+     // de miembro (ficha sin enlazar), se resuelve por su ficha decorada.
+     let hermanoMayorNombre = selEst.hermanoMayorId ? nombreDePersona(personasMap, selEst.hermanoMayorId) : '';
+     if (!hermanoMayorNombre && selEst.hermanoMayorId) {
+       const hm = miembros.find(m => m.id === selEst.hermanoMayorId);
+       if (hm) { const d = miembroConDatos(hm, personasMap); hermanoMayorNombre = `${d.nombre} ${d.apellido}`.trim(); }
+     }
+     return { myCerts, myCurso, totalCursos, iniciales, studentHitos, conversionDePersona, miembroDePersona, grupo, hermanoMayorNombre };
+   }, [selEst, certs, cursos, allHitos, conversiones, miembros, grupos, personasMap]);
 
   
    const [cNombre, setCNombre] = useState('');
@@ -80,26 +97,14 @@ export default function Academia() {
   const [lNum, setLNum] = useState('');
   const [lDur, setLDur] = useState('');
   const [lDesc, setLDesc] = useState('');
-  const [eNombre, setENombre] = useState('');
-  const [eApellido, setEApellido] = useState('');
-  const [eTel, setETel] = useState('');
-  const [eEdad, setEEdad] = useState('');
+  // P3: el formulario del estudiante solo guarda la PERSONA elegida y los
+  // datos del proceso (curso, fecha, estado, notas). Los personales viven
+  // en el núcleo y se teclean en el formulario de la persona, una vez.
+  const [ePersonaId, setEPersonaId] = useState('');
   const [eCurso, setECurso] = useState('');
   const [eFecha, setEFecha] = useState(today());
   const [eEstado, setEEstado] = useState('Activo');
   const [eNotas, setENotas] = useState('');
-  const [eOrigen, setEOrigen] = useState<'convertido' | 'miembro' | 'manual'>('manual');
-  const [eOrigenId, setEOrigenId] = useState('');
-  const [eZona, setEZona] = useState('');
-  const [eGrupoId, setEGrupoId] = useState('');
-  const [eHermanoMayorId, setEHermanoMayorId] = useState('');
-  const [eEmail, setEEmail] = useState('');
-  const [eDireccion, setEDireccion] = useState('');
-  const [eProfesion, setEProfesion] = useState('');
-  const [eBautizado, setEBautizado] = useState(false);
-  const [eFechaBautismo, setEFechaBautismo] = useState('');
-  const [eConyuge, setEConyuge] = useState('');
-  const [eHijos, setEHijos] = useState('');
   const [certEst, setCertEst] = useState('');
   const [certCurso, setCertCurso] = useState('');
   const [certFecha, setCertFecha] = useState(today());
@@ -109,11 +114,8 @@ export default function Academia() {
   const resetCurso = () => { setCNombre(''); setCNivel('Basico'); setCDur(''); setCInst(''); setCEmoji('📖'); setCColor('rgba(122,95,192,0.25)'); setCEstado('Activo'); setCDesc(''); };
   const resetLeccion = () => { setLCurso(''); setLTitulo(''); setLNum(''); setLDur(''); setLDesc(''); };
   const resetEst = () => {
-    setENombre(''); setEApellido(''); setETel(''); setEEdad('');
+    setEPersonaId('');
     setECurso(''); setEFecha(today()); setEEstado('Activo'); setENotas('');
-    setEOrigen('manual'); setEOrigenId(''); setEZona(''); setEGrupoId('');
-    setEHermanoMayorId(''); setEEmail(''); setEDireccion(''); setEProfesion('');
-    setEBautizado(false); setEFechaBautismo(''); setEConyuge(''); setEHijos('');
   };
    const resetCert = () => { setCertEst(''); setCertCurso(''); setCertFecha(today()); setCertCal('Aprobado'); setCertObs(''); };
    const [qhTipo, setQHTipo] = useState<'Conversión' | 'Bautismo' | 'Discipulado' | 'Curso Completado' | 'Integración' | 'Liderazgo' | 'Matrimonio' | 'Otro'>('Otro');
@@ -192,30 +194,39 @@ export default function Academia() {
 
   // -- Estudiantes CRUD --
   const openNewEst = () => { setEditEstId(null); resetEst(); setModal('est'); };
-  const openEditEst = (id: string) => {
-    const e = estudiantes.find((x) => x.id === id); if (!e) return;
-    setEditEstId(id); setENombre(e.nombre); setEApellido(e.apellido); setETel(e.telefono); setEEdad(e.edad);
+  const openEditEst = async (id: string) => {
+    const e = estudiantesCrudos.find((x) => x.id === id); if (!e) return;
+    setEditEstId(id);
+    // La persona se hereda del proceso; si es un estudiante viejo aún sin
+    // persona (llegó de un equipo sin actualizar), se le asegura la suya
+    // con la regla determinista del diseño (id = el del propio estudiante,
+    // núcleo nacido de sus datos dormidos) y queda elegida en el selector.
+    const personaId = await asegurarPersonaDeEstudiante(e);
+    setEPersonaId(personaId);
     setECurso(e.cursoId); setEFecha(e.fecha); setEEstado(e.estado); setENotas(e.notas);
-    setEOrigen(e.origen || 'manual'); setEOrigenId(e.origenId || '');
-    setEZona(e.zona || ''); setEGrupoId(e.grupoId || ''); setEHermanoMayorId(e.hermanoMayorId || '');
-    setEEmail(e.email || ''); setEDireccion(e.direccion || ''); setEProfesion(e.profesion || '');
-    setEBautizado(!!e.bautizado); setEFechaBautismo(e.fechaBautismo || '');
-    setEConyuge(e.conyuge || ''); setEHijos(e.hijos || '');
     setModal('est');
   };
   const saveEst = async () => {
-    if (!eNombre.trim() || !eApellido.trim()) return showToast('Nombre y apellido son obligatorios');
+    if (!ePersonaId) return showToast('Elige la persona de este estudiante (o créala con «➕ Nueva persona»)');
+    const persona = personas.find((p) => p.id === ePersonaId);
+    if (!persona) return showToast('La persona elegida ya no existe');
     if (!eCurso) return showToast('Selecciona un curso');
-    const data = {
-      nombre: eNombre.trim(), apellido: eApellido.trim(), cursoId: eCurso, fecha: eFecha,
-      telefono: eTel.trim(), edad: eEdad, estado: eEstado as Estudiante['estado'], notas: eNotas.trim(),
-      origen: eOrigen, origenId: eOrigenId || null, zona: eZona, grupoId: eGrupoId || null,
-      hermanoMayorId: eHermanoMayorId || null, email: eEmail.trim(), direccion: eDireccion.trim(),
-      profesion: eProfesion.trim(), bautizado: eBautizado, fechaBautismo: eFechaBautismo,
-      conyuge: eConyuge.trim(), hijos: eHijos.trim(),
-    };
-    if (editEstId) { await db.estudiantes.update(editEstId, data); showToast(`${eNombre} ${eApellido} actualizado/a`); }
-    else { await db.estudiantes.add(createBaseRecord({ id: uuid(), creado: today(), ...data })); showToast(`${eNombre} ${eApellido} matriculado/a`); }
+    const nombrePersona = `${persona.nombre} ${persona.apellido}`;
+    // Solo datos del PROCESO: la identidad vive en la persona enlazada.
+    const data = { cursoId: eCurso, fecha: eFecha, estado: eEstado as Estudiante['estado'], notas: eNotas.trim(), personaId: ePersonaId };
+    if (editEstId) { await db.estudiantes.update(editEstId, data); showToast(`${nombrePersona} actualizado/a`); }
+    else {
+      // El proceso nace SIN datos personales (vacíos a propósito) y SIN
+      // origen/origenId: murieron en P3 — la persona ES el origen.
+      const nuevo: Estudiante = {
+        id: uuid(), nombre: '', apellido: '', telefono: '', edad: '', email: '', direccion: '', zona: '',
+        profesion: '', bautizado: false, fechaBautismo: '', conyuge: '', hijos: '', numeroIdentidad: undefined,
+        grupoId: null, hermanoMayorId: null,
+        ...data, creado: today(), version: 1,
+      };
+      await db.estudiantes.add(createBaseRecord(nuevo));
+      showToast(`${nombrePersona} matriculado/a`);
+    }
     setEditEstId(null); resetEst(); setModal(null);
   };
   const delEst = async () => {
@@ -224,38 +235,6 @@ export default function Academia() {
     await db.estudiantes.delete(editEstId);
     setEditEstId(null); setModal(null);
     showToast(`${e?.nombre} ${e?.apellido} eliminado/a`);
-  };
-
-  const calcEdad = (nac: string) => {
-    if (!nac) return '';
-    const n = new Date(nac), h = new Date();
-    let edad = h.getFullYear() - n.getFullYear();
-    const m = h.getMonth() - n.getMonth();
-    if (m < 0 || (m === 0 && h.getDate() < n.getDate())) edad--;
-    return String(edad);
-  };
-
-  const autoFillOrigen = (origen: 'convertido' | 'miembro' | 'manual', id: string) => {
-    if (!id) return;
-    if (origen === 'convertido') {
-      const c = conversiones.find(x => x.id === id);
-      if (!c) return;
-      setENombre(c.nombre); setEApellido(c.apellido); setETel(c.telefono); setEEdad(c.edad);
-      setEZona(c.zona || ''); setEGrupoId(c.grupoId || '');
-      const hm = miembros.find(m => `${m.nombre} ${m.apellido}` === c.lider);
-      setEHermanoMayorId(hm ? hm.id : c.hermanoMayorId || '');
-      setEEmail(c.email || ''); setEDireccion(c.direccion || ''); setEProfesion(c.profesion || '');
-      setEBautizado(!!c.bautizado); setEFechaBautismo(c.fechaBautismo || '');
-      setEConyuge(c.conyuge || ''); setEHijos(c.hijos || '');
-    } else if (origen === 'miembro') {
-      const m = miembros.find(x => x.id === id);
-      if (!m) return;
-      setENombre(m.nombre); setEApellido(m.apellido); setETel(m.telefono); setEEdad(calcEdad(m.fechaNacimiento));
-      setEZona(m.zona); setEGrupoId(m.grupoId || ''); setEEmail(m.email);
-      setEDireccion(m.direccion); setEProfesion(m.profesion);
-      setEBautizado(!!m.bautizado); setEFechaBautismo(m.fechaBautismo || '');
-      setEConyuge(m.conyuge || ''); setEHijos(m.hijos || '');
-    }
   };
 
   // -- Certificados CRUD --
@@ -291,7 +270,7 @@ export default function Academia() {
 
   const filteredEst = estudiantes.filter((e) => {
     const full = `${e.nombre} ${e.apellido} ${e.telefono}`.toLowerCase();
-    return (!q(search, full)) && (!filterCursoEst || e.cursoId === filterCursoEst) && (!filterEstadoEst || e.estado === filterEstadoEst) && (!filterOrigenEst || e.origen === filterOrigenEst) && (!filterZonaEst || e.zona === filterZonaEst) && (!filterGrupoEst || e.grupoId === filterGrupoEst) && (!filterBautizadoEst || (filterBautizadoEst === 'si' ? e.bautizado : !e.bautizado));
+    return (!q(search, full)) && (!filterCursoEst || e.cursoId === filterCursoEst) && (!filterEstadoEst || e.estado === filterEstadoEst) && (!filterZonaEst || e.zona === filterZonaEst) && (!filterGrupoEst || e.grupoId === filterGrupoEst) && (!filterBautizadoEst || (filterBautizadoEst === 'si' ? e.bautizado : !e.bautizado));
   });
 
   const viewCurso = viewCursoId ? cursos.find((c) => c.id === viewCursoId) : null;
@@ -341,7 +320,6 @@ export default function Academia() {
           search={search} setSearch={setSearch}
           filterCursoEst={filterCursoEst} setFilterCursoEst={setFilterCursoEst}
           filterEstadoEst={filterEstadoEst} setFilterEstadoEst={setFilterEstadoEst}
-          filterOrigenEst={filterOrigenEst} setFilterOrigenEst={setFilterOrigenEst}
           filterZonaEst={filterZonaEst} setFilterZonaEst={setFilterZonaEst}
           filterGrupoEst={filterGrupoEst} setFilterGrupoEst={setFilterGrupoEst}
           filterBautizadoEst={filterBautizadoEst} setFilterBautizadoEst={setFilterBautizadoEst}
@@ -410,27 +388,10 @@ export default function Academia() {
         editEstId={editEstId}
         delEst={delEst}
         saveEst={saveEst}
-        autoFillOrigen={autoFillOrigen}
-        conversiones={conversiones}
-        miembros={miembros}
+        personas={personas}
         grupos={grupos}
         cursos={cursos}
-        eOrigen={eOrigen} setEOrigen={setEOrigen}
-        eOrigenId={eOrigenId} setEOrigenId={setEOrigenId}
-        eNombre={eNombre} setENombre={setENombre}
-        eApellido={eApellido} setEApellido={setEApellido}
-        eEdad={eEdad} setEEdad={setEEdad}
-        eProfesion={eProfesion} setEProfesion={setEProfesion}
-        eTel={eTel} setETel={setETel}
-        eEmail={eEmail} setEEmail={setEEmail}
-        eDireccion={eDireccion} setEDireccion={setEDireccion}
-        eZona={eZona} setEZona={setEZona}
-        eGrupoId={eGrupoId} setEGrupoId={setEGrupoId}
-        eHermanoMayorId={eHermanoMayorId} setEHermanoMayorId={setEHermanoMayorId}
-        eBautizado={eBautizado} setEBautizado={setEBautizado}
-        eFechaBautismo={eFechaBautismo} setEFechaBautismo={setEFechaBautismo}
-        eConyuge={eConyuge} setEConyuge={setEConyuge}
-        eHijos={eHijos} setEHijos={setEHijos}
+        ePersonaId={ePersonaId} setEPersonaId={setEPersonaId}
         eCurso={eCurso} setECurso={setECurso}
         eFecha={eFecha} setEFecha={setEFecha}
         eEstado={eEstado} setEEstado={setEEstado}
