@@ -18,6 +18,7 @@ type Tab = 'actual' | 'historial';
 
 export default function Reportes() {
   const convs = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  const personasReg = useLiveQuery(() => db.personas.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
   const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
@@ -167,7 +168,11 @@ export default function Reportes() {
     const pubEng = pubRango.reduce((s, p) => s + (p.engagement || 0), 0);
 
     return {
-      conv: { total: conv.length, mesActual: convMes, integrados: convIntegrados, grupos: grupos.length },
+      // P6: «personasUnicas» es el tamaño del registro único (la colección
+      // `personas`): una persona cuenta una vez tenga los procesos que
+      // tenga. Los demás contadores de esta sección son de PROCESO
+      // (conversiones del período, integrados) y no cambian.
+      conv: { total: conv.length, mesActual: convMes, integrados: convIntegrados, grupos: grupos.length, personasUnicas: personasReg.length },
       evang: { total: evang.length, contactos: evangContactos, conversiones: evangConvs },
       academia: { cursos: cursos.length, cursosActivos, estudiantes: estActivos, certificados: certRango.length },
       finanzas: { diezmos: finDiezmos, ofrendas: finOfrendas, bienComunDiezmos, bienComunOfrendas, bienComunTotal, bienComunPlan, colaboradoresAyuda, colaboradoresMisiones, colaboradoresManosAbiertas, colaboradoresConstruccion, colaboradoresOtro, colaboradoresTotal, colaboradoresPlan, totalFinal, planMensual },
@@ -175,7 +180,7 @@ export default function Reportes() {
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
     };
-  }, [convs, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta]);
+  }, [convs, personasReg, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta]);
 
   /* Constructores de exportación compartidos: el cálculo en vivo y el
      snapshot guardado (Historial) exportan con el MISMO formato. */
@@ -189,6 +194,7 @@ export default function Reportes() {
     lines.push(`Conversiones: ${d.conv.total} (del período: ${d.conv.mesActual})`);
     lines.push(`Integrados: ${d.conv.integrados}`);
     lines.push(`Grupos: ${d.conv.grupos}`);
+    lines.push(`Personas únicas: ${d.conv.personasUnicas}`);
     lines.push(`Evangelismos: ${d.evang.total} (contactos: ${d.evang.contactos}, conversiones: ${d.evang.conversiones})`);
     lines.push('');
     lines.push('ACADEMIA');
@@ -251,6 +257,7 @@ export default function Reportes() {
     ['Misión Bíblica', 'Conversiones del Período', d.conv.mesActual],
     ['Misión Bíblica', 'Integrados', d.conv.integrados],
     ['Misión Bíblica', 'Grupos', d.conv.grupos],
+    ['Misión Bíblica', 'Personas únicas', d.conv.personasUnicas],
     ['Misión Bíblica', 'Evangelismos', d.evang.total],
     ['Misión Bíblica', 'Contactos', d.evang.contactos],
     ['Academia', 'Cursos', d.academia.cursos],
@@ -392,6 +399,7 @@ export default function Reportes() {
                 ['Conversiones del período', datos.conv.mesActual],
                 ['Integrados', datos.conv.integrados],
                 ['Grupos activos', datos.conv.grupos],
+                ['Personas únicas', datos.conv.personasUnicas],
                 ['Evangelismos', datos.evang.total],
                 ['Contactos alcanzados', num(datos.evang.contactos)],
                 ['Conversiones evangelísticas', datos.evang.conversiones],
@@ -565,6 +573,7 @@ export default function Reportes() {
               <div className="detail-row"><span className="detail-label">Conversiones</span><span className="detail-value">{selResumen.conv.total} (del período: {selResumen.conv.mesActual})</span></div>
               <div className="detail-row"><span className="detail-label">Integrados</span><span className="detail-value">{selResumen.conv.integrados}</span></div>
               <div className="detail-row"><span className="detail-label">Grupos</span><span className="detail-value">{selResumen.conv.grupos}</span></div>
+              <div className="detail-row"><span className="detail-label">Personas únicas</span><span className="detail-value">{selResumen.conv.personasUnicas}</span></div>
               <div className="detail-row"><span className="detail-label">Evangelismos</span><span className="detail-value">{selResumen.evang.total} ({num(selResumen.evang.contactos)} contactos)</span></div>
 
               <div className="form-section" style={{ marginTop: 14 }}>🎓 Academia</div>

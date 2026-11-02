@@ -8,7 +8,15 @@ export interface Conversion {
   familia: string;
   fecha: string;
   zona: string;
-  lider: string;
+  /**
+   * P6: el texto `lider` DEJÓ DE GUARDARSE (la verdad es el hermano mayor
+   * de la persona, `hermanoMayorId` del núcleo, y el decorador
+   * `conversionConDatos` lo deriva al pintar). Queda opcional en el tipo
+   * SOLO como lectura tolerante de los registros viejos: su foto dormida
+   * sigue en la base y el decorador cae a ella cuando la persona no tiene
+   * hermano mayor enlazado. Las escrituras nuevas ya no lo producen.
+   */
+  lider?: string;
   grupoId: string;
   hermanoMayorId: string | null;
   email: string;
@@ -97,9 +105,25 @@ export interface Evangelismo {
   tipo: string;
   fecha: string;
   zona: string;
-  /** Texto dormido: foto del nombre del líder (la verdad es `liderId`, P2). */
+  /**
+   * Texto dormido: foto del nombre del líder (la verdad es `liderId`, P2).
+   * P6 — HALLAZGO (verificado con grep): NO se retira ni deja de guardarse.
+   * Sigue leyéndose EN VIVO como respaldo tolerante de los evangelismos
+   * anteriores a P2 (sin `liderId`): la tabla cae a él para pintar al
+   * líder, el filtro «Ministro» y el buscador de Misión lo comparan, y la
+   * exportación CSV lo escribe; y al guardar se sigue escribiendo la foto
+   * derivada de los ids junto con los nombres de respaldo sin persona —
+   * sin esa escritura, esos nombres se perderían y el filtro perdería a
+   * los líderes nuevos. Su retirada exige resolver filtro, buscador y
+   * exportaciones desde `personas`: obra nueva, fuera del cierre P6.
+   */
   lider: string;
-  /** Texto dormido: foto de los nombres del equipo (la verdad es `participanteIds`, P2). */
+  /**
+   * Texto dormido: foto de los nombres del equipo (la verdad es
+   * `participanteIds`, P2). P6 — HALLAZGO: igual que `lider`, sigue
+   * leyéndose como respaldo (conteo y nombres del equipo en la tabla,
+   * conteo en el PDF) y escribiéndose al guardar; no se retira.
+   */
   participantes: string[];
   /** Ficha única (P2): líder del evangelismo (→ personas.id). */
   liderId?: string | null;
@@ -160,15 +184,11 @@ export interface Estudiante {
   personaId?: string | null;
   notas: string;
   creado: string;
-  /**
-   * MUERTOS en P3 (ficha única): el «origen» solo recordaba de qué ficha se
-   * copiaron los datos al matricular; con `personaId`, la persona ES el
-   * origen y sus otros procesos se ven en su ficha. Ninguna escritura nueva
-   * los produce; quedan opcionales solo porque los registros viejos los
-   * traen dormidos (retirada del tipo en P6, con los demás campos dormidos).
-   */
-  origen?: 'convertido' | 'miembro' | 'manual';
-  origenId?: string | null;
+  // P6: `origen`/`origenId` RETIRADOS del tipo (murieron en P3: con
+  // `personaId`, la persona ES el origen). Los registros viejos los traen
+  // dormidos en la base y así se quedan — retirar el campo del tipo no
+  // toca datos —; el mapeo de tolerancia en sync y el upgrade histórico
+  // v10 de Dexie los siguen conociendo como historia.
   zona: string;
   grupoId: string | null;
   hermanoMayorId: string | null;
@@ -201,10 +221,18 @@ export interface Diezmador {
    * Datos personales DORMIDOS desde P4 (ficha única): la identidad vive en
    * la persona enlazada (`personaId`) y las lecturas la resuelven desde el
    * núcleo (`diezmadorConDatos`). Las altas nuevas los escriben vacíos;
-   * los registros viejos conservan su última copia, que ya nadie lee. El
-   * `grupo` era TEXTO tecleado: murió — el grupo es el de la persona
-   * (`grupoId` del núcleo, resuelto a nombre al pintar). Retirada de estos
-   * campos del tipo en P6, con los demás campos dormidos.
+   * los registros viejos conservan su última copia. El `grupo` era TEXTO
+   * tecleado: murió como escritura — el grupo es el de la persona
+   * (`grupoId` del núcleo, resuelto a nombre al pintar).
+   *
+   * P6 — HALLAZGO (verificado con grep y con tsc): estos campos NO se
+   * retiran del tipo. No están muertos del todo: son los campos que las
+   * pantallas de Bien Común pintan (el decorador los sobrescribe desde el
+   * núcleo cuando hay persona) y la lectura TOLERANTE de los procesos sin
+   * persona enlazada (el decorador devuelve la ficha tal cual, §4.3.3);
+   * además son la semilla de `asegurarPersonaDeDiezmador` y de los
+   * importados por CSV aún sin enlazar. Retirarlos exigiría re-tipificar
+   * toda la capa de lectura de Bien Común: obra nueva, fuera del cierre.
    */
   nombre: string;
   apellido: string;
@@ -263,16 +291,10 @@ export interface Beneficiario {
   creado: string;
   tipo: 'Persona' | 'Casa de Familia' | 'Grupo' | 'Vulnerable';
   representativeName?: string;
-  /**
-   * MUERTOS en P5 (ficha única): el «origen» solo recordaba de qué ficha se
-   * copiaron los datos al registrar; con `personaId`, la persona ES el
-   * origen. Ninguna escritura nueva los produce (ni el alta, ni la
-   * edición, ni la importación CSV); quedan opcionales solo porque los
-   * registros viejos los traen dormidos (retirada del tipo en P6, con los
-   * demás campos dormidos).
-   */
-  source?: 'Convertido' | 'Miembro' | 'Manual';
-  sourceId?: string;
+  // P6: `source`/`sourceId` RETIRADOS del tipo (murieron en P5: con
+  // `personaId`, la persona ES el origen). Los registros viejos los traen
+  // dormidos en la base y así se quedan — retirar el campo del tipo no
+  // toca datos.
   version: number;
   updatedAt?: string | number;
 }

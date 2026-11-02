@@ -7,6 +7,7 @@ import { db } from '../lib/database';
 
 import { MS, monthKey } from '../lib/utils';
 import { showToast } from '../lib/notification';
+import { contarPersonasUnicas } from '../lib/personaVista';
 
 const fmtDate = (d: string) => {
   if (!d) return '—';
@@ -32,6 +33,7 @@ type Alert = { type: 'danger' | 'warn' | 'info'; text: string };
 
 export default function Dashboard() {
   const convs = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
   const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
@@ -86,13 +88,16 @@ export default function Dashboard() {
       ? convsF.filter((c) => monthKey(c.fecha) === `${filterAno}-${String(today.getMonth() + 1).padStart(2, '0')}`).length
       : convs.filter((c) => monthKey(c.fecha) === mo).length;
     const activos = grupos.filter((g) => g.miembros > 0).length;
-    const totalMembers = grupos.reduce((s, g) => s + (g.miembros || 0), 0);
+    // P6: la membresía cuenta PERSONAS ÚNICAS con proceso de miembro
+    // (una persona, un conteo), no sumas de fichas ni contadores por
+    // grupo: la misma persona no puede contar dos veces.
+    const miembrosUnicos = contarPersonasUnicas(miembros);
     const estActivos = estudiantes.filter((e) => e.estado === 'Activo').length;
     const certCount = filterAno
       ? certs.filter((c) => c.emitido?.startsWith(filterAno)).length
       : certs.length;
-    return { totalConv, mesCount, activos, totalMembers, estActivos, certCount };
-  }, [convsF, grupos, estudiantes, certs, mo, filterAno, today]);
+    return { totalConv, mesCount, activos, miembrosUnicos, estActivos, certCount };
+  }, [convsF, grupos, miembros, estudiantes, certs, mo, filterAno, today]);
 
   const chart = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -155,7 +160,9 @@ export default function Dashboard() {
 
   const goals = useMemo(() => {
     const m = metasDoc || { membresia: 500, academia: 150, sostenimiento: 8000, familias: 200, personas: 800 };
-    const miembros = convsF.filter((c) => c.estado === 'Integrado').length + kpis.totalMembers;
+    // P6: antes esto SUMABA conversiones integradas + miembros por grupo
+    // (la misma persona contaba dos veces). Ahora es el conteo único.
+    const membresiaActual = kpis.miembrosUnicos;
     const graduados = kpis.certCount;
     const sostenimiento = filterAno
       ? aportesF.reduce((s, a) => s + (a.monto || 0), 0)
@@ -163,12 +170,12 @@ export default function Dashboard() {
     const impactCurrent = impactView === 'familias' ? impact.familias : impact.personas;
     const impactTotal = impactView === 'familias' ? m.familias : m.personas;
     return [
-      { label: `👥 Membresía: ${m.membresia} miembros`, current: miembros, total: m.membresia, color: 'var(--green)' },
+      { label: `👥 Membresía: ${m.membresia} miembros`, current: membresiaActual, total: m.membresia, color: 'var(--green)' },
       { label: `🎓 Academia: ${m.academia} graduados`, current: graduados, total: m.academia, color: 'var(--academia-teal)' },
       { label: `💰 Sostenimiento: $${m.sostenimiento.toLocaleString()}/mes`, current: sostenimiento, total: m.sostenimiento, color: 'var(--oro-apostolico)', prefix: '$' },
       { label: `🤲 ${impactView === 'familias' ? 'Familias' : 'Personas'} impactadas: ${impactTotal.toLocaleString()}`, current: impactCurrent, total: impactTotal, color: 'var(--manos-terracota)' },
     ];
-  }, [metasDoc, convsF, kpis.totalMembers, kpis.certCount, aportesF, mo, impactView, impact, filterAno]);
+  }, [metasDoc, kpis.miembrosUnicos, kpis.certCount, aportesF, mo, impactView, impact, filterAno]);
 
   const saveMetas = async () => {
     const membresia = parseInt(mMembresia) || 0;
@@ -215,7 +222,7 @@ export default function Dashboard() {
 
       <div className="kpis">
         <KpiCard label="Conversiones Totales" value={kpis.totalConv} icon="✝️" accent="var(--mision-purple)" change={`▲ +${kpis.mesCount} este mes`} changeDir="up" />
-        <KpiCard label="Grupos Activos" value={kpis.activos} icon="👥" accent="var(--oro-apostolico)" change={`${kpis.totalMembers} miembros`} changeDir="up" />
+        <KpiCard label="Grupos Activos" value={kpis.activos} icon="👥" accent="var(--oro-apostolico)" change={`${kpis.miembrosUnicos} miembros`} changeDir="up" />
         <KpiCard label="Estudiantes Activos" value={kpis.estActivos} icon="🎓" accent="var(--academia-teal)" change={`${kpis.certCount} certificados`} changeDir="up" />
         <KpiCard
           label={impactView === 'familias' ? 'Familias Impactadas' : 'Personas Impactadas'}

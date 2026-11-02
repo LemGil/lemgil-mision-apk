@@ -235,10 +235,12 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     if (!persona) return showToast('La persona elegida ya no existe');
     if (!fFecha) return showToast('La fecha es obligatoria');
     const nombrePersona = `${persona.nombre} ${persona.apellido}`;
-    // El texto `lider` queda como foto dormida del hermano mayor de la
-    // persona (B1: siempre fue exhibición del id; dejará de guardarse en P6).
-    const liderFoto = nombreDePersona(personasMap, persona.hermanoMayorId);
-    const data = { fecha: fFecha, familia: fFamilia, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), historial: fHistorial, personaId: fPersonaId, evangelismoId: fEvangelismoId || null, lider: liderFoto, updatedAt: Date.now() };
+    // P6: el texto `lider` DEJÓ DE GUARDARSE (era la foto del hermano
+    // mayor de la persona: B1 ya lo trataba como exhibición del id, y el
+    // decorador lo deriva del núcleo al pintar). Al no ir en `data`, la
+    // edición conserva intacta la foto dormida de los registros viejos
+    // (lectura tolerante) y las altas nuevas ya no la producen.
+    const data = { fecha: fFecha, familia: fFamilia, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), historial: fHistorial, personaId: fPersonaId, evangelismoId: fEvangelismoId || null, updatedAt: Date.now() };
     if (editConvId) {
       const c = convsCrudas.find((x) => x.id === editConvId);
       await db.conversiones.update(editConvId, data);
@@ -478,7 +480,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
           <button className="btn btn-secondary" onClick={() => {
             if (!convs.length) return showToast('No hay datos para exportar');
             const h = ['Nombre','Apellido','Telefono','Edad','Zona','Mayor','Fecha','Estado','Notas'];
-            const r = convs.map(c => [c.nombre,c.apellido,c.telefono||'',c.edad||'',c.zona,c.lider,c.fecha,c.estado,(c.notas||'').replace(/,/g,';')]);
+            const r = convs.map(c => [c.nombre,c.apellido,c.telefono||'',c.edad||'',c.zona,c.lider||'',c.fecha,c.estado,(c.notas||'').replace(/,/g,';')]);
             exportCSV(h, r, 'lemgil-conversiones.csv');
             showToast('CSV exportado');
           }}>📥 Exportar CSV</button>

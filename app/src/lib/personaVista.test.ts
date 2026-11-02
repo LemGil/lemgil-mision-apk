@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   agruparProcesos, tiposPresentes, totalProcesos, tarjetasDeProcesos,
-  procesosHuerfanos, filtrarPersonas, edadDesde, procesosVacios,
+  procesosHuerfanos, filtrarPersonas, edadDesde, procesosVacios, contarPersonasUnicas,
 } from './personaVista';
 import type { FichasDePersona } from './personas';
 import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, Persona } from './types';
@@ -37,7 +37,7 @@ const miembroBase = (over: Partial<Miembro> = {}): Miembro => ({
 const estBase = (over: Partial<Estudiante> = {}): Estudiante => ({
   id: 'e1', nombre: 'María', apellido: 'González', telefono: '5551234',
   edad: '', cursoId: 'cur1', fecha: '2024-03-01', estado: 'Activo', notas: '',
-  creado: '2024-03-01T00:00:00.000Z', origen: 'manual', origenId: null,
+  creado: '2024-03-01T00:00:00.000Z',
   zona: 'Norte', grupoId: null, hermanoMayorId: null, email: '', direccion: '',
   profesion: '', bautizado: false, fechaBautismo: '', conyuge: '', hijos: '',
   version: 1, ...over,
@@ -53,7 +53,7 @@ const diezmBase = (over: Partial<Diezmador> = {}): Diezmador => ({
 const benefBase = (over: Partial<Beneficiario> = {}): Beneficiario => ({
   id: 'b1', nombre: 'María', apellido: 'González', telefono: '5551234',
   direccion: '', zona: 'Norte', familia: 4, estado: 'Activo', notas: '',
-  creado: '2024-04-01T00:00:00.000Z', tipo: 'Persona', source: 'Manual',
+  creado: '2024-04-01T00:00:00.000Z', tipo: 'Persona',
   version: 1, ...over,
 });
 
@@ -161,5 +161,25 @@ describe('Ficha única P1 — composición de la vista (personaVista)', () => {
     expect(edadDesde('1990-05-01', new Date(2024, 4, 1))).toBe(34);
     expect(edadDesde('')).toBeNull();
     expect(edadDesde('no-es-fecha')).toBeNull();
+  });
+
+  it('contarPersonasUnicas: una persona con 3 procesos cuenta UNA vez (P6)', () => {
+    const procesos = [
+      { id: 'c1', personaId: 'p1' }, // su conversión
+      { id: 'm1', personaId: 'p1' }, // su miembro
+      { id: 'e1', personaId: 'p1' }, // su estudiante
+    ];
+    expect(contarPersonasUnicas(procesos)).toBe(1);
+  });
+
+  it('contarPersonasUnicas: personas distintas cuentan por separado y el proceso sin enlazar cuenta como él mismo', () => {
+    const procesos = [
+      { id: 'c1', personaId: 'p1' },
+      { id: 'm1', personaId: 'p1' },
+      { id: 'm2', personaId: 'p2' },
+      { id: 'd9', personaId: null }, // aún sin enlazar: es su propia persona
+    ];
+    expect(contarPersonasUnicas(procesos)).toBe(3);
+    expect(contarPersonasUnicas([])).toBe(0);
   });
 });

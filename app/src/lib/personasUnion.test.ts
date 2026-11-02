@@ -34,7 +34,7 @@ const convBase = (over: Partial<Conversion> = {}): Conversion => ({
 const estBase = (over: Partial<Estudiante> = {}): Estudiante => ({
   id: 'e1', nombre: 'María', apellido: 'González', telefono: '5551234',
   edad: '', cursoId: 'cur1', fecha: '2024-03-01', estado: 'Activo', notas: '',
-  creado: '2024-03-01T00:00:00.000Z', origen: 'manual', origenId: null,
+  creado: '2024-03-01T00:00:00.000Z',
   zona: 'Norte', grupoId: null, hermanoMayorId: null, email: '', direccion: '',
   profesion: '', bautizado: false, fechaBautismo: '', conyuge: '', hijos: '',
   version: 1, ...over,

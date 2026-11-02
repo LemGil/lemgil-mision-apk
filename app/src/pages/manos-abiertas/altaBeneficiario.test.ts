@@ -69,7 +69,14 @@ const casaNueva = (over: Partial<Beneficiario> = {}): Beneficiario => ({
 // Una ficha VIEJA (anterior a la ficha única): personales tecleados en la
 // propia ficha — traídos por el «origen» copiador o a mano —, con source
 // y sourceId, y ningún personaId.
-const beneficiarioViejo = (over: Partial<Beneficiario> = {}): Beneficiario => ({
+// (P6: `source`/`sourceId` ya no existen en el tipo Beneficiario; la ficha
+// vieja los trae dormidos en la base, así que se siembran como crudo.)
+const conDormidos = <T extends object>(r: T, campos: Record<string, unknown>): T => {
+  Object.assign(r, campos);
+  return r;
+};
+
+const beneficiarioViejo = (over: Partial<Beneficiario> = {}): Beneficiario => conDormidos({
   id: "ben-viejo",
   nombre: "Rosa",
   apellido: "Díaz",
@@ -81,13 +88,11 @@ const beneficiarioViejo = (over: Partial<Beneficiario> = {}): Beneficiario => ({
   numeroIdentidad: "83050511111",
   notas: "Viene de la ficha antigua",
   tipo: "Persona",
-  source: "Miembro",
-  sourceId: "m-viejo",
   personaId: null,
   creado: "2023-09-01",
   version: 1,
   ...over,
-});
+}, { source: "Miembro", sourceId: "m-viejo" });
 
 describe("Alta de beneficiario sobre la ficha única (P5)", () => {
   beforeAll(async () => {
@@ -287,9 +292,11 @@ describe("asegurarPersonaDeBeneficiario (P5: el viejo sin persona, al editarlo)"
     const enlazado = await db.beneficiarios.get("ben-viejo");
     expect(enlazado?.personaId).toBe("ben-viejo");
     // El enlace no reescribe la historia: el origen dormido queda intacto
-    // en la ficha (ya nadie lo lee ni lo produce de nuevo).
-    expect(enlazado?.source).toBe("Miembro");
-    expect(enlazado?.sourceId).toBe("m-viejo");
+    // en la ficha (ya nadie lo lee ni lo produce de nuevo). Se mira el
+    // registro crudo: las claves ya no existen en el tipo (P6).
+    const crudo = enlazado as unknown as Record<string, unknown>;
+    expect(crudo?.source).toBe("Miembro");
+    expect(crudo?.sourceId).toBe("m-viejo");
   });
 
   it("es idempotente y no pisa una persona ya existente con ese id", async () => {

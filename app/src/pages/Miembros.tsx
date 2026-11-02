@@ -110,16 +110,19 @@ export default function Miembros() {
       return acc;
     }, {} as Record<string, number>);
     const ministeriosCount = ministerios.length;
-    const cumplesProx = miembros.filter(m => { const d = diasHastaCumple(m.fechaNacimiento); return d !== null && d <= 30; }).length;
+    // P6: los cumpleaños salen del NÚCLEO (personas), no del proceso
+    // miembro: la fecha de nacimiento es de la persona, así que cuentan
+    // también quienes aún no tienen proceso de miembro.
+    const cumplesProx = personas.filter(p => { const d = diasHastaCumple(p.fechaNacimiento); return d !== null && d <= 30; }).length;
     return { statusCounts, ministeriosCount, cumplesProx };
-  }, [miembros, ministerios]);
+  }, [miembros, ministerios, personas]);
 
   const proximosCumples = useMemo(() => {
-    return miembros
-      .map(m => ({ m, dias: diasHastaCumple(m.fechaNacimiento) }))
+    return personas
+      .map(p => ({ p, dias: diasHastaCumple(p.fechaNacimiento) }))
       .filter(x => x.dias !== null && x.dias <= 30)
       .sort((a, b) => (a.dias || 0) - (b.dias || 0));
-  }, [miembros]);
+  }, [personas]);
 
   const miembrosFiltrados = useMemo(() => {
     const s = search.toLowerCase();

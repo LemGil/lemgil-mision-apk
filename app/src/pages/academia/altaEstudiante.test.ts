@@ -48,7 +48,14 @@ const estudianteNuevo = (over: Partial<Estudiante> = {}): Estudiante => ({
 
 // Una ficha VIEJA (anterior a la ficha única): personales tecleados en la
 // propia ficha, origen/origenId vivos y ningún personaId.
-const estudianteViejo = (over: Partial<Estudiante> = {}): Estudiante => ({
+// (P6: `origen`/`origenId` ya no existen en el tipo Estudiante; la ficha
+// vieja los trae dormidos en la base, así que se siembran como crudo.)
+const conDormidos = <T extends object>(r: T, campos: Record<string, unknown>): T => {
+  Object.assign(r, campos);
+  return r;
+};
+
+const estudianteViejo = (over: Partial<Estudiante> = {}): Estudiante => conDormidos({
   id: "est-viejo",
   nombre: "Rosa",
   apellido: "Díaz",
@@ -69,13 +76,11 @@ const estudianteViejo = (over: Partial<Estudiante> = {}): Estudiante => ({
   fecha: "2023-09-01",
   estado: "Activo",
   notas: "Viene de la ficha antigua",
-  origen: "miembro",
-  origenId: "m-viejo",
   personaId: null,
   creado: "2023-09-01",
   version: 1,
   ...over,
-});
+}, { origen: "miembro", origenId: "m-viejo" });
 
 describe("Alta de estudiante sobre la ficha única (P3)", () => {
   beforeAll(async () => {
@@ -123,8 +128,10 @@ describe("Alta de estudiante sobre la ficha única (P3)", () => {
 
     const guardado = await db.estudiantes.get("est-nuevo");
     expect(guardado).toBeTruthy();
-    expect(guardado!.origen).toBeUndefined();
-    expect(guardado!.origenId).toBeUndefined();
+    // P6: las claves ya no existen en el tipo; se mira el registro crudo.
+    const crudo = guardado as unknown as Record<string, unknown>;
+    expect(crudo.origen).toBeUndefined();
+    expect(crudo.origenId).toBeUndefined();
     expect("origen" in guardado!).toBe(false);
     expect("origenId" in guardado!).toBe(false);
   });
@@ -191,7 +198,7 @@ describe("asegurarPersonaDeEstudiante (P3: el viejo sin persona, al editarlo)", 
     expect(enlazado?.personaId).toBe("est-viejo");
     // El enlace no reescribe la historia: su origen dormido queda intacto
     // en la ficha (ya nadie lo lee) y sus datos personales no se borran.
-    expect(enlazado?.origen).toBe("miembro");
+    expect((enlazado as unknown as Record<string, unknown>)?.origen).toBe("miembro");
     expect(enlazado?.nombre).toBe("Rosa");
   });
 

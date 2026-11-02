@@ -149,7 +149,7 @@ export interface CumplimientoBC {
 
 /** Datos del Reporte General (Reportes.datos / snapshot guardado en db.reportes). */
 export interface ReporteDatos {
-  conv: { total: number; mesActual: number; integrados: number; grupos: number };
+  conv: { total: number; mesActual: number; integrados: number; grupos: number; personasUnicas: number };
   evang: { total: number; contactos: number; conversiones: number };
   academia: { cursos: number; cursosActivos: number; estudiantes: number; certificados: number };
   finanzas: {
@@ -176,7 +176,7 @@ export interface ReporteDatos {
 
 /** Snapshot vacío: base segura para mostrar informes guardados incompletos. */
 export const REPORTE_DATOS_VACIO: ReporteDatos = {
-  conv: { total: 0, mesActual: 0, integrados: 0, grupos: 0 },
+  conv: { total: 0, mesActual: 0, integrados: 0, grupos: 0, personasUnicas: 0 },
   evang: { total: 0, contactos: 0, conversiones: 0 },
   academia: { cursos: 0, cursosActivos: 0, estudiantes: 0, certificados: 0 },
   finanzas: {
@@ -1225,6 +1225,7 @@ export function exportReporteGeneralPDF(opts: { datos: ReporteDatos; periodo: st
     ['Conversiones del período', datos.conv.mesActual.toString()],
     ['Integrados', datos.conv.integrados.toString()],
     ['Grupos activos', datos.conv.grupos.toString()],
+    ['Personas únicas', datos.conv.personasUnicas.toString()],
     ['Evangelismos', datos.evang.total.toString()],
     ['Contactos alcanzados', datos.evang.contactos.toLocaleString('en-US')],
     ['Conversiones evangelísticas', datos.evang.conversiones.toString()],

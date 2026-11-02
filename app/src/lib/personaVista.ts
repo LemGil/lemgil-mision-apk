@@ -77,6 +77,22 @@ export function totalProcesos(g: ProcesosAgrupados): number {
   return ORDEN_PROCESOS.reduce((n, p) => n + g[p].length, 0);
 }
 
+/**
+ * P6: cuántas PERSONAS distintas hay detrás de una lista de procesos.
+ * Una persona con tres procesos cuenta UNA vez: esa es la diferencia
+ * entre contar personas y sumar fichas (el problema de §2.2 del diseño).
+ * Un proceso aún sin enlazar cuenta como su propia persona (su `id` es
+ * el que su persona heredará al asegurarla, §5.2): la lectura tolerante
+ * no pierde a nadie del conteo.
+ */
+export function contarPersonasUnicas(
+  procesos: readonly { id: string; personaId?: string | null }[],
+): number {
+  const ids = new Set<string>();
+  for (const p of procesos) ids.add(p.personaId ?? p.id);
+  return ids.size;
+}
+
 export interface TarjetaProceso {
   proceso: ProcesoPersona;
   procesoId: string;

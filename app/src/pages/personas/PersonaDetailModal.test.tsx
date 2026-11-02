@@ -38,7 +38,7 @@ const miembro: Miembro = {
 const estudiante: Estudiante = {
   id: 'e1', nombre: 'María', apellido: 'González', telefono: '5551234',
   edad: '', cursoId: 'cur1', fecha: '2024-03-01', estado: 'Activo', notas: '',
-  creado: '2024-03-01T00:00:00.000Z', origen: 'miembro', origenId: 'm1',
+  creado: '2024-03-01T00:00:00.000Z',
   zona: 'Norte', grupoId: null, hermanoMayorId: null, email: '', direccion: '',
   profesion: '', bautizado: false, fechaBautismo: '', conyuge: '', hijos: '',
   personaId: 'p1', version: 1,

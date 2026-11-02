@@ -71,7 +71,7 @@ const cumplimiento: CumplimientoBC = {
 };
 
 const datosReporte: ReporteDatos = {
-  conv: { total: 14, mesActual: 14, integrados: 5, grupos: 3 },
+  conv: { total: 14, mesActual: 14, integrados: 5, grupos: 3, personasUnicas: 11 },
   evang: { total: 4, contactos: 120, conversiones: 9 },
   academia: { cursos: 6, cursosActivos: 4, estudiantes: 21, certificados: 8 },
   finanzas: {
