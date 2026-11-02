@@ -43,7 +43,14 @@ const estBase = (over: Partial<Estudiante> = {}): Estudiante => ({
   version: 1, ...over,
 });
 
-const diezmBase = (over: Partial<Diezmador> = {}): Diezmador => ({
+// P7: los personales del diezmador salieron del tipo; la fixture es un
+// registro crudo viejo (con sus campos dormidos), como viene de la base.
+type DiezmadorCrudo = Diezmador & {
+  nombre?: string; apellido?: string; telefono?: string; email?: string;
+  zona?: string; grupo?: string;
+};
+
+const diezmBase = (over: Partial<DiezmadorCrudo> = {}): DiezmadorCrudo => ({
   id: 'd1', nombre: 'María', apellido: 'González', telefono: '5551234',
   email: '', fechaIngreso: '2024-02-01', estado: 'Activo', zona: 'Norte',
   grupo: '', planDiezmo: 0, notas: '', creado: '2024-02-01T00:00:00.000Z',

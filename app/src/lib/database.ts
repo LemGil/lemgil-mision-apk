@@ -36,7 +36,6 @@ const database = new Dexie('LemGilDB') as Dexie & {
   negocios: EntityTable<Negocio, 'id'>;
   publicaciones: EntityTable<Publicacion, 'id'>;
   reportes: EntityTable<Reporte, 'id'>;
-  miembrosComun: EntityTable<Colaborador, 'id'>;
   aportesComun: EntityTable<AporteComun, 'id'>;
   miembros: EntityTable<Miembro, 'id'>;
   ministerios: EntityTable<Ministerio, 'id'>;
@@ -281,6 +280,27 @@ database.version(21).stores({
 // ya está desplegada: este cambio va en versión NUEVA, no se enmienda la 21.
 database.version(22).stores({
   conversiones: 'id, zona, estado, fecha, lider, creado, grupoId, hermanoMayorId, personaId, evangelismoId',
+});
+
+// P7 — ARREGLO FINAL, Parte C: se retira la tabla fantasma `miembrosComun`
+// (misma interfaz que Colaborador, sin ninguna pantalla; la Red vive en
+// `colaboradores`). RESCATE ANTES DE RETIRAR: el upgrade de ESTA versión
+// — que aún puede leer la tabla que se elimina — pliega sus filas en
+// `colaboradores` con `plegarMiembrosComun` (dedupe por la clave de
+// persona del CSV; ninguna fila rescatable se pierde) y encola las
+// rescatadas para que suban a la nube como colaboradores. La tabla
+// REMOTA `miembroscomun` de Supabase NO se toca: queda como respaldo,
+// patrón _legado. Las declaraciones históricas (v1, v15) que la nombran
+// se quedan: describen el esquema de entonces y la cadena de upgrades
+// las necesita.
+database.version(23).stores({
+  miembrosComun: null,
+}).upgrade(async (tx) => {
+  // Import dinámico a propósito: rescateMiembrosComun → csvImport →
+  // database cerraría un ciclo de módulos en tiempo de evaluación; en el
+  // upgrade (tiempo de ejecución) el ciclo ya no existe.
+  const { rescatarMiembrosComunEnUpgrade } = await import('./rescateMiembrosComun');
+  await rescatarMiembrosComunEnUpgrade(tx);
 });
 
 export { database as db };

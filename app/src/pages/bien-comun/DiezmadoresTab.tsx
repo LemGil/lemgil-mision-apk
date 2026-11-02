@@ -4,13 +4,15 @@ import { CsvImportButton } from '../../components/CsvImportButton';
 import { showToast } from '../../lib/notification';
 import { exportDiezmadoresPDF, safeExport } from '../../lib/pdfExport';
 import { money, monthKey, MS_SHORT } from '../../lib/utils';
-import type { AporteComun, Diezmador } from '../../lib/types';
+import type { AporteComun } from '../../lib/types';
+import type { DiezmadorVista } from '../../lib/personaDatos';
 
 interface DiezmadoresTabProps {
-  colaboradores: Diezmador[];
+  // P7: la pestaña pinta la VISTA (personales resueltos desde la persona).
+  colaboradores: DiezmadorVista[];
   aportes: AporteComun[];
   onNuevoDiezmador: () => void;
-  onVerDiezmador: (d: Diezmador) => void;
+  onVerDiezmador: (d: DiezmadorVista) => void;
   onDeleteDiezmador: (id: string) => void;
   searchDz: string; setSearchDz: Dispatch<SetStateAction<string>>;
   filterZona: string; setFilterZona: Dispatch<SetStateAction<string>>;

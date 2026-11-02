@@ -6,9 +6,12 @@ import type { Diezmador, Grupo, Persona } from "../../lib/types";
 
 // Estas pruebas reproducen, a nivel de base de datos, EXACTAMENTE lo que
 // escribe el alta de diezmador de P4 (saveD): la persona se crea o se
-// elige una vez en el núcleo y el proceso nace con los personales vacíos
-// y su personaId. Murió el «🔍 Buscar en Miembros» que copiaba nombre,
-// teléfono, zona y grupo sin guardar el id: la persona ES el origen.
+// elige una vez en el núcleo y el proceso nace con su personaId. Murió el
+// «🔍 Buscar en Miembros» que copiaba nombre, teléfono, zona y grupo sin
+// guardar el id: la persona ES el origen.
+// P7: el proceso ya ni siquiera declara los campos personales en su
+// tipo — nace sin esas claves. Las fichas VIEJAS (diezmadorViejo) son
+// registros crudos con los personales dormidos, como vienen de la base.
 
 const datosPersona = (over: Partial<Persona> = {}): Omit<Persona, "id" | "creado" | "version"> => ({
   nombre: "María",
@@ -31,10 +34,17 @@ const datosPersona = (over: Partial<Persona> = {}): Omit<Persona, "id" | "creado
   ...over,
 });
 
-// Lo que guarda saveD en P4 para un diezmador nuevo: solo el proceso.
+// P7: un registro CRUDO de diezmador, tal como puede venir de la base:
+// los viejos traen dormidos los personales que el tipo ya no declara.
+type DiezmadorCrudo = Diezmador & {
+  nombre?: string; apellido?: string; telefono?: string; email?: string;
+  zona?: string; grupo?: string; numeroIdentidad?: string;
+};
+
+// Lo que guarda saveD desde P7 para un diezmador nuevo: solo el proceso,
+// sin una sola clave personal.
 const diezmadorNuevo = (over: Partial<Diezmador> = {}): Diezmador => ({
   id: "dz-nuevo",
-  nombre: "", apellido: "", telefono: "", email: "", zona: "", grupo: "",
   fechaIngreso: "2024-02-01",
   estado: "Activo",
   planDiezmo: 100,
@@ -48,7 +58,7 @@ const diezmadorNuevo = (over: Partial<Diezmador> = {}): Diezmador => ({
 // Una ficha VIEJA (anterior a la ficha única): personales tecleados en la
 // propia ficha — traídos por aquel «Buscar en Miembros» o a mano —, el
 // grupo como TEXTO y ningún personaId.
-const diezmadorViejo = (over: Partial<Diezmador> = {}): Diezmador => ({
+const diezmadorViejo = (over: Partial<DiezmadorCrudo> = {}): DiezmadorCrudo => ({
   id: "dz-viejo",
   nombre: "Rosa",
   apellido: "Díaz",
@@ -88,9 +98,12 @@ describe("Alta de diezmador sobre la ficha única (P4)", () => {
     expect(await db.personas.count()).toBe(1);
     const guardado = await db.dadores.get("dz-nuevo");
     expect(guardado?.personaId).toBe("p-existente");
-    expect(guardado?.nombre).toBe(""); // el proceso no duplica los datos
-    expect(guardado?.telefono).toBe("");
-    expect(guardado?.grupo).toBe(""); // ni el grupo: sale del núcleo
+    // P7: el proceso ni siquiera CONTIENE las claves personales (antes
+    // nacían vacías; ahora no nacen): la identidad vive solo en el núcleo.
+    const guardadoCrudo = guardado as DiezmadorCrudo;
+    expect(guardadoCrudo.nombre).toBeUndefined();
+    expect(guardadoCrudo.telefono).toBeUndefined();
+    expect(guardadoCrudo.grupo).toBeUndefined();
 
     const map = mapaPersonas(await db.personas.toArray());
     const vista = diezmadorConDatos(guardado!, map, mapaGrupos([]));
@@ -161,13 +174,23 @@ describe("Alta de diezmador sobre la ficha única (P4)", () => {
     expect(v2.grupo).toBe("");
   });
 
-  it("sin persona enlazada (equipo sin actualizar), la lectura tolera y devuelve la ficha tal cual", async () => {
+  it("sin persona resoluble, la vista devuelve los personales VACÍOS (criterio P7: la copia dormida ya no se lee)", async () => {
+    // Antes de P7 el decorador devolvía la ficha tal cual, con su copia
+    // dormida. Desde P7 eso murió: sin persona, la vista pinta vacío —
+    // el pase de aseguramiento al arrancar hace que este estado sea
+    // solo transitorio, y pintar la copia jubilada sería deshonesto.
     const viejo = diezmadorViejo();
     const map = mapaPersonas([]);
     const vista = diezmadorConDatos(viejo, map, mapaGrupos([]));
-    expect(vista).toBe(viejo);
-    expect(vista.nombre).toBe("Rosa");
-    expect(vista.grupo).toBe("Grupo Norte");
+    expect(vista.nombre).toBe("");
+    expect(vista.apellido).toBe("");
+    expect(vista.telefono).toBe("");
+    expect(vista.zona).toBe("");
+    expect(vista.grupo).toBe("");
+    // Lo del proceso sí se conserva:
+    expect(vista.planDiezmo).toBe(50);
+    expect(vista.estado).toBe("Activo");
+    expect(vista.fechaIngreso).toBe("2023-09-01");
   });
 });
 
@@ -200,9 +223,11 @@ describe("asegurarPersonaDeDiezmador (P4: el viejo sin persona, al editarlo)", (
     const enlazado = await db.dadores.get("dz-viejo");
     expect(enlazado?.personaId).toBe("dz-viejo");
     // El enlace no reescribe la historia: sus datos personales dormidos y
-    // su grupo texto quedan intactos en la ficha (ya nadie los lee).
-    expect(enlazado?.nombre).toBe("Rosa");
-    expect(enlazado?.grupo).toBe("Grupo Norte");
+    // su grupo texto quedan intactos en la base (ya nadie los lee: el
+    // tipo ni los declara; se verifican sobre el registro crudo).
+    const enlazadoCrudo = enlazado as DiezmadorCrudo;
+    expect(enlazadoCrudo.nombre).toBe("Rosa");
+    expect(enlazadoCrudo.grupo).toBe("Grupo Norte");
   });
 
   it("la pista del grupo TEXTO (§5.3.6): si coincide con un grupo existente, el núcleo nace con él; si no, sin grupo", async () => {

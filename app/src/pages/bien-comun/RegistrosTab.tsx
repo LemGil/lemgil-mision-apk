@@ -4,12 +4,13 @@ import { CsvImportButton } from '../../components/CsvImportButton';
 import { showToast } from '../../lib/notification';
 import { exportRegistrosPDF, safeExport } from '../../lib/pdfExport';
 import { money, MS_SHORT } from '../../lib/utils';
-import type { AporteComun, Diezmador, Grupo } from '../../lib/types';
+import type { AporteComun, Grupo } from '../../lib/types';
+import type { DiezmadorVista } from '../../lib/personaDatos';
 
 interface RegistrosTabProps {
   registrosFiltrados: AporteComun[];
   aportes: AporteComun[];
-  colaboradores: Diezmador[];
+  colaboradores: DiezmadorVista[];
   grupos: Grupo[];
   totalesReg: { total: number; diezmos: number; ofrendas: number };
   onNuevoAporte: () => void;

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Modal } from '../../components/Modal';
-import type { Diezmador, TipoPlan } from '../../lib/types';
+import type { TipoPlan } from '../../lib/types';
+import type { DiezmadorVista } from '../../lib/personaDatos';
 
 interface PlanDiezmadorFormModalProps {
   open: boolean;
@@ -9,7 +10,7 @@ interface PlanDiezmadorFormModalProps {
   savePlan: () => void;
   planDiezmadorId: string | null;
   setPlanDiezmadorId: Dispatch<SetStateAction<string | null>>;
-  colaboradores: Diezmador[];
+  colaboradores: DiezmadorVista[];
   tiposPlanes: TipoPlan[];
   planTipoId: string; setPlanTipoId: Dispatch<SetStateAction<string>>;
   planMonto: string; setPlanMonto: Dispatch<SetStateAction<string>>;

@@ -1,12 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Modal } from '../../components/Modal';
-import type { Diezmador, Grupo } from '../../lib/types';
+import type { Grupo } from '../../lib/types';
+import type { DiezmadorVista } from '../../lib/personaDatos';
 
 interface AporteFormModalProps {
   open: boolean;
   onClose: () => void;
   saveA: () => void;
-  colaboradores: Diezmador[];
+  colaboradores: DiezmadorVista[];
   grupos: Grupo[];
   aMiembro: string; setAMiembro: Dispatch<SetStateAction<string>>;
   aGrupo: string; setAGrupo: Dispatch<SetStateAction<string>>;

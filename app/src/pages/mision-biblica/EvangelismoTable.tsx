@@ -5,7 +5,7 @@ import { exportEvangelismoPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
 import { conteoConversionesPorEvangelismo } from '../../lib/evangelismoStats';
-import { mapaPersonas, nombreDePersona } from '../../lib/personaDatos';
+import { evangelismoConDatos, mapaPersonas, type EvangelismoVista } from '../../lib/personaDatos';
 import type { Conversion, Evangelismo, Persona } from '../../lib/types';
 import { TIPO_BADGE } from './constants';
 
@@ -20,27 +20,22 @@ interface EvangelismoTableProps {
 }
 
 /**
- * P2: la tabla muestra la cifra DERIVADA de conversiones (conteo de las
- * enlazadas por `evangelismoId`) y resuelve ministro/equipo desde las
- * personas; el texto dormido solo aparece en registros aún sin ids. Los
- * exports (PDF/CSV) reciben las filas ya enriquecidas con esa misma
- * verdad, para que pantalla y papel coincidan.
+ * P2/P7: la tabla muestra la cifra DERIVADA de conversiones (conteo de
+ * las enlazadas por `evangelismoId`) y resuelve ministro/equipo desde
+ * las personas con `evangelismoConDatos` — líder por `liderId` (o su
+ * nombre libre `liderExterno`; el texto dormido viejo solo se tolera en
+ * la lectura, sin escribirse) y equipo = ids + externos. Los exports
+ * (PDF/CSV) reciben las mismas vistas ya enriquecidas con la cifra
+ * derivada, para que pantalla y papel coincidan.
  */
 export function EvangelismoTable(props: EvangelismoTableProps) {
   const { evangels, evangelsFiltrados, convs, personas, openEditEvang, onEliminar, onRegistrarConversion } = props;
   const conteo = conteoConversionesPorEvangelismo(convs);
   const mapa = mapaPersonas(personas);
 
-  const nombreLider = (e: Evangelismo) => nombreDePersona(mapa, e.liderId) || e.lider || '';
-  // La foto de texto incluye los nombres de los ids + los nombres viejos sin
-  // persona (respaldo): el equipo visible es el mayor de ambos conteos.
-  const equipoCount = (e: Evangelismo) => Math.max(e.participanteIds?.length ?? 0, e.participantes?.length ?? 0);
-  const enriquecido = (e: Evangelismo): Evangelismo => ({
-    ...e,
-    lider: nombreLider(e),
-    participantes: e.participanteIds?.length
-      ? e.participanteIds.map((id) => nombreDePersona(mapa, id) || '(sin nombre)')
-      : (e.participantes ?? []),
+  const vista = (e: Evangelismo) => evangelismoConDatos(e, mapa);
+  const enriquecido = (e: Evangelismo): EvangelismoVista => ({
+    ...vista(e),
     conversiones: conteo.get(e.id) ?? 0,
   });
 
@@ -56,7 +51,7 @@ export function EvangelismoTable(props: EvangelismoTableProps) {
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!evangels.length) return showToast('No hay actividades para exportar');
                   const h = ['Fecha', 'Tipo', 'Zona', 'Líder', 'Contactos', 'Conversiones', 'Notas'];
-                  const r = evangels.map(enriquecido).map(e => [e.fecha, e.tipo, e.zona || '', e.lider || '', e.contactos || 0, e.conversiones || 0, (e.notas || '').replace(/,/g, ';')]);
+                  const r = evangels.map(enriquecido).map(e => [e.fecha, e.tipo, e.zona || '', e.liderNombre || '', e.contactos || 0, e.conversiones || 0, (e.notas || '').replace(/,/g, ';')]);
                   exportCSV(h, r, 'lemgil-evangelismo.csv');
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>
@@ -66,13 +61,16 @@ export function EvangelismoTable(props: EvangelismoTableProps) {
                     'Fecha': 'fecha',
                     'Tipo': 'tipo',
                     'Zona': 'zona',
-                    'Líder': 'lider',
+                    // P7: el «Líder» del CSV es un nombre sin ficha: cae en
+                    // su campo propio `liderExterno` (el texto `lider`
+                    // salió del tipo; ya no se escribe).
+                    'Líder': 'liderExterno',
                     'Contactos': 'contactos',
                     'Conversiones': 'conversiones',
                     'Notas': 'notas',
                   }}
                   requiredFields={['fecha']}
-                  defaults={{ fecha: () => new Date().toISOString().split('T')[0], contactos: 0, conversiones: 0, participantes: [] }}
+                  defaults={{ fecha: () => new Date().toISOString().split('T')[0], contactos: 0, conversiones: 0 }}
                   onImport={(n) => showToast(`${n} actividad(es) importada(s)`)}
                 />
               </div>
@@ -87,14 +85,14 @@ export function EvangelismoTable(props: EvangelismoTableProps) {
             <table className="data-table">
               <thead><tr><th>#</th><th>Tipo</th><th>Zona</th><th>Fecha</th><th>Ministro</th><th>Equipo</th><th>Contactos</th><th>Conversiones</th><th>Acciones</th></tr></thead>
               <tbody>
-                {evangelsFiltrados.map((e, i) => (
+                {evangelsFiltrados.map((e, i) => { const v = vista(e); return (
                   <tr key={e.id}>
                     <td style={{ color: 'var(--dim)' }}>{i + 1}</td>
                     <td><span className={`badge ${TIPO_BADGE[e.tipo] || 'badge-blue'}`}>{e.tipo}</span></td>
                     <td>{e.zona || '—'}</td>
                     <td>{fmt(e.fecha)}</td>
-                    <td>{nombreLider(e) || '—'}</td>
-                    <td>{equipoCount(e) > 0 ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 11, fontWeight: 700, border: '1px solid var(--gold)' }}>👥 {equipoCount(e)}</span> : <span style={{ color: 'var(--dim)' }}>—</span>}</td>
+                    <td>{v.liderNombre || '—'}</td>
+                    <td>{v.equipoCount > 0 ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 11, fontWeight: 700, border: '1px solid var(--gold)' }}>👥 {v.equipoCount}</span> : <span style={{ color: 'var(--dim)' }}>—</span>}</td>
                     <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--blue)' }}>{e.contactos}</td>
                     <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--green)' }} title="Conteo derivado: conversiones enlazadas a este evangelismo">{conteo.get(e.id) ?? 0}</td>
                     <td>
@@ -105,7 +103,7 @@ export function EvangelismoTable(props: EvangelismoTableProps) {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ); })}
               </tbody>
             </table>
             )}

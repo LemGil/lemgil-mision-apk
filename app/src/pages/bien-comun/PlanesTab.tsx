@@ -1,10 +1,11 @@
 import { money } from '../../lib/utils';
-import type { Diezmador, PlanColaborador, TipoPlan } from '../../lib/types';
+import type { PlanColaborador, TipoPlan } from '../../lib/types';
+import type { DiezmadorVista } from '../../lib/personaDatos';
 
 interface PlanesTabProps {
   todosTiposPlanes: TipoPlan[];
   planesColaborador: PlanColaborador[];
-  colaboradores: Diezmador[];
+  colaboradores: DiezmadorVista[];
   openEditTp: (tp: TipoPlan) => void;
   openEditPlan: (p: PlanColaborador) => void;
   onNuevoTipo: () => void;

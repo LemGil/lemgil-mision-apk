@@ -11,12 +11,13 @@ import {
   type MesResumenBC,
 } from '../../lib/pdfExport';
 import { money, MS_SHORT, monthKey } from '../../lib/utils';
-import type { Diezmador, AporteComun, Grupo } from '../../lib/types';
+import type { AporteComun, Grupo } from '../../lib/types';
+import type { DiezmadorVista } from '../../lib/personaDatos';
 import { showToast } from '../../lib/notification';
 
 interface ResumenTabProps {
   aportes: AporteComun[];
-  colaboradores: Diezmador[];
+  colaboradores: DiezmadorVista[];
   grupos: Grupo[];
 }
 

@@ -29,13 +29,12 @@ export const SYNC_TABLES = [
   "reportes", "miembros",
   "ministerios", "miembrosMinisterios", "hitos", "zonas", "colaboradores",
   "tiposPlanes", "planesColaborador",
-  "aportesComun", "miembrosComun",
+  "aportesComun",
 ] as const satisfies readonly SyncTableName[];
 
 const DEXIE_TO_SUPABASE: Record<SyncTableName, string> = {
   personas: "personas",
   aportesComun: "aportescomun",
-  miembrosComun: "miembroscomun",
   miembrosMinisterios: "miembrosministerios",
   tiposPlanes: "tiposplanes",
   planesColaborador: "planescolaborador",
@@ -87,6 +86,7 @@ const SUPABASE_TO_DEXIE: Record<string, string> = {
   hermanomayorid: "hermanoMayorId", conversionid: "conversionId", origenid: "origenId",
   personaid: "personaId", numeroidentidad: "numeroIdentidad",
   liderid: "liderId", participanteids: "participanteIds", evangelismoid: "evangelismoId",
+  participantesexternos: "participantesExternos", liderexterno: "liderExterno",
   mescorrespondiente: "mesCorrespondiente", planofrendasmensual: "planOfrendasMensual",
   planofrendatipo: "planOfrendaTipo", planofrendamonto: "planOfrendaMonto",
   planediezmo: "planDiezmo", tipoplanid: "tipoPlanId", colaboradorid: "colaboradorId",
@@ -128,7 +128,6 @@ export const tableMap: Record<SyncTableName, Table<any, string>> = {
   negocios: db.negocios as Table<any, string>,
   publicaciones: db.publicaciones as Table<any, string>,
   reportes: db.reportes as Table<any, string>,
-  miembrosComun: db.miembrosComun as Table<any, string>,
   aportesComun: db.aportesComun as Table<any, string>,
   miembros: db.miembros as Table<any, string>,
   ministerios: db.ministerios as Table<any, string>,

@@ -8,6 +8,7 @@ import { db } from '../lib/database';
 import { MS, monthKey } from '../lib/utils';
 import { showToast } from '../lib/notification';
 import { contarPersonasUnicas } from '../lib/personaVista';
+import { evangelismoConDatos, mapaPersonas } from '../lib/personaDatos';
 
 const fmtDate = (d: string) => {
   if (!d) return '—';
@@ -36,6 +37,10 @@ export default function Dashboard() {
   const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
+  const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  // P7: el líder de un evangelismo se resuelve desde las personas (la
+  // vista); el Panel ya no lee ningún texto guardado en la actividad.
+  const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
   const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
   const estudiantes = useLiveQuery(() => db.estudiantes.toArray(), []) ?? [];
   const certs = useLiveQuery(() => db.certificados.toArray(), []) ?? [];
@@ -120,7 +125,7 @@ export default function Dashboard() {
   const activities = useMemo<Activity[]>(() => {
     const all: Activity[] = [];
     convsF.slice(-5).forEach((c) => all.push({ icon: '🌱', bg: 'var(--mision-purple-soft)', title: `${c.nombre} ${c.apellido} — ${c.estado}`, meta: `${c.zona} · ${c.lider || 'Sin líder'}`, time: relTime(c.creado) }));
-    evangelsF.slice(-5).forEach((e) => all.push({ icon: '📢', bg: 'var(--oro-luz-soft)', title: `${e.tipo} — ${e.contactos} contactos`, meta: `${e.zona} · ${e.lider || 'Sin líder'}`, time: relTime(e.creado) }));
+    evangelsF.slice(-5).forEach((e) => all.push({ icon: '📢', bg: 'var(--oro-luz-soft)', title: `${e.tipo} — ${e.contactos} contactos`, meta: `${e.zona} · ${evangelismoConDatos(e, personasMap).liderNombre || 'Sin líder'}`, time: relTime(e.creado) }));
     estudiantes.slice(-5).forEach((e) => {
       const curso = cursos.find((c) => c.id === e.cursoId);
       all.push({ icon: '🎓', bg: 'var(--academia-teal-soft)', title: `${e.nombre} ${e.apellido} matriculado/a`, meta: curso ? `${curso.emoji} ${curso.nombre}` : 'Sin curso', time: relTime(e.creado) });
@@ -130,7 +135,7 @@ export default function Dashboard() {
       all.push({ icon: '🏆', bg: 'var(--gold-soft)', title: `Certificado emitido — ${c.calificacion}`, meta: est ? `${est.nombre} ${est.apellido}` : 'Estudiante', time: relTime(c.emitido) });
     });
     return all.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 5);
-  }, [convsF, evangelsF, estudiantes, certs, cursos]);
+  }, [convsF, evangelsF, estudiantes, certs, cursos, personasMap]);
 
   const alerts = useMemo<Alert[]>(() => {
     const out: Alert[] = [];
@@ -142,12 +147,12 @@ export default function Dashboard() {
     if (cursosBorrador > 0) out.push({ type: 'info', text: `🔵 ${cursosBorrador} curso(s) en borrador` });
     const cursosArch = cursos.filter((c) => c.estado === 'Archivado').length;
     if (cursosArch > 0) out.push({ type: 'warn', text: `🟡 ${cursosArch} curso(s) archivado(s)` });
-    const evangSinLider = evangels.filter((e) => !e.lider || !e.lider.trim()).length;
+    const evangSinLider = evangels.filter((e) => !evangelismoConDatos(e, personasMap).liderNombre).length;
     if (evangSinLider > 0) out.push({ type: 'info', text: `🔵 ${evangSinLider} actividad(es) sin líder asignado` });
     if (kpis.mesCount === 0 && convs.length > 0) out.push({ type: 'danger', text: '🔴 Sin conversiones registradas este mes' });
     if (out.length === 0) out.push({ type: 'info', text: '🟢 Todo en orden — sin alertas activas' });
     return out.slice(0, 5);
-  }, [grupos, estudiantes, cursos, evangels, kpis.mesCount, convs.length]);
+  }, [grupos, estudiantes, cursos, evangels, kpis.mesCount, convs.length, personasMap]);
 
   const impact = useMemo(() => {
     const uniqIds = new Set(entregasF.map((e) => e.beneficiarioId));

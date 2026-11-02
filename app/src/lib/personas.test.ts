@@ -32,7 +32,16 @@ const estBase = (over: Partial<Estudiante> = {}): Estudiante => ({
   version: 1, ...over,
 });
 
-const diezmBase = (over: Partial<Diezmador> = {}): Diezmador => ({
+// P7: los personales del diezmador salieron del tipo `Diezmador`, pero
+// las fichas que la migración P0 agrupó eran registros VIEJOS que los
+// traían dormidos — la fixture es un registro crudo, como viene de la
+// base, y la migración los sigue leyendo por la vista estructural.
+type DiezmadorCrudo = Diezmador & {
+  nombre?: string; apellido?: string; telefono?: string; email?: string;
+  zona?: string; grupo?: string;
+};
+
+const diezmBase = (over: Partial<DiezmadorCrudo> = {}): DiezmadorCrudo => ({
   id: "d1", nombre: "María", apellido: "González", telefono: "5551234",
   email: "", fechaIngreso: "2024-02-01", estado: "Activo", zona: "Norte",
   grupo: "", planDiezmo: 100, notas: "", creado: "2024-02-01T00:00:00.000Z",
@@ -55,7 +64,7 @@ describe("Ficha única P0 — migración de personas", () => {
     await Promise.all([
       db.personas.clear(), db.miembros.clear(), db.conversiones.clear(),
       db.estudiantes.clear(), db.dadores.clear(), db.beneficiarios.clear(),
-      db.colaboradores.clear(), db.miembrosComun.clear(), db.grupos.clear(),
+      db.colaboradores.clear(), db.grupos.clear(),
       db.syncQueue.clear(),
     ]);
   });
@@ -167,14 +176,16 @@ describe("Ficha única P0 — migración de personas", () => {
     expect(g1[0].persona.id).toBe("m1");
   });
 
-  it("(f) colaboradores y miembrosComun quedan intactos y fuera de la unificación", async () => {
+  it("(f) los colaboradores quedan intactos y fuera de la unificación", async () => {
+    // P7: la tabla fantasma `miembrosComun` se retiró (su rescate al
+    // plegarla en colaboradores lo cubre la prueba del upgrade v23 en
+    // arregloFinalP7.test.ts); aquí solo queda la Red, fuera del alcance.
     const colab = {
       id: "col1", nombre: "María", apellido: "González", telefono: "5551234",
       email: "", estado: "Activo", tipo: "Persona", planOfrendaTipo: "",
       planOfrendaMonto: 0, notas: "", creado: "2024-01-01T00:00:00.000Z", version: 1,
     } as unknown as Colaborador;
     await db.colaboradores.add(colab);
-    await db.miembrosComun.add({ ...colab, id: "mc1" });
     await db.miembros.add(miembroBase());
 
     await ejecutarMigracionPersonas();
@@ -183,9 +194,6 @@ describe("Ficha única P0 — migración de personas", () => {
     const c = await db.colaboradores.get("col1");
     expect(c).toBeDefined();
     expect((c as unknown as Record<string, unknown>).personaId).toBeUndefined();
-    const mc = await db.miembrosComun.get("mc1");
-    expect(mc).toBeDefined();
-    expect((mc as unknown as Record<string, unknown>).personaId).toBeUndefined();
   });
 
   it("un beneficiario «Casa de Familia» no se convierte en persona", async () => {

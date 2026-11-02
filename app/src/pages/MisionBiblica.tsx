@@ -8,7 +8,8 @@ import { exportCSV } from '../lib/csvExport';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Conversion, Evangelismo } from '../lib/types';
-import { conversionConDatos, mapaPersonas, miembroConDatos, nombreDePersona } from '../lib/personaDatos';
+import { conversionConDatos, evangelismoConDatos, mapaPersonas, miembroConDatos, nombreDePersona } from '../lib/personaDatos';
+import { datosEvangelismoParaGuardar, resolverEquipoAlEditar } from './mision-biblica/evangelismoForm';
 import { conteoConversionesPorEvangelismo } from '../lib/evangelismoStats';
 import { MS, today, fechaDeEstado as getFechaEstado } from '../lib/utils';
 import { zonaCanonica } from '../lib/zonas';
@@ -98,12 +99,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   const [eTipo, setETipo] = useState('Visita domiciliaria');
   const [eFecha, setEFecha] = useState(today());
   const [eZona, setEZona] = useState('Norte');
-  // P2: ministro y equipo son PERSONAS por id; los nombres viejos sin
-  // persona se conservan como respaldo de texto (foto dormida).
+  // P2/P7: ministro y equipo son PERSONAS por id; los nombres sin ficha
+  // viven en sus campos propios (`liderExterno`/`participantesExternos`),
+  // ya no como foto de texto sobre los ids.
   const [eLiderId, setELiderId] = useState('');
-  const [eLiderRespaldo, setELiderRespaldo] = useState('');
+  const [eLiderExterno, setELiderExterno] = useState('');
   const [eParticipanteIds, setEParticipanteIds] = useState<string[]>([]);
-  const [eParticipantesRespaldo, setEParticipantesRespaldo] = useState<string[]>([]);
+  const [eParticipantesExternos, setEParticipantesExternos] = useState<string[]>([]);
+  const [eNuevoExterno, setENuevoExterno] = useState('');
   const [eContactos, setEContactos] = useState('0');
   const [eNotas, setENotas] = useState('');
   const [sNota, setSNota] = useState('');
@@ -113,7 +116,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   // const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
   const resetForm = () => { setEditConvId(null); setFPersonaId(''); setFFamilia('No'); setFFecha(today()); setFEstado('Nuevo'); setFNotas(''); setFEvangelismoId(''); setFHistorial([]); };
   const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); setGMeta(''); };
-  const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELiderId(''); setELiderRespaldo(''); setEParticipanteIds([]); setEParticipantesRespaldo([]); setEContactos('0'); setENotas(''); };
+  const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELiderId(''); setELiderExterno(''); setEParticipanteIds([]); setEParticipantesExternos([]); setENuevoExterno(''); setEContactos('0'); setENotas(''); };
 
   const mo = new Date().toISOString().slice(0, 7);
   const mesCount = convs.filter((c) => c.fecha?.startsWith(mo)).length;
@@ -177,11 +180,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   });
 
   const evangelsFiltrados = evangels.filter((e) => {
-    const s = `${e.tipo} ${e.zona} ${e.lider} ${e.notas}`.toLowerCase();
+    // P7: buscador y filtro «Ministro» comparan contra el líder RESUELTO
+    // desde las personas (la vista), nunca contra un texto guardado.
+    const vista = evangelismoConDatos(e, personasMap);
+    const s = `${e.tipo} ${e.zona} ${vista.liderNombre} ${vista.equipoNombres.join(' ')} ${e.notas}`.toLowerCase();
     if (searchE && !s.includes(searchE.toLowerCase())) return false;
     if (filterETipo && e.tipo !== filterETipo) return false;
     if (filterEZona && e.zona !== filterEZona) return false;
-    if (filterEMinistro && e.lider !== filterEMinistro) return false;
+    if (filterEMinistro && vista.liderNombre !== filterEMinistro) return false;
     if (filterEMes && !e.fecha.startsWith(filterEMes)) return false;
     if (globalAno && !e.fecha.startsWith(globalAno)) return false;
     if (globalMes && e.fecha.slice(5, 7) !== globalMes) return false;
@@ -374,44 +380,33 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   };
 
   // ── EVANGELISMO ──
-  // P2: los registros viejos traen solo nombres (texto dormido). Al editar,
-  // cada nombre que coincide con una persona se resuelve a su id (sana el
-  // registro al guardarlo); el que no coincide queda como respaldo de texto.
-  const resolverPersonaPorNombre = (nombre: string) => personas.find((p) => `${p.nombre} ${p.apellido}` === nombre)?.id ?? '';
+  // P7: al editar, líder y equipo se reparten entre ids y campos externos
+  // con `resolverEquipoAlEditar` (los textos dormidos viejos se resuelven
+  // contra las personas sin escribir nada; el registro se sana al guardar
+  // porque saveEvang ya no escribe `lider`/`participantes`).
   const openNewEvang = () => { resetEvang(); setModal('evang'); };
   const openEditEvang = (id: string) => {
     const e = evangels.find((x) => x.id === id); if (!e) return;
     setEditEvangId(id); setETipo(e.tipo); setEFecha(e.fecha); setEZona(e.zona);
-    const liderId = e.liderId || resolverPersonaPorNombre(e.lider);
-    setELiderId(liderId);
-    setELiderRespaldo(liderId ? '' : (e.lider || ''));
-    const ids: string[] = [...(e.participanteIds ?? [])];
-    const respaldo: string[] = [];
-    const nombresIds = new Set(ids.map((pid) => nombreDePersona(personasMap, pid)));
-    for (const nombre of e.participantes ?? []) {
-      if (nombresIds.has(nombre)) continue;
-      const pid = resolverPersonaPorNombre(nombre);
-      if (pid && !ids.includes(pid)) { ids.push(pid); nombresIds.add(nombre); }
-      else if (!pid) respaldo.push(nombre);
-    }
-    setEParticipanteIds(ids);
-    setEParticipantesRespaldo(respaldo);
+    const equipo = resolverEquipoAlEditar(e, personas);
+    setELiderId(equipo.liderId);
+    setELiderExterno(equipo.liderExterno);
+    setEParticipanteIds(equipo.participanteIds);
+    setEParticipantesExternos(equipo.participantesExternos);
+    setENuevoExterno('');
     setEContactos(String(e.contactos)); setENotas(e.notas);
     setModal('evang');
   };
   const saveEvang = async () => {
     if (!eFecha) return showToast('La fecha es obligatoria');
-    // Los textos quedan como FOTO dormida de los ids elegidos (más los
-    // nombres viejos sin persona), para que las vistas anteriores y los
-    // equipos sin actualizar sigan mostrando algo fiel.
-    const data = {
+    // P7: se guardan SOLO vínculos y campos propios (ids + externos);
+    // los textos `lider`/`participantes` no se escriben nunca más.
+    const data = datosEvangelismoParaGuardar({
       fecha: eFecha, tipo: eTipo, zona: zonaCanonica(eZona, zonas),
-      liderId: eLiderId || null,
-      participanteIds: eParticipanteIds,
-      lider: eLiderId ? nombreDePersona(personasMap, eLiderId) : eLiderRespaldo,
-      participantes: [...eParticipanteIds.map((pid) => nombreDePersona(personasMap, pid)).filter(Boolean), ...eParticipantesRespaldo],
-      contactos: parseInt(eContactos) || 0, notas: eNotas.trim(),
-    };
+      liderId: eLiderId, liderExterno: eLiderExterno,
+      participanteIds: eParticipanteIds, participantesExternos: eParticipantesExternos,
+      contactos: parseInt(eContactos) || 0, notas: eNotas,
+    });
     if (editEvangId) {
       // La cifra manual vieja NO se toca: queda dormida; la viva es derivada.
       await db.evangelismos.update(editEvangId, data);
@@ -594,7 +589,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
           </select>
           <select className="filter-select" value={filterEMinistro} onChange={(e) => setFilterEMinistro(e.target.value)}>
             <option value="">Todos los ministros</option>
-            {[...new Set(evangels.map(e => e.lider).filter(Boolean))].sort().map((m) => <option key={m} value={m}>{m}</option>)}
+            {[...new Set(evangels.map(e => evangelismoConDatos(e, personasMap).liderNombre).filter(Boolean))].sort().map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           <select className="filter-select" value={filterEMes} onChange={(e) => setFilterEMes(e.target.value)}>
             <option value="">Todos los meses</option>
@@ -689,8 +684,10 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         eFecha={eFecha} setEFecha={setEFecha}
         eZona={eZona} setEZona={setEZona}
         eLiderId={eLiderId} setELiderId={setELiderId}
+        eLiderExterno={eLiderExterno} setELiderExterno={setELiderExterno}
         eParticipanteIds={eParticipanteIds} setEParticipanteIds={setEParticipanteIds}
-        eParticipantesRespaldo={eParticipantesRespaldo} setEParticipantesRespaldo={setEParticipantesRespaldo}
+        eParticipantesExternos={eParticipantesExternos} setEParticipantesExternos={setEParticipantesExternos}
+        eNuevoExterno={eNuevoExterno} setENuevoExterno={setENuevoExterno}
         eConvsDerivadas={editEvangId ? (conteoEvang.get(editEvangId) ?? 0) : 0}
         eContactos={eContactos} setEContactos={setEContactos}
         eNotas={eNotas} setENotas={setENotas}

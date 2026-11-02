@@ -3,14 +3,13 @@ import autoTable from 'jspdf-autotable';
 import { showToast } from './notification';
 import { fmt } from './utils';
 import { conteoGrupo } from './grupoStats';
+import type { DiezmadorVista, EvangelismoVista } from './personaDatos';
 import type {
   AporteComun,
   Certificado,
   Conversion,
   Curso,
-  Diezmador,
   Estudiante,
-  Evangelismo,
   Grupo,
   Hito,
   Leccion,
@@ -282,7 +281,7 @@ function progressBar(doc: jsPDF, x: number, y: number, w: number, h: number, pct
 
 export function exportRegistrosPDF(opts: {
   aportes: AporteComun[];
-  colaboradores: Diezmador[];
+  colaboradores: DiezmadorVista[];
   grupos: Grupo[];
   filters?: { tipo?: string; mes?: string; dador?: string };
 }) {
@@ -339,7 +338,9 @@ export function exportRegistrosPDF(opts: {
   doc.save(`bien-comun-registros-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportDiezmadoresPDF(opts: { colaboradores: Diezmador[]; aportes: AporteComun[]; anio: string }) {
+// P7: recibe la VISTA del diezmador (nombre/zona resueltos desde la
+// persona por `diezmadorConDatos`): el proceso ya no declara personales.
+export function exportDiezmadoresPDF(opts: { colaboradores: DiezmadorVista[]; aportes: AporteComun[]; anio: string }) {
   const { colaboradores, aportes, anio } = opts;
   const doc = new jsPDF();
   header(doc, 'Listado de Dadores', `Año ${anio} · ${colaboradores.length} dadores`);
@@ -1142,7 +1143,10 @@ export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro
   doc.save(`mision-grupos-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportEvangelismoPDF(opts: { evangelismos: Evangelismo[] }) {
+// P7: recibe la VISTA del evangelismo (líder y equipo resueltos desde
+// las personas por `evangelismoConDatos`): el proceso ya no declara los
+// textos `lider`/`participantes`.
+export function exportEvangelismoPDF(opts: { evangelismos: EvangelismoVista[] }) {
   const { evangelismos } = opts;
   const doc = new jsPDF();
   header(doc, 'Actividades de Evangelismo', `${evangelismos.length} actividades`, 'Misión Bíblica');
@@ -1159,8 +1163,8 @@ export function exportEvangelismoPDF(opts: { evangelismos: Evangelismo[] }) {
     e.fecha,
     e.tipo,
     e.zona || '—',
-    e.lider || '—',
-    (e.participantes || []).length.toString(),
+    e.liderNombre || '—',
+    e.equipoCount.toString(),
     e.contactos || '0',
     e.conversiones || '0',
   ]);

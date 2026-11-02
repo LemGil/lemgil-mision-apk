@@ -1,14 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { money, monthKey } from '../../lib/utils';
-import type { AporteComun, Diezmador } from '../../lib/types';
+import type { AporteComun } from '../../lib/types';
+import type { DiezmadorVista } from '../../lib/personaDatos';
 
 interface DiezmadorDetailModalProps {
   open: boolean;
   onClose: () => void;
   onEliminar: () => void;
   onEditar: () => void;
-  viewDiezmador: Diezmador | null;
+  viewDiezmador: DiezmadorVista | null;
   aportes: AporteComun[];
 }
 

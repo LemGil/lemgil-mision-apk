@@ -106,29 +106,32 @@ export interface Evangelismo {
   fecha: string;
   zona: string;
   /**
-   * Texto dormido: foto del nombre del líder (la verdad es `liderId`, P2).
-   * P6 — HALLAZGO (verificado con grep): NO se retira ni deja de guardarse.
-   * Sigue leyéndose EN VIVO como respaldo tolerante de los evangelismos
-   * anteriores a P2 (sin `liderId`): la tabla cae a él para pintar al
-   * líder, el filtro «Ministro» y el buscador de Misión lo comparan, y la
-   * exportación CSV lo escribe; y al guardar se sigue escribiendo la foto
-   * derivada de los ids junto con los nombres de respaldo sin persona —
-   * sin esa escritura, esos nombres se perderían y el filtro perdería a
-   * los líderes nuevos. Su retirada exige resolver filtro, buscador y
-   * exportaciones desde `personas`: obra nueva, fuera del cierre P6.
+   * P7 — ARREGLO FINAL (ficha única): los textos `lider`/`participantes`
+   * se RETIRARON del tipo. Eran la foto dormida de los nombres (la verdad
+   * desde P2 son los ids) y ya nadie los escribe ni los lee: TODAS las
+   * lecturas resuelven desde las personas con `evangelismoConDatos`
+   * (tabla, filtro «Ministro», buscador, PDF y CSV). Los registros viejos
+   * conservan sus textos dormidos en la base — retirar el campo del tipo
+   * no toca datos — y la lectura los tolera UNA sola vez, sin escribir
+   * nada: si el texto dormido de un líder sin `liderId` coincide con una
+   * persona, se presenta como su nombre; si no, como líder externo.
    */
-  lider: string;
-  /**
-   * Texto dormido: foto de los nombres del equipo (la verdad es
-   * `participanteIds`, P2). P6 — HALLAZGO: igual que `lider`, sigue
-   * leyéndose como respaldo (conteo y nombres del equipo en la tabla,
-   * conteo en el PDF) y escribiéndose al guardar; no se retira.
-   */
-  participantes: string[];
   /** Ficha única (P2): líder del evangelismo (→ personas.id). */
   liderId?: string | null;
+  /**
+   * P7: líder SIN ficha (nombre libre, p. ej. un ministro invitado). Solo
+   * vale cuando no hay `liderId`; es el campo propio y honesto de lo que
+   * antes era el respaldo de texto — no se fabrica ninguna persona.
+   */
+  liderExterno?: string;
   /** Ficha única (P2): equipo del evangelismo (→ personas.id[]). */
   participanteIds?: string[];
+  /**
+   * P7: participantes SIN ficha (nombres libres capturados como chips en
+   * el formulario). No se convierten en personas falsas: viven en su
+   * propio campo y cuentan en el equipo igual que los de `participanteIds`.
+   */
+  participantesExternos?: string[];
   contactos: number;
   /**
    * Cifra manual vieja, dormida desde P2: la cifra viva es el CONTEO
@@ -141,6 +144,18 @@ export interface Evangelismo {
   version: number;
   updatedAt?: string | number;
 }
+
+/**
+ * P7: vista CRUDa de un evangelismo tal como puede venir de la base: los
+ * registros anteriores a P7 aún traen dormidos los textos `lider` y
+ * `participantes`. Solo se usa para LEERLOS una vez (resolver el líder
+ * viejo sin escribir nada — criterio en `evangelismoConDatos`); ningún
+ * código escribe ya esas claves.
+ */
+export type EvangelismoCrudo = Evangelismo & {
+  lider?: string;
+  participantes?: string[];
+};
 
 export interface Curso {
   id: string;
@@ -218,32 +233,24 @@ export interface Certificado {
 export interface Diezmador {
   id: string;
   /**
-   * Datos personales DORMIDOS desde P4 (ficha única): la identidad vive en
-   * la persona enlazada (`personaId`) y las lecturas la resuelven desde el
-   * núcleo (`diezmadorConDatos`). Las altas nuevas los escriben vacíos;
-   * los registros viejos conservan su última copia. El `grupo` era TEXTO
-   * tecleado: murió como escritura — el grupo es el de la persona
-   * (`grupoId` del núcleo, resuelto a nombre al pintar).
-   *
-   * P6 — HALLAZGO (verificado con grep y con tsc): estos campos NO se
-   * retiran del tipo. No están muertos del todo: son los campos que las
-   * pantallas de Bien Común pintan (el decorador los sobrescribe desde el
-   * núcleo cuando hay persona) y la lectura TOLERANTE de los procesos sin
-   * persona enlazada (el decorador devuelve la ficha tal cual, §4.3.3);
-   * además son la semilla de `asegurarPersonaDeDiezmador` y de los
-   * importados por CSV aún sin enlazar. Retirarlos exigiría re-tipificar
-   * toda la capa de lectura de Bien Común: obra nueva, fuera del cierre.
+   * P7 — ARREGLO FINAL (ficha única): los datos personales (nombre,
+   * apellido, telefono, email, zona) y el `grupo` TEXTO se RETIRARON del
+   * tipo. La identidad vive SOLO en la persona enlazada (`personaId`) y
+   * las lecturas la resuelven desde el núcleo (`diezmadorConDatos`, que
+   * devuelve la vista `DiezmadorVista` con esos campos ya resueltos).
+   * Que ningún diezmador quede sin persona lo garantizan dos mecanismos:
+   * el pase de aseguramiento al arrancar (`asegurarDiezmadores`, marca
+   * `lemgil_diezmo_personas_v1`) y el aseguramiento al importar por CSV.
+   * Los registros viejos conservan sus copias dormidas en la base —
+   * retirar el campo del tipo no toca datos — y esas copias siguen
+   * siendo la semilla de `asegurarPersonaDeDiezmador` (se leen por la
+   * vista estructural `FichaAsegurable`, no por este tipo). Las columnas
+   * remotas quedan como respaldo; el carné vive en el núcleo (el campo
+   * `numeroIdentidad` de esta ficha también salió: solo lo leía el
+   * decorador desde la persona).
    */
-  nombre: string;
-  apellido: string;
-  telefono: string;
-  email: string;
   fechaIngreso: string;
   estado: 'Activo' | 'Inactivo';
-  zona: string;
-  grupo: string;
-  /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
-  numeroIdentidad?: string;
   /** Ficha única (P0): la persona dueña de este proceso (→ personas.id). */
   personaId?: string | null;
   planDiezmo: number;

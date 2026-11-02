@@ -4,7 +4,7 @@ import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certif
 import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
-import { ejecutarMigracionPersonas } from './personas';
+import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
 
 const PREFIX = 'lemgil_';
 
@@ -195,6 +195,25 @@ export async function unificarPersonas(): Promise<number> {
     console.log(`Ficha única: ${personasCreadas} persona(s) creada(s), ${procesosEnlazados} proceso(s) enlazado(s)`);
   }
   return personasCreadas;
+}
+
+// P7 — ARREGLO FINAL, Parte A: pase único e idempotente que asegura su
+// persona a TODO diezmador que aún no la tenga (sin `personaId` o con el
+// enlace colgando), para que sus campos personales puedan salir del tipo
+// `Diezmador` sin dejar a nadie ilegible: la persona hereda el id del
+// diezmador y nace de sus datos dormidos (regla en lib/personas.ts).
+// Va DESPUÉS de unificarPersonas: la migración P0 ya enlazó a la mayoría;
+// este pase recoge los que quedaron fuera (p. ej. importados por CSV
+// antes de P7 o llegados de equipos sin actualizar). Es ADITIVO.
+export async function asegurarDiezmadores(): Promise<number> {
+  const FLAG_KEY = 'lemgil_diezmo_personas_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  const enlazados = await asegurarPersonasDeDiezmadores();
+  localStorage.setItem(FLAG_KEY, '1');
+  if (enlazados > 0) {
+    console.log(`Ficha única (P7): ${enlazados} diezmador(es) enlazado(s) a su persona`);
+  }
+  return enlazados;
 }
 
 // B5: pase único e idempotente que unifica la grafía del campo zona en

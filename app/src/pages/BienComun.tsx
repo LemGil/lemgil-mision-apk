@@ -5,7 +5,7 @@ import { Layout } from '../components/Layout';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Diezmador, Grupo, TipoPlan, PlanColaborador, AporteComun } from '../lib/types';
-import { diezmadorConDatos, mapaPersonas } from '../lib/personaDatos';
+import { diezmadorConDatos, mapaPersonas, type DiezmadorVista } from '../lib/personaDatos';
 import { asegurarPersonaDeDiezmador } from '../lib/personas';
 import { showToast } from '../lib/notification';
 import { ResumenTab } from '../components/biencomun/ResumenTab';
@@ -48,7 +48,7 @@ export default function BienComun() {
   const [editDId, setEditDId] = useState<string | null>(null);
   const [editAId, setEditAId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [viewDiezmador, setViewDiezmador] = useState<Diezmador | null>(null);
+  const [viewDiezmador, setViewDiezmador] = useState<DiezmadorVista | null>(null);
   const [viewGrupo, setViewGrupo] = useState<Grupo | null>(null);
 
   const [filterTipo, setFilterTipo] = useState('');
@@ -116,10 +116,10 @@ export default function BienComun() {
       showToast(`${nombrePersona} actualizado/a`);
     } else {
       const newId = uuid();
-      // El proceso nace SIN datos personales (vacíos a propósito): viven
-      // en la persona enlazada, una sola vez.
+      // P7: el proceso nace SIN claves personales siquiera: el tipo ya no
+      // las declara — la identidad vive solo en la persona enlazada.
       const nuevo: Diezmador = {
-        id: newId, nombre: '', apellido: '', telefono: '', email: '', zona: '', grupo: '', numeroIdentidad: undefined,
+        id: newId,
         fechaIngreso: today(), creado: new Date().toISOString(), version: 1,
         ...data,
       };
@@ -147,7 +147,7 @@ export default function BienComun() {
     resetA(); setModal(null);
   };
 
-  const handleEditDiezmador = async (d: Diezmador) => {
+  const handleEditDiezmador = async (d: DiezmadorVista) => {
     // Se trabaja sobre la ficha CRUDA (la vista puede traerla decorada):
     // la persona se hereda del proceso; si es un diezmador viejo aún sin
     // persona (llegó de un equipo sin actualizar), se le asegura la suya

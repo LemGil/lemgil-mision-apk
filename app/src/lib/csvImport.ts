@@ -40,7 +40,10 @@ const DEDUPE_KEYS: Record<string, string[]> = {
   campanas: ["nombre", "zona"],
   aportes: ["colaboradorId", "fecha", "monto", "tipo"],
   aportesComun: ["diezmadorId", "fecha", "monto", "tipo"],
-  evangelismos: ["tipo", "fecha", "zona", "lider"],
+  // P7: el líder de un evangelismo importado ya no es el texto `lider`
+  // (retirado del tipo): la columna «Líder» del CSV cae en `liderExterno`,
+  // el nombre libre sin ficha — la clave de duplicado lo refleja.
+  evangelismos: ["tipo", "fecha", "zona", "liderExterno"],
   negocios: ["nombre", "emprendedor"],
 };
 
@@ -260,7 +263,6 @@ const TABLE_DB_MAP: Record<string, any> = {
   negocios: () => db.negocios,
   publicaciones: () => db.publicaciones,
   reportes: () => db.reportes,
-  miembrosComun: () => db.miembrosComun,
   aportesComun: () => db.aportesComun,
   miembros: () => db.miembros,
   ministerios: () => db.ministerios,
@@ -268,6 +270,24 @@ const TABLE_DB_MAP: Record<string, any> = {
   zonas: () => db.zonas,
   colaboradores: () => db.colaboradores,
 };
+
+/**
+ * Ganchos posteriores a la importación (P7): trabajo que una tabla
+ * necesita justo después de insertar sus filas importadas. Existe porque
+ * `personas.ts` ya importa de este módulo (normalizeField) — importar al
+ * revés cerraría un ciclo —, así que el interesado se REGISTRA aquí y
+ * `importRecords` lo invoca con los registros efectivamente insertados
+ * (ya filtrados los duplicados). Un fallo de un gancho no tumba la
+ * importación: se anota en consola y el pase de aseguramiento al
+ * arrancar queda como red de seguridad.
+ */
+export type PostImportHook = (table: string, insertados: Record<string, any>[]) => Promise<void>;
+
+const postImportHooks: PostImportHook[] = [];
+
+export function registrarPostImportHook(hook: PostImportHook): void {
+  postImportHooks.push(hook);
+}
 
 export async function importRecords<T extends Record<string, any>>(
   records: T[],
@@ -301,6 +321,13 @@ export async function importRecords<T extends Record<string, any>>(
 
   if (records.length > 0) {
     await tbl.bulkAdd(records as any[]);
+    for (const hook of postImportHooks) {
+      try {
+        await hook(table, records as Record<string, any>[]);
+      } catch (err) {
+        console.warn(`Gancho post-importación falló para «${table}»:`, err);
+      }
+    }
   }
   return { imported: records.length, duplicates };
 }

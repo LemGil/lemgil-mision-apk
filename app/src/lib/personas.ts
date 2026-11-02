@@ -1,5 +1,5 @@
 import { db } from './database';
-import { normalizeField } from './csvImport';
+import { normalizeField, registrarPostImportHook } from './csvImport';
 import { createBaseRecord } from './utils/recordHelpers';
 import { addTombstone, enqueueOutbox, removeOutboxFor } from './sync/queue';
 import type { Persona, Conversion, Miembro, Estudiante, Diezmador, Beneficiario, Grupo } from './types';
@@ -148,10 +148,15 @@ function aFichas(data: FichasDePersona): FichaInterna[] {
     });
   }
   for (const d of data.dadores) {
+    // P7: los personales del diezmador salieron del tipo `Diezmador`,
+    // pero los registros viejos los traen dormidos y son la semilla de
+    // su persona: se leen por la vista estructural, como en
+    // `FichaAsegurable` (fichaBase ya lee nombre/teléfono/carné igual).
+    const crudo = d as { email?: string; zona?: string; grupo?: string };
     fichas.push({
       ...fichaBase('dadores', d),
-      email: texto(d.email), zona: texto(d.zona),
-      grupoTexto: texto(d.grupo),
+      email: texto(crudo.email), zona: texto(crudo.zona),
+      grupoTexto: texto(crudo.grupo),
     });
   }
   for (const b of data.beneficiarios) {
@@ -545,6 +550,49 @@ export async function asegurarPersonaDeDiezmador(d: Diezmador): Promise<string> 
 export async function asegurarPersonaDeBeneficiario(b: Beneficiario): Promise<string> {
   return asegurarPersonaDeProceso('beneficiarios', b);
 }
+
+/**
+ * P7 — ARREGLO FINAL, Parte A: el pase que garantiza que NINGÚN diezmador
+ * quede sin persona, para poder retirar sus campos personales del tipo.
+ * Recorre los diezmadores y a cada uno sin `personaId` — o con un
+ * `personaId` que apunta a una persona inexistente (enlace colgando de
+ * un equipo sin actualizar) — le asegura la suya con la MISMA regla
+ * determinista de siempre: la persona hereda el id del diezmador y nace
+ * de sus datos dormidos (incluida la pista del grupo texto, §5.3.6).
+ * Idempotente y aditivo: no borra ni sobrescribe nada; los diezmadores
+ * ya enlazados no se tocan. Devuelve cuántos quedaron enlazados.
+ * Lo invocan el pase de arranque (`asegurarDiezmadores` en migrate.ts,
+ * con marca) y queda como red de seguridad reutilizable.
+ */
+export async function asegurarPersonasDeDiezmadores(): Promise<number> {
+  const [dadores, personas] = await Promise.all([db.dadores.toArray(), db.personas.toArray()]);
+  const idsPersonas = new Set(personas.map((p) => p.id));
+  let enlazados = 0;
+  for (const d of dadores) {
+    if (d.personaId && idsPersonas.has(d.personaId)) continue;
+    // `asegurarPersonaDeProceso` no actúa si la ficha ya trae personaId:
+    // un enlace colgando se limpia en la vista que se le pasa (el registro
+    // guardado no se toca hasta que la función escribe el enlace bueno).
+    const ficha = d.personaId ? { ...d, personaId: null } : d;
+    await asegurarPersonaDeDiezmador(ficha);
+    enlazados++;
+  }
+  return enlazados;
+}
+
+// P7, Parte A.2: los diezmadores importados por CSV nacen sin persona
+// (el CSV trae los datos personales como columnas). Este gancho —
+// registrado en csvImport para no cerrar un ciclo de módulos — les
+// asegura la suya en el momento de importar, con la misma regla
+// determinista (la persona hereda el id del registro importado y nace
+// de sus columnas, grupo texto incluido como pista). Ningún importado
+// queda sin `personaId`.
+registrarPostImportHook(async (table, insertados) => {
+  if (table !== 'dadores') return;
+  for (const r of insertados) {
+    await asegurarPersonaDeDiezmador(r as unknown as Diezmador);
+  }
+});
 
 /**
  * «Unir dos personas»: la superviviente absorbe TODOS los procesos de la
