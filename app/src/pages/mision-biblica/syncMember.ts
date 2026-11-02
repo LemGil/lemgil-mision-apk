@@ -3,8 +3,26 @@ import { db } from '../../lib/database';
 import { createBaseRecord } from '../../lib/utils/recordHelpers';
 import { today } from '../../lib/utils';
 import { showToast } from '../../lib/notification';
-import type { Conversion } from '../../lib/types';
+import { asegurarPersonaDeConversion } from '../../lib/personas';
+import type { Conversion, Miembro } from '../../lib/types';
 
+/**
+ * Al llegar una conversión a «Integrado» nace su proceso Miembro.
+ *
+ * P2 (ficha única): el miembro nace sobre la MISMA persona que la
+ * conversión (el mismo `personaId`) y NO copia ningún dato personal: la
+ * identidad vive una sola vez en `personas` y Miembros la lee del núcleo
+ * (lib/personaDatos.ts). Con eso desaparecen la copia de 16 campos, la
+ * adopción por nombre/teléfono (A2: su motivo era que había dos fichas)
+ * y la propagación B2. Quedan las reglas del proceso:
+ * - A1: la bandera `miembroDescartado` sigue mandando (no resucitar).
+ * - A4: `fechaIngreso` = fecha real de integración (historial o hoy).
+ * - Si la persona YA tiene proceso miembro (creado a mano sobre la
+ *   misma persona), se enlaza ese (`conversionId`) en vez de duplicarlo:
+ *   es el sucesor de la adopción, ahora por identidad y no por parecido.
+ * - Una conversión sin persona (vieja o de un equipo sin actualizar) la
+ *   asegura con la regla determinista de la migración (lib/personas.ts).
+ */
 export const syncMemberFromConversion = async (c: Conversion): Promise<string | null> => {
   if (c.estado !== 'Integrado') return null;
   // A1: si el miembro de esta conversión fue eliminado a propósito, no recrearlo.
@@ -13,62 +31,65 @@ export const syncMemberFromConversion = async (c: Conversion): Promise<string | 
   if (existing) return null;
   const now = new Date().toISOString();
   // A4: el ingreso es la fecha en que llegó a «Integrado» según el historial;
-  // si el historial no lo registra, hoy. Nunca la fecha de conversión (por eso
-  // no se usa fechaDeEstado, cuyo respaldo histórico es c.fecha).
+  // si el historial no lo registra, hoy. Nunca la fecha de conversión.
   const fechaIngreso = c.historial?.find((h) => h.estado === 'Integrado')?.fecha || today();
-  const descripcionHito = `Integrado a la iglesia${c.lider ? ` · Disciplinado por ${c.lider}` : ''}`;
 
-  // A2: si ya existe un miembro creado a mano con el mismo nombre, apellido y
-  // teléfono (y sin vínculo), se adopta en vez de duplicar a la persona.
-  const telefono = (c.telefono || '').trim();
-  if (telefono) {
-    const candidato = await db.miembros
-      .filter((m) => !m.conversionId
-        && m.nombre === c.nombre
-        && m.apellido === c.apellido
-        && (m.telefono || '').trim() === telefono)
-      .first();
-    if (candidato) {
-      await db.miembros.update(candidato.id, { conversionId: c.id, actualizado: now });
-      await db.hitos.add(createBaseRecord({
-        id: uuid(),
-        miembroId: candidato.id,
-        fecha: fechaIngreso,
-        tipo: 'Integración',
-        descripcion: descripcionHito,
-        creado: now,
-      }));
-      showToast(`🔗 ${c.nombre} ${c.apellido} se vinculó con su miembro ya existente`, 'info');
-      return candidato.id;
-    }
+  // La persona de la conversión (las altas nuevas ya nacen enlazadas; una
+  // ficha vieja puede no traerla y se asegura aquí, sin copiar nada).
+  const personaId = await asegurarPersonaDeConversion(c);
+  const persona = await db.personas.get(personaId);
+  const mentor = persona?.hermanoMayorId ? await db.personas.get(persona.hermanoMayorId) : undefined;
+  const nombreMentor = mentor ? `${mentor.nombre} ${mentor.apellido}`.trim() : (c.lider || '');
+  const descripcionHito = `Integrado a la iglesia${nombreMentor ? ` · Disciplinado por ${nombreMentor}` : ''}`;
+
+  // Sucesor de A2: la persona ya tiene su proceso miembro → enlazarlo.
+  const deLaPersona = await db.miembros.where('personaId').equals(personaId).first();
+  if (deLaPersona) {
+    await db.miembros.update(deLaPersona.id, { conversionId: c.id, actualizado: now });
+    await db.hitos.add(createBaseRecord({
+      id: uuid(),
+      miembroId: deLaPersona.id,
+      fecha: fechaIngreso,
+      tipo: 'Integración',
+      descripcion: descripcionHito,
+      creado: now,
+    }));
+    const nombre = persona ? `${persona.nombre} ${persona.apellido}` : 'La persona';
+    showToast(`🔗 ${nombre} se vinculó con su miembro ya existente`, 'info');
+    return deLaPersona.id;
   }
 
   const miembroId = uuid();
-  await db.miembros.add(createBaseRecord({
+  const nuevoMiembro: Miembro = {
     id: miembroId,
-    nombre: c.nombre,
-    apellido: c.apellido,
-    telefono: c.telefono || '',
-    email: c.email || '',
-    direccion: c.direccion || '',
-    zona: c.zona || '',
+    // El proceso NO guarda datos personales: quedan vacíos a propósito.
+    // La identidad se lee del núcleo por `personaId` (lib/personaDatos.ts).
+    nombre: '',
+    apellido: '',
+    telefono: '',
+    email: '',
+    direccion: '',
+    zona: '',
+    grupoId: null,
     fechaNacimiento: '',
     fechaIngreso,
     estado: 'Activo',
     contactoPreferido: 'WhatsApp',
-    profesion: c.profesion || '',
+    profesion: '',
     estadoCivil: 'Soltero',
-    bautizado: c.bautizado || false,
-    fechaBautismo: c.fechaBautismo || '',
-    conyuge: c.conyuge || '',
-    hijos: c.hijos || '',
+    bautizado: false,
+    fechaBautismo: '',
+    conyuge: '',
+    hijos: '',
+    hermanoMayorId: null,
     conversionId: c.id,
-    hermanoMayorId: c.hermanoMayorId || null,
-    grupoId: c.grupoId || null,
-    notas: c.notas || '',
+    personaId,
+    notas: '',
     creado: now,
     actualizado: now,
-  }));
+    version: 1,
+  };
+  await db.miembros.add(createBaseRecord(nuevoMiembro));
   await db.hitos.add(createBaseRecord({
     id: uuid(),
     miembroId,
@@ -78,4 +99,4 @@ export const syncMemberFromConversion = async (c: Conversion): Promise<string | 
     creado: now,
   }));
   return miembroId;
-}
+};

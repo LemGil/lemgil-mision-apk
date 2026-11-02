@@ -86,6 +86,7 @@ const SUPABASE_TO_DEXIE: Record<string, string> = {
   ministerioid: "ministerioId", miembroministerioid: "miembroMinisterioId",
   hermanomayorid: "hermanoMayorId", conversionid: "conversionId", origenid: "origenId",
   personaid: "personaId", numeroidentidad: "numeroIdentidad",
+  liderid: "liderId", participanteids: "participanteIds", evangelismoid: "evangelismoId",
   mescorrespondiente: "mesCorrespondiente", planofrendasmensual: "planOfrendasMensual",
   planofrendatipo: "planOfrendaTipo", planofrendamonto: "planOfrendaMonto",
   planediezmo: "planDiezmo", tipoplanid: "tipoPlanId", colaboradorid: "colaboradorId",

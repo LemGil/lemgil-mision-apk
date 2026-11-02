@@ -3,12 +3,11 @@ import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
-import { Modal } from '../components/Modal';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
-import type { Conversion, Hito, Miembro, MiembroMinisterio } from '../lib/types';
-import { fmt, today } from '../lib/utils';
-import { zonaCanonica } from '../lib/zonas';
+import type { Hito, Miembro, MiembroMinisterio } from '../lib/types';
+import { today } from '../lib/utils';
+import { mapaPersonas, miembroConDatos } from '../lib/personaDatos';
 import { reflejarFallecimientoEnConversion } from '../lib/propagacion';
 import { showToast } from '../lib/notification';
 import { diasHastaCumple } from './miembros/constants';
@@ -26,7 +25,12 @@ import { MinisterioDetailModal } from './miembros/MinisterioDetailModal';
 import { DeleteModals } from './miembros/DeleteModals';
 
 export default function Miembros() {
-  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+  const miembrosCrudos = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+  const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  // P2 (ficha única): lo que se PINTA resuelve los datos personales desde
+  // el núcleo `personas`; las escrituras usan las fichas crudas del proceso.
+  const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
+  const miembros = useMemo(() => miembrosCrudos.map((m) => miembroConDatos(m, personasMap)), [miembrosCrudos, personasMap]);
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const ministerios = useLiveQuery(() => db.ministerios.toArray(), []) ?? [];
   const asignaciones = useLiveQuery(() => db.miembrosMinisterios.toArray(), []) ?? [];
@@ -50,25 +54,12 @@ export default function Miembros() {
   const [editHId, setEditHId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const [mNombre, setMNombre] = useState('');
-  const [mApellido, setMApellido] = useState('');
-  const [mTel, setMTel] = useState('');
-  const [mEmail, setMEmail] = useState('');
-  const [mDir, setMDir] = useState('');
-  const [mZona, setMZona] = useState('');
-  const [mGrupo, setMGrupo] = useState('');
-  const [mNac, setMNac] = useState('');
+  // P2: el formulario del miembro solo guarda el PROCESO (ingreso, estado,
+  // notas); la persona se elige (mPersonaId) y sus datos viven en el núcleo.
+  const [mPersonaId, setMPersonaId] = useState('');
   const [mIngreso, setMIngreso] = useState(today());
   const [mEstado, setMEstado] = useState('Activo');
-  const [mContacto, setMContacto] = useState('WhatsApp');
-  const [mProfesion, setMProfesion] = useState('');
-  const [mCivil, setMCivil] = useState('Soltero');
-  const [mBautizado, setMBautizado] = useState(false);
-  const [mBautismo, setMBautismo] = useState('');
-  const [mConyuge, setMConyuge] = useState('');
-  const [mHijos, setMHijos] = useState('');
   const [mConv, setMConv] = useState('');
-  const [mHermanoMayorId, setMHermanoMayorId] = useState('');
   const [mNotas, setMNotas] = useState('');
 
   const [minNombre, setMinNombre] = useState('');
@@ -92,10 +83,8 @@ export default function Miembros() {
   
   const resetM = () => {
     setEditMId(null);
-    setMNombre(''); setMApellido(''); setMTel(''); setMEmail(''); setMDir(''); setMZona(''); setMGrupo('');
-    setMNac(''); setMIngreso(today()); setMEstado('Activo'); setMContacto('WhatsApp');
-    setMProfesion(''); setMCivil('Soltero'); setMBautizado(false); setMBautismo(''); setMConyuge(''); setMHijos('');
-    setMConv(''); setMHermanoMayorId(''); setMNotas('');
+    setMPersonaId(''); setMIngreso(today()); setMEstado('Activo');
+    setMConv(''); setMNotas('');
   };
   const resetMin = () => {
     setEditMinId(null);
@@ -174,61 +163,71 @@ export default function Miembros() {
 
   const openNewM = () => { resetM(); setModal('miembro'); };
   const openEditM = (id: string) => {
-    const m = miembros.find((x) => x.id === id); if (!m) return;
-    setEditMId(id); setMNombre(m.nombre); setMApellido(m.apellido); setMTel(m.telefono);
-    setMEmail(m.email); setMDir(m.direccion); setMZona(m.zona); setMGrupo(m.grupoId || '');
-    setMNac(m.fechaNacimiento); setMIngreso(m.fechaIngreso); setMEstado(m.estado); setMContacto(m.contactoPreferido);
-    setMProfesion(m.profesion); setMCivil(m.estadoCivil);
-    setMBautizado(!!m.bautizado); setMBautismo(m.fechaBautismo || ''); setMConyuge(m.conyuge || ''); setMHijos(m.hijos || '');
-    setMConv(m.conversionId || ''); setMHermanoMayorId(m.hermanoMayorId || ''); setMNotas(m.notas);
+    const m = miembrosCrudos.find((x) => x.id === id); if (!m) return;
+    setEditMId(id);
+    // La persona se hereda del proceso; si aún no tiene (registro viejo),
+    // el selector permite elegirla o crearla y el guardado la enlaza.
+    setMPersonaId(m.personaId || '');
+    setMIngreso(m.fechaIngreso); setMEstado(m.estado);
+    setMConv(m.conversionId || ''); setMNotas(m.notas);
     setModal('miembro');
   };
-  // A2: conversión que coincide con el alta manual en curso (diálogo de vínculo).
-  const [convCoincidente, setConvCoincidente] = useState<Conversion | null>(null);
-  const guardarMiembro = async (conversionId: string | null) => {
+  const guardarMiembro = async () => {
+    const persona = personas.find((p) => p.id === mPersonaId);
+    if (!persona) return;
+    const nombrePersona = `${persona.nombre} ${persona.apellido}`;
+    // El vínculo con la conversión nace de la PERSONA: si ella ya tiene su
+    // proceso conversión, este miembro es de esa misma historia (es el
+    // sucesor del diálogo A2, que comparaba nombres y teléfonos porque
+    // había dos fichas; con la ficha única el vínculo es por identidad).
+    const conversionId = editMId
+      ? (mConv || null)
+      : (conversiones.find((c) => c.personaId === mPersonaId)?.id ?? null);
     const data = {
-      nombre: mNombre.trim(), apellido: mApellido.trim(), telefono: mTel.trim(), email: mEmail.trim(),
-      direccion: mDir.trim(), zona: zonaCanonica(mZona, zonasDb), grupoId: mGrupo || null, fechaNacimiento: mNac, fechaIngreso: mIngreso,
-      estado: mEstado as Miembro['estado'], contactoPreferido: mContacto as Miembro['contactoPreferido'],
-      profesion: mProfesion.trim(), estadoCivil: mCivil as Miembro['estadoCivil'],
-      bautizado: mBautizado, fechaBautismo: mBautizado ? mBautismo : '',
-      conyuge: mConyuge.trim(), hijos: mHijos.trim(),
-      conversionId, hermanoMayorId: mHermanoMayorId || null, notas: mNotas.trim(),
+      fechaIngreso: mIngreso,
+      estado: mEstado as Miembro['estado'],
+      conversionId,
+      personaId: mPersonaId,
+      notas: mNotas.trim(),
     };
     if (editMId) {
+      // Solo se escribe el PROCESO: los campos personales dormidos de la
+      // ficha no se tocan (la identidad vive en el núcleo).
       await db.miembros.update(editMId, { ...data, actualizado: new Date().toISOString() });
-      showToast(`Miembro "${mNombre} ${mApellido}" actualizado`);
+      showToast(`Miembro "${nombrePersona}" actualizado`);
     } else {
-      await db.miembros.add(createBaseRecord({ id: uuid(), ...data, actualizado: new Date().toISOString() }));
+      await db.miembros.add(createBaseRecord({
+        id: uuid(),
+        // El proceso nace SIN datos personales (vacíos a propósito).
+        nombre: '', apellido: '', telefono: '', email: '', direccion: '', zona: '',
+        grupoId: null, fechaNacimiento: '', contactoPreferido: 'WhatsApp' as Miembro['contactoPreferido'],
+        profesion: '', estadoCivil: 'Soltero' as Miembro['estadoCivil'],
+        bautizado: false, fechaBautismo: '', conyuge: '', hijos: '', hermanoMayorId: null,
+        ...data,
+        creado: new Date().toISOString(),
+        actualizado: new Date().toISOString(),
+      }));
       showToast(conversionId
-        ? `Miembro "${mNombre} ${mApellido}" registrado y vinculado a su conversión`
-        : `Miembro "${mNombre} ${mApellido}" registrado`);
+        ? `Miembro "${nombrePersona}" registrado y vinculado a su conversión`
+        : `Miembro "${nombrePersona}" registrado`);
     }
     // B3 (sentido inverso): si el miembro queda «Fallecido», reflejarlo en
     // su conversión vinculada, dejando la entrada en su historial.
     await reflejarFallecimientoEnConversion({ estado: data.estado, conversionId });
-    setConvCoincidente(null);
     resetM(); setModal(null);
   };
   const saveM = async () => {
-    if (!mNombre.trim() || !mApellido.trim()) return showToast('Nombre y apellido son obligatorios');
-    if (mEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mEmail.trim())) return showToast('Email no válido');
-    if (mNac && mIngreso && mNac > mIngreso) return showToast('La fecha de nacimiento no puede ser posterior al ingreso');
-    if (mBautismo && !mBautizado) return showToast('Marca "Bautizado" si indicas fecha de bautismo');
+    if (!mPersonaId) return showToast('Elige la persona de esta membresía (o créala con «➕ Nueva persona»)');
+    const persona = personas.find((p) => p.id === mPersonaId);
+    if (!persona) return showToast('La persona elegida ya no existe');
+    if (persona.fechaNacimiento && mIngreso && persona.fechaNacimiento > mIngreso) return showToast('La fecha de nacimiento no puede ser posterior al ingreso');
     if (!editMId) {
-      // A2: ¿esta persona ya existe como conversión? Ofrecer el vínculo antes
-      // de crear un miembro suelto que luego se duplicaría al integrarse.
-      const nombreCompleto = `${mNombre.trim()} ${mApellido.trim()}`.toLowerCase();
-      const tel = mTel.trim();
-      const coincidente = conversiones.find((c) => `${c.nombre} ${c.apellido}`.trim().toLowerCase() === nombreCompleto)
-        || (tel ? conversiones.find((c) => (c.telefono || '').trim() === tel) : undefined);
-      if (coincidente) {
-        setConvCoincidente(coincidente);
-        setModal('vincular');
-        return;
-      }
+      // Una persona, un solo proceso miembro: si ya lo tiene, no se crea
+      // otro (el duplicado que A2 perseguía ya no puede nacer).
+      const existente = miembrosCrudos.find((m) => m.personaId === mPersonaId);
+      if (existente) return showToast(`⚠️ ${persona.nombre} ${persona.apellido} ya tiene ficha de miembro: edítala en vez de crear otra`);
     }
-    await guardarMiembro(mConv || null);
+    await guardarMiembro();
   };
   const delM = async () => {
     if (!selectedId) return;
@@ -467,26 +466,11 @@ export default function Miembros() {
         onClose={() => { setModal(null); resetM(); }}
         editMId={editMId}
         saveM={saveM}
+        personas={personas}
         grupos={grupos}
-        miembros={miembros}
-        mNombre={mNombre} setMNombre={setMNombre}
-        mApellido={mApellido} setMApellido={setMApellido}
-        mTel={mTel} setMTel={setMTel}
-        mEmail={mEmail} setMEmail={setMEmail}
-        mDir={mDir} setMDir={setMDir}
-        mZona={mZona} setMZona={setMZona}
-        mGrupo={mGrupo} setMGrupo={setMGrupo}
-        mNac={mNac} setMNac={setMNac}
+        mPersonaId={mPersonaId} setMPersonaId={setMPersonaId}
         mIngreso={mIngreso} setMIngreso={setMIngreso}
         mEstado={mEstado} setMEstado={setMEstado}
-        mContacto={mContacto} setMContacto={setMContacto}
-        mProfesion={mProfesion} setMProfesion={setMProfesion}
-        mCivil={mCivil} setMCivil={setMCivil}
-        mBautizado={mBautizado} setMBautizado={setMBautizado}
-        mBautismo={mBautismo} setMBautismo={setMBautismo}
-        mConyuge={mConyuge} setMConyuge={setMConyuge}
-        mHijos={mHijos} setMHijos={setMHijos}
-        mHermanoMayorId={mHermanoMayorId} setMHermanoMayorId={setMHermanoMayorId}
         mNotas={mNotas} setMNotas={setMNotas}
       />
 
@@ -563,26 +547,6 @@ export default function Miembros() {
         onAsignar={() => { if (selMinisterio) { setModal(null); openNewAsig(undefined, selMinisterio.id); } }}
         onEliminar={() => setModal('delMin')}
       />
-
-      <Modal
-        open={modal === 'vincular'}
-        onClose={() => setModal('miembro')}
-        title="🔗 ¿Vincular con su conversión?"
-        footer={<>
-          <button className="btn btn-ghost" onClick={() => setModal('miembro')}>Volver</button>
-          <button className="btn btn-secondary" onClick={() => guardarMiembro(null)}>Crear de todos modos</button>
-          <button className="btn btn-primary" onClick={() => convCoincidente && guardarMiembro(convCoincidente.id)}>Vincular y guardar</button>
-        </>}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 44, marginBottom: 10 }}>✝️</div>
-          <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>
-            Ya existe una conversión de <strong style={{ color: 'var(--txt)' }}>{convCoincidente?.nombre} {convCoincidente?.apellido}</strong>
-            {convCoincidente ? <> (estado: <strong style={{ color: 'var(--txt)' }}>{convCoincidente.estado}</strong>, {fmt(convCoincidente.fecha)})</> : null}.
-            ¿Quieres vincular este miembro con esa conversión? Así la persona quedará registrada una sola vez y no se duplicará cuando la conversión se integre.
-          </p>
-        </div>
-      </Modal>
 
       <DeleteModals
         modal={modal}

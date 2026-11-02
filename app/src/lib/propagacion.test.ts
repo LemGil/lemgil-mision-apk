@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { camposAPropagar, reflejarFallecimientoEnConversion } from "./propagacion";
+import { reflejarFallecimientoEnConversion } from "./propagacion";
 import { db } from "./database";
 import { today } from "./utils";
-import type { Conversion, Miembro } from "./types";
+import type { Conversion } from "./types";
+
+// NOTA P2: las pruebas de `camposAPropagar` (B2, «sin pisar») se retiraron
+// junto con la función: con la ficha única los datos personales viven una
+// sola vez en el núcleo y ya no hay propagación entre copias. Sobrevive el
+// reflejo B3 (regla del proceso), probado abajo.
 
 const convBase: Conversion = {
   id: "c1",
@@ -29,84 +34,6 @@ const convBase: Conversion = {
   creado: "2026-01-10T00:00:00.000Z",
   version: 1,
 };
-
-const miembroBase: Miembro = {
-  id: "m1",
-  nombre: "Ana",
-  apellido: "Pérez",
-  telefono: "555-111",
-  email: "ana@x.cu",
-  direccion: "Calle 1",
-  zona: "Norte",
-  grupoId: null,
-  fechaNacimiento: "",
-  fechaIngreso: "2026-02-01",
-  estado: "Activo",
-  contactoPreferido: "WhatsApp",
-  profesion: "Maestra",
-  estadoCivil: "Soltero",
-  bautizado: false,
-  fechaBautismo: "",
-  conyuge: "",
-  hijos: "",
-  hermanoMayorId: null,
-  conversionId: "c1",
-  notas: "Notas pastorales del miembro",
-  creado: "2026-02-01T00:00:00.000Z",
-  actualizado: "2026-02-01T00:00:00.000Z",
-  version: 1,
-};
-
-describe("Propagación Conversión → Miembro «sin pisar» (B2)", () => {
-  it("campo cambiado en la conversión e intacto en el miembro → se propaga", () => {
-    const despues = { ...convBase, telefono: "555-222", zona: "Sur" };
-    const cambios = camposAPropagar(convBase, despues, miembroBase);
-    expect(cambios).toEqual({ telefono: "555-222", zona: "Sur" });
-  });
-
-  it("campo editado a mano en el miembro → NO se toca aunque la conversión cambie", () => {
-    const miembroEditado = { ...miembroBase, telefono: "555-999" };
-    const despues = { ...convBase, telefono: "555-222" };
-    const cambios = camposAPropagar(convBase, despues, miembroEditado);
-    expect(cambios).toEqual({});
-  });
-
-  it("campo sin cambio en la conversión → no se incluye, aunque el miembro difiera", () => {
-    const miembroDistinto = { ...miembroBase, email: "otro@x.cu" };
-    const despues = { ...convBase, telefono: "555-222" }; // email no cambia
-    const cambios = camposAPropagar(convBase, despues, miembroDistinto);
-    expect(cambios).toEqual({ telefono: "555-222" });
-    expect(cambios).not.toHaveProperty("email");
-  });
-
-  it("las notas nunca se propagan, ni siquiera intactas y cambiadas", () => {
-    const miembroConNotasViejas = { ...miembroBase, notas: "Contactada en campaña" };
-    const despues = { ...convBase, notas: "Nota nueva de la conversión" };
-    const cambios = camposAPropagar(convBase, despues, miembroConNotasViejas);
-    expect(cambios).toEqual({});
-    expect(cambios).not.toHaveProperty("notas");
-  });
-
-  it("sin cambios en la conversión → objeto vacío", () => {
-    expect(camposAPropagar(convBase, { ...convBase }, miembroBase)).toEqual({});
-  });
-
-  it("grupoId: vacío en conversión y null en miembro cuentan como lo mismo", () => {
-    const despues = { ...convBase, grupoId: "g7" };
-    const cambios = camposAPropagar(convBase, despues, miembroBase);
-    expect(cambios).toEqual({ grupoId: "g7" });
-    // y al quitar el grupo, el miembro recibe null (no cadena vacía)
-    const antes = { ...convBase, grupoId: "g7" };
-    const miembroConGrupo = { ...miembroBase, grupoId: "g7" };
-    expect(camposAPropagar(antes, convBase, miembroConGrupo)).toEqual({ grupoId: null });
-  });
-
-  it("bautismo: cambio booleano y su fecha se propagan juntos", () => {
-    const despues = { ...convBase, bautizado: true, fechaBautismo: "2026-03-01" };
-    const cambios = camposAPropagar(convBase, despues, miembroBase);
-    expect(cambios).toEqual({ bautizado: true, fechaBautismo: "2026-03-01" });
-  });
-});
 
 describe("reflejarFallecimientoEnConversion (B3, sentido inverso)", () => {
   beforeAll(async () => {

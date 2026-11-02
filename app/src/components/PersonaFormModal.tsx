@@ -5,6 +5,7 @@ import { db } from '../lib/database';
 import { Modal } from './Modal';
 import { ZonaSelect } from './ZonaSelect';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
+import { buscarPorIdentidad } from '../lib/personas';
 import type { Persona } from '../lib/types';
 
 interface PersonaFormModalProps {
@@ -101,14 +102,31 @@ export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFor
 
   const mentores = personas.filter((p) => p.id !== persona?.id);
 
+  // P2: el carné es único e intransferible — si el Nº de Identidad tecleado
+  // ya pertenece a OTRA persona, no se crea ni se guarda un duplicado: se
+  // ofrece usar esa ficha (en el alta) o se avisa del choque (en edición).
+  const duplicada = buscarPorIdentidad(personas, numeroIdentidad, persona?.id);
+
   return (
     <Modal open={open} onClose={onClose} title={persona ? '✏️ Editar persona' : '➕ Nueva persona'} wide footer={
       <>
         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-        <button type="button" className="btn btn-gold" onClick={guardar} disabled={!nombre.trim() || !apellido.trim()}>💾 Guardar</button>
+        <button type="button" className="btn btn-gold" onClick={guardar} disabled={!nombre.trim() || !apellido.trim() || !!duplicada}>💾 Guardar</button>
       </>
     }>
       <div className="form-section">👤 Datos de la persona (se teclean una sola vez)</div>
+      {duplicada && (
+        <div style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 13, lineHeight: 1.5 }}>
+          ⚠️ Ya existe una persona con este Nº de Identidad: <strong>{duplicada.nombre} {duplicada.apellido}</strong>.
+          El carné es único: esta persona no debe teclearse dos veces.
+          {!persona && (
+            <>
+              {' '}
+              <button type="button" className="btn btn-gold btn-sm" onClick={() => { onSaved?.(duplicada.id); onClose(); }}>Usar esta persona</button>
+            </>
+          )}
+        </div>
+      )}
       <div className="form-row">
         <div className="form-group"><label className="form-label">Nombre *</label><input className="form-input" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Juan" /></div>
         <div className="form-group"><label className="form-label">Apellido *</label><input className="form-input" value={apellido} onChange={(e) => setApellido(e.target.value)} placeholder="Pérez" /></div>

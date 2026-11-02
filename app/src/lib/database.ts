@@ -276,4 +276,11 @@ database.version(21).stores({
   beneficiarios: 'id, nombre, apellido, zona, estado, creado, personaId',
 });
 
+// Ficha única (P2): la conversión gana el índice `evangelismoId` (su
+// evangelismo de origen, para la cifra derivada de §3.5 del diseño). La v21
+// ya está desplegada: este cambio va en versión NUEVA, no se enmienda la 21.
+database.version(22).stores({
+  conversiones: 'id, zona, estado, fecha, lider, creado, grupoId, hermanoMayorId, personaId, evangelismoId',
+});
+
 export { database as db };

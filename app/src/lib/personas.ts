@@ -419,6 +419,69 @@ export interface ResultadoUnionPersonas {
   procesosMovidos: number;
 }
 
+// ─── P2: el carné como llave en las altas ────────────────────────────────────
+
+/**
+ * P2 — Aviso anti-duplicado del alta: busca una persona con ese Nº de
+ * Identidad (comparando solo dígitos, como la unión de la migración P0.1).
+ * Función PURA: la usan el formulario del núcleo (para ofrecer «Usar esta
+ * persona» en vez de teclearla dos veces) y las pruebas. `excluirId` deja
+ * fuera a la persona que se está editando (su propio carné no es duplicado).
+ */
+export function buscarPorIdentidad(
+  personas: Pick<Persona, 'id' | 'numeroIdentidad'>[],
+  numeroIdentidad: string,
+  excluirId?: string,
+): Persona | undefined {
+  const buscado = (numeroIdentidad || '').replace(/\D/g, '');
+  if (!buscado) return undefined;
+  return personas.find(
+    (p) => p.id !== excluirId && (p.numeroIdentidad || '').replace(/\D/g, '') === buscado,
+  ) as Persona | undefined;
+}
+
+/**
+ * P2 — Toda conversión que se integra necesita su persona. Las altas nuevas
+ * nacen ya enlazadas (PersonaSelect), pero una conversión vieja o bajada de
+ * un equipo sin actualizar puede llegar sin `personaId` (§4.3.3 del
+ * diseño). Esta función se la asegura con la misma regla determinista de
+ * la migración (§5.2): la persona hereda el id de la propia conversión, y
+ * su núcleo nace de los datos dormidos de la ficha. Si la persona ya
+ * existe, solo se escribe el enlace. Devuelve el personaId vigente.
+ */
+export async function asegurarPersonaDeConversion(c: Conversion): Promise<string> {
+  if (c.personaId) return c.personaId;
+  const existente = await db.personas.get(c.id);
+  if (!existente) {
+    const ahora = new Date().toISOString();
+    await db.personas.add(createBaseRecord({
+      id: c.id,
+      nombre: c.nombre || '',
+      apellido: c.apellido || '',
+      numeroIdentidad: c.numeroIdentidad || '',
+      telefono: c.telefono || '',
+      email: c.email || '',
+      direccion: c.direccion || '',
+      zona: c.zona || '',
+      fechaNacimiento: '',
+      profesion: c.profesion || '',
+      estadoCivil: 'Soltero',
+      contactoPreferido: 'WhatsApp',
+      bautizado: c.bautizado === true,
+      fechaBautismo: c.fechaBautismo || '',
+      conyuge: c.conyuge || '',
+      hijos: c.hijos || '',
+      grupoId: c.grupoId || null,
+      hermanoMayorId: c.hermanoMayorId || null,
+      creado: c.creado || ahora,
+    }));
+    await enqueueOutbox('personas', c.id);
+  }
+  await db.conversiones.update(c.id, { personaId: c.id });
+  await enqueueOutbox('conversiones', c.id);
+  return c.id;
+}
+
 /**
  * «Unir dos personas»: la superviviente absorbe TODOS los procesos de la
  * absorbida (se reescribe su `personaId`; los ids de proceso no cambian,

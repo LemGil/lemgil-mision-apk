@@ -22,6 +22,8 @@ export interface Conversion {
   numeroIdentidad?: string;
   /** Ficha única (P0): la persona dueña de este proceso (→ personas.id). */
   personaId?: string | null;
+  /** Ficha única (P2): evangelismo del que nació esta conversión (→ evangelismos.id). */
+  evangelismoId?: string | null;
   notas: string;
   /** A1: si el miembro nacido de esta conversión fue eliminado a propósito, no recrearlo. */
   miembroDescartado?: boolean;
@@ -95,9 +97,20 @@ export interface Evangelismo {
   tipo: string;
   fecha: string;
   zona: string;
+  /** Texto dormido: foto del nombre del líder (la verdad es `liderId`, P2). */
   lider: string;
+  /** Texto dormido: foto de los nombres del equipo (la verdad es `participanteIds`, P2). */
   participantes: string[];
+  /** Ficha única (P2): líder del evangelismo (→ personas.id). */
+  liderId?: string | null;
+  /** Ficha única (P2): equipo del evangelismo (→ personas.id[]). */
+  participanteIds?: string[];
   contactos: number;
+  /**
+   * Cifra manual vieja, dormida desde P2: la cifra viva es el CONTEO
+   * DERIVADO de las conversiones con este `evangelismoId` (decisión de
+   * LemGil: sin saldo histórico).
+   */
   conversiones: number;
   notas: string;
   creado: string;

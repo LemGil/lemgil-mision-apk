@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -7,8 +7,9 @@ import { KpiCard } from '../components/KpiCard';
 import { exportCSV } from '../lib/csvExport';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
-import type { Conversion, Miembro } from '../lib/types';
-import { camposAPropagar } from '../lib/propagacion';
+import type { Conversion, Evangelismo } from '../lib/types';
+import { conversionConDatos, mapaPersonas, miembroConDatos, nombreDePersona } from '../lib/personaDatos';
+import { conteoConversionesPorEvangelismo } from '../lib/evangelismoStats';
 import { MS, today, fechaDeEstado as getFechaEstado } from '../lib/utils';
 import { zonaCanonica } from '../lib/zonas';
 import { conteoGrupo } from '../lib/grupoStats';
@@ -27,12 +28,22 @@ import { ConversionDetailModal } from './mision-biblica/ConversionDetailModal';
 import { ConfirmModals } from './mision-biblica/ConfirmModals';
 
 export default function MisionBiblica() {
-  const convs = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  const convsCrudas = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
-  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+  const miembrosCrudos = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
   const hitos = useLiveQuery(() => db.hitos.toArray(), []) ?? [];
   const zonas = useLiveQuery(() => db.zonas.toArray(), []) ?? [];
+  const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+
+  // P2 (ficha única): lo que se PINTA resuelve los datos personales desde
+  // el núcleo `personas` (única fuente). Las escrituras usan las fichas
+  // crudas: el proceso ya no guarda datos personales que haya que cuidar.
+  const personasMap = useMemo(() => mapaPersonas(personas), [personas]);
+  const convs = useMemo(() => convsCrudas.map((c) => conversionConDatos(c, personasMap)), [convsCrudas, personasMap]);
+  const miembros = useMemo(() => miembrosCrudos.map((m) => miembroConDatos(m, personasMap)), [miembrosCrudos, personasMap]);
+  const conteoEvang = useMemo(() => conteoConversionesPorEvangelismo(convsCrudas), [convsCrudas]);
+  const nombreConv = (c: Conversion) => nombreDePersona(personasMap, c.personaId) || `${c.nombre} ${c.apellido}`.trim();
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,26 +78,14 @@ export default function MisionBiblica() {
   const [editGrupoId, setEditGrupoId] = useState<string | null>(null);
   const [editEvangId, setEditEvangId] = useState<string | null>(null);
 
-  const [fNombre, setFNombre] = useState('');
-  const [fApellido, setFApellido] = useState('');
-  const [fTelefono, setFTelefono] = useState('');
-  const [fEdad, setFEdad] = useState('');
-  const [fDireccion, setFDireccion] = useState('');
+  // P2: el formulario de la conversión solo guarda el PROCESO; la persona
+  // se elige (fPersonaId) y sus datos viven en el núcleo.
+  const [fPersonaId, setFPersonaId] = useState('');
   const [fFamilia, setFFamilia] = useState('No');
   const [fFecha, setFFecha] = useState(today());
-  const [fZona, setFZona] = useState('');
-  const [fLider, setFLider] = useState('');
-  const [fHermanoMayorId, setFHermanoMayorId] = useState('');
-  const [fLiderCustom, setFLiderCustom] = useState(false);
   const [fEstado, setFEstado] = useState('Nuevo');
-  const [fGrupoId, setFGrupoId] = useState('');
   const [fNotas, setFNotas] = useState('');
-const [fEmail, setFEmail] = useState('');
-const [fProfesion, setFProfesion] = useState('');
-const [fBautizado, setFBautizado] = useState(false);
-const [fFechaBautismo, setFFechaBautismo] = useState('');
-const [fConyuge, setFConyuge] = useState('');
-const [fHijos, setFHijos] = useState('');
+  const [fEvangelismoId, setFEvangelismoId] = useState('');
 const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; nota: string }[]>([]);
   const [gNombre, setGNombre] = useState('');
   const [gZona, setGZona] = useState('');
@@ -99,21 +98,22 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   const [eTipo, setETipo] = useState('Visita domiciliaria');
   const [eFecha, setEFecha] = useState(today());
   const [eZona, setEZona] = useState('Norte');
-  const [eLider, setELider] = useState('');
-  const [eLiderCustom, setELiderCustom] = useState(false);
-  const [eParticipantes, setEParticipantes] = useState<string[]>([]);
-  const [ePartCustom, setEPartCustom] = useState('');
+  // P2: ministro y equipo son PERSONAS por id; los nombres viejos sin
+  // persona se conservan como respaldo de texto (foto dormida).
+  const [eLiderId, setELiderId] = useState('');
+  const [eLiderRespaldo, setELiderRespaldo] = useState('');
+  const [eParticipanteIds, setEParticipanteIds] = useState<string[]>([]);
+  const [eParticipantesRespaldo, setEParticipantesRespaldo] = useState<string[]>([]);
   const [eContactos, setEContactos] = useState('0');
-  const [eConvs, setEConvs] = useState('0');
   const [eNotas, setENotas] = useState('');
   const [sNota, setSNota] = useState('');
   const [sHito, setSHito] = useState(false);
   const [tempEst, setTempEst] = useState<string | null>(null);
 
   // const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
-  const resetForm = () => { setEditConvId(null); setFNombre(''); setFApellido(''); setFTelefono(''); setFEdad(''); setFDireccion(''); setFFamilia('No'); setFFecha(today()); setFZona(''); setFLider(''); setFHermanoMayorId(''); setFLiderCustom(false); setFEstado('Nuevo'); setFGrupoId(''); setFNotas(''); setFEmail(''); setFProfesion(''); setFBautizado(false); setFFechaBautismo(''); setFConyuge(''); setFHijos(''); setFHistorial([]); };
+  const resetForm = () => { setEditConvId(null); setFPersonaId(''); setFFamilia('No'); setFFecha(today()); setFEstado('Nuevo'); setFNotas(''); setFEvangelismoId(''); setFHistorial([]); };
   const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); setGMeta(''); };
-  const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELider(''); setELiderCustom(false); setEParticipantes([]); setEPartCustom(''); setEContactos('0'); setEConvs('0'); setENotas(''); };
+  const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELiderId(''); setELiderRespaldo(''); setEParticipanteIds([]); setEParticipantesRespaldo([]); setEContactos('0'); setENotas(''); };
 
   const mo = new Date().toISOString().slice(0, 7);
   const mesCount = convs.filter((c) => c.fecha?.startsWith(mo)).length;
@@ -190,71 +190,80 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
 
   const selConv = convs.find((c) => c.id === selectedId);
 
-  // B2+B3: tras guardar una conversión que ya tiene miembro vinculado,
-  // propagar los cambios «sin pisar» (B2) y reflejar Fallecido/Apartado en
-  // el miembro (B3). Si el miembro se acaba de crear en este mismo guardado,
-  // la propagación resulta vacía por construcción (sus datos ya son los
-  // nuevos). Con la bandera de descarte (A1) o sin miembro, no se toca nada.
-  const postGuardadoConversion = async (convAntes: Conversion, convDespues: Conversion) => {
+  // B3 (solo reflejo de estados): la propagación B2 se jubiló en P2 — los
+  // datos personales viven en el núcleo y ambas páginas los leen de ahí.
+  // Queda la regla del proceso: Fallecido/Apartado de la conversión se
+  // refleja en su miembro. Con la bandera de descarte (A1) o sin miembro,
+  // no se toca nada.
+  const reflejarEstadoEnMiembro = async (convDespues: Conversion) => {
     if (convDespues.miembroDescartado) return;
+    if (convDespues.estado !== 'Fallecido' && convDespues.estado !== 'Apartado') return;
     const vinculado = await db.miembros.where('conversionId').equals(convDespues.id).first();
     if (!vinculado) return;
-    const updates: Partial<Miembro> = { ...camposAPropagar(convAntes, convDespues, vinculado) };
     if (convDespues.estado === 'Fallecido' && vinculado.estado !== 'Fallecido') {
-      updates.estado = 'Fallecido';
+      await db.miembros.update(vinculado.id, { estado: 'Fallecido', actualizado: new Date().toISOString() });
     } else if (convDespues.estado === 'Apartado' && vinculado.estado === 'Activo') {
-      updates.estado = 'Inactivo';
-    }
-    if (Object.keys(updates).length > 0) {
-      await db.miembros.update(vinculado.id, { ...updates, actualizado: new Date().toISOString() });
+      await db.miembros.update(vinculado.id, { estado: 'Inactivo', actualizado: new Date().toISOString() });
     }
   };
 
   // ── CONVERSIONES ──
   const openNewConv = () => { resetForm(); setModal('conv'); };
+  // P2: alta de conversión nacida de un evangelismo — el formulario abre
+  // ya enlazado (evangelismoId puesto y su fecha como fecha de conversión).
+  const openNewConvDesdeEvangelismo = (e: Evangelismo) => {
+    resetForm();
+    setFEvangelismoId(e.id);
+    setFFecha(e.fecha);
+    setModal('conv');
+  };
   const openEditConv = (id: string) => {
-    const c = convs.find((x) => x.id === id); if (!c) return;
-    setEditConvId(id); setFNombre(c.nombre); setFApellido(c.apellido); setFTelefono(c.telefono);
-    setFEdad(c.edad); setFDireccion(c.direccion); setFFamilia(c.familia); setFFecha(c.fecha);
-    setFZona(c.zona); setFLider(c.lider);
-    const enLista = miembros.some((m) => `${m.nombre} ${m.apellido}` === c.lider);
-    setFLiderCustom(!enLista && !!c.lider);
-    // B1: cargar el id del hermano mayor; si falta pero el nombre coincide
-    // con un miembro, se resuelve a su id (sana registros viejos al editar).
-    if (c.hermanoMayorId) {
-      setFHermanoMayorId(c.hermanoMayorId);
-    } else {
-      const porNombre = miembros.find((m) => `${m.nombre} ${m.apellido}` === c.lider);
-      setFHermanoMayorId(porNombre ? porNombre.id : '');
-    }
-  setFEstado(c.estado); setFGrupoId(c.grupoId || ''); setFNotas(c.notas);
-  setFEmail(c.email || ''); setFProfesion(c.profesion || '');
-  setFBautizado(!!c.bautizado); setFFechaBautismo(c.fechaBautismo || '');
-  setFConyuge(c.conyuge || ''); setFHijos(c.hijos || '');
-  setFHistorial(c.historial ? [...c.historial] : []);
-  setModal('conv');
+    const c = convsCrudas.find((x) => x.id === id); if (!c) return;
+    setEditConvId(id);
+    // La persona se hereda del proceso; si aún no tiene (registro viejo),
+    // el selector permite elegirla o crearla y el guardado la enlaza.
+    setFPersonaId(c.personaId || '');
+    setFFamilia(c.familia); setFFecha(c.fecha);
+    setFEstado(c.estado); setFNotas(c.notas);
+    setFEvangelismoId(c.evangelismoId || '');
+    setFHistorial(c.historial ? [...c.historial] : []);
+    setModal('conv');
   };
   const saveConv = async () => {
-    if (!fNombre.trim() || !fApellido.trim()) return showToast('Nombre y apellido son obligatorios');
-    if (!fZona) return showToast('Selecciona una zona');
-    if (!fLider.trim()) return showToast('Selecciona o escribe el hermano mayor');
-    const data = { nombre: fNombre.trim(), apellido: fApellido.trim(), telefono: fTelefono.trim(), edad: fEdad, direccion: fDireccion.trim(), familia: fFamilia, fecha: fFecha, zona: zonaCanonica(fZona, zonas), lider: fLider.trim(), grupoId: fGrupoId, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), hermanoMayorId: fHermanoMayorId || null, email: fEmail.trim(), profesion: fProfesion.trim(), bautizado: fBautizado, fechaBautismo: fFechaBautismo, conyuge: fConyuge.trim(), hijos: fHijos.trim(), historial: fHistorial, updatedAt: Date.now() };
+    if (!fPersonaId) return showToast('Elige la persona de esta conversión (o créala con «➕ Nueva persona»)');
+    const persona = personas.find((p) => p.id === fPersonaId);
+    if (!persona) return showToast('La persona elegida ya no existe');
+    if (!fFecha) return showToast('La fecha es obligatoria');
+    const nombrePersona = `${persona.nombre} ${persona.apellido}`;
+    // El texto `lider` queda como foto dormida del hermano mayor de la
+    // persona (B1: siempre fue exhibición del id; dejará de guardarse en P6).
+    const liderFoto = nombreDePersona(personasMap, persona.hermanoMayorId);
+    const data = { fecha: fFecha, familia: fFamilia, estado: fEstado as Conversion['estado'], notas: fNotas.trim(), historial: fHistorial, personaId: fPersonaId, evangelismoId: fEvangelismoId || null, lider: liderFoto, updatedAt: Date.now() };
     if (editConvId) {
-      const c = convs.find((x) => x.id === editConvId);
+      const c = convsCrudas.find((x) => x.id === editConvId);
       await db.conversiones.update(editConvId, data);
       if (c) {
         const despues: Conversion = { ...c, ...data };
         const synced = await syncMemberFromConversion(despues);
-        if (synced) showToast(`🧑 ${fNombre} integrado → Miembros`);
-        await postGuardadoConversion(c, despues);
+        if (synced) showToast(`🧑 ${persona.nombre} integrado → Miembros`);
+        await reflejarEstadoEnMiembro(despues);
       }
-      showToast(`${fNombre} ${fApellido} actualizado/a`);
+      showToast(`${nombrePersona} actualizado/a`);
     } else {
       const id = uuid();
-      const nuevo: Conversion = { id, ...data, historial: data.estado && data.estado !== 'Nuevo' ? [{ fecha: data.fecha || today(), estado: data.estado, nota: 'Registro inicial' }] : [], creado: new Date().toISOString(), version: 1 };
+      // El proceso nace SIN datos personales (vacíos a propósito): la
+      // identidad vive en la persona enlazada y se lee del núcleo.
+      const nuevo: Conversion = {
+        id, nombre: '', apellido: '', telefono: '', edad: '', direccion: '', zona: '',
+        grupoId: '', hermanoMayorId: null, email: '', profesion: '', bautizado: false,
+        fechaBautismo: '', conyuge: '', hijos: '', numeroIdentidad: undefined,
+        ...data,
+        historial: data.estado && data.estado !== 'Nuevo' ? [{ fecha: data.fecha || today(), estado: data.estado, nota: 'Registro inicial' }] : [],
+        creado: new Date().toISOString(), version: 1,
+      };
       await db.conversiones.add(createBaseRecord(nuevo));
       const synced = await syncMemberFromConversion(nuevo);
-      showToast(synced ? `🧑 ${fNombre} registrado e integrado → Miembros` : `${fNombre} ${fApellido} guardado/a correctamente`);
+      showToast(synced ? `🧑 ${persona.nombre} registrado e integrado → Miembros` : `${nombrePersona} guardado/a correctamente`);
     }
     resetForm(); setModal(null);
   };
@@ -277,16 +286,16 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     ? hitos.filter((h) => h.miembroId === miembroVinculado.id).slice().sort((a, b) => b.fecha.localeCompare(a.fecha))
     : [];
   const quickAdv = async (id: string) => {
-    const c = convs.find((x) => x.id === id); if (!c) return;
+    const c = convsCrudas.find((x) => x.id === id); if (!c) return;
     if (c.estado === 'Apartado' || c.estado === 'Fallecido') return;
     const i = ESTADOS.indexOf(c.estado);
     if (i >= 0 && i < ESTADOS.length - 1) {
       const next = ESTADOS[i + 1];
       const despues: Conversion = { ...c, estado: next, historial: [...c.historial, { fecha: today(), estado: next, nota: 'Avance rápido' }] };
       await db.conversiones.update(id, { estado: next, historial: despues.historial });
-      const synced = await syncMemberFromConversion({ ...c, estado: next });
-      await postGuardadoConversion(c, despues);
-      showToast(synced ? `🧑 ${c.nombre} integrado → Miembros` : `${c.nombre} avanzó a ${next}`);
+      const synced = await syncMemberFromConversion(despues);
+      await reflejarEstadoEnMiembro(despues);
+      showToast(synced ? `🧑 ${nombreConv(c).split(' ')[0]} integrado → Miembros` : `${nombreConv(c)} avanzó a ${next}`);
     }
   };
   const openDetail = (id: string) => { setSelectedId(id); setTempEst(null); setSNota(''); setSHito(false); setModal('detail'); };
@@ -305,13 +314,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   }, [searchParams, convs]);
   const saveSeg = async () => {
     if (!selConv) return;
+    const cruda = convsCrudas.find((x) => x.id === selConv.id) ?? selConv;
     const ne = tempEst || selConv.estado;
-    const hist = [...selConv.historial];
+    const hist = [...cruda.historial];
     if (sNota.trim() || ne !== selConv.estado) hist.push({ fecha: today(), estado: ne, nota: sNota.trim() || `Estado: ${selConv.estado} → ${ne}` });
-    const despues: Conversion = { ...selConv, estado: ne as Conversion['estado'], historial: hist };
+    const despues: Conversion = { ...cruda, estado: ne as Conversion['estado'], historial: hist };
     await db.conversiones.update(selConv.id, { estado: despues.estado, historial: hist });
-    const synced = await syncMemberFromConversion({ ...selConv, estado: despues.estado });
-    await postGuardadoConversion(selConv, despues);
+    const synced = await syncMemberFromConversion(despues);
+    await reflejarEstadoEnMiembro(despues);
     let hitoCreado = false;
     if (sHito && sNota.trim()) {
       const vinculado = await db.miembros.where('conversionId').equals(selConv.id).first();
@@ -362,27 +372,51 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   };
 
   // ── EVANGELISMO ──
+  // P2: los registros viejos traen solo nombres (texto dormido). Al editar,
+  // cada nombre que coincide con una persona se resuelve a su id (sana el
+  // registro al guardarlo); el que no coincide queda como respaldo de texto.
+  const resolverPersonaPorNombre = (nombre: string) => personas.find((p) => `${p.nombre} ${p.apellido}` === nombre)?.id ?? '';
   const openNewEvang = () => { resetEvang(); setModal('evang'); };
   const openEditEvang = (id: string) => {
     const e = evangels.find((x) => x.id === id); if (!e) return;
     setEditEvangId(id); setETipo(e.tipo); setEFecha(e.fecha); setEZona(e.zona);
-    setELider(e.lider);
-    const enLista = miembros.some((m) => `${m.nombre} ${m.apellido}` === e.lider);
-    setELiderCustom(!enLista && !!e.lider);
-    setEParticipantes(Array.isArray(e.participantes) ? e.participantes : []);
-    setEPartCustom('');
-    setEContactos(String(e.contactos)); setEConvs(String(e.conversiones)); setENotas(e.notas);
+    const liderId = e.liderId || resolverPersonaPorNombre(e.lider);
+    setELiderId(liderId);
+    setELiderRespaldo(liderId ? '' : (e.lider || ''));
+    const ids: string[] = [...(e.participanteIds ?? [])];
+    const respaldo: string[] = [];
+    const nombresIds = new Set(ids.map((pid) => nombreDePersona(personasMap, pid)));
+    for (const nombre of e.participantes ?? []) {
+      if (nombresIds.has(nombre)) continue;
+      const pid = resolverPersonaPorNombre(nombre);
+      if (pid && !ids.includes(pid)) { ids.push(pid); nombresIds.add(nombre); }
+      else if (!pid) respaldo.push(nombre);
+    }
+    setEParticipanteIds(ids);
+    setEParticipantesRespaldo(respaldo);
+    setEContactos(String(e.contactos)); setENotas(e.notas);
     setModal('evang');
   };
   const saveEvang = async () => {
     if (!eFecha) return showToast('La fecha es obligatoria');
-    const data = { fecha: eFecha, tipo: eTipo, zona: zonaCanonica(eZona, zonas), lider: eLider.trim(), participantes: eParticipantes, contactos: parseInt(eContactos) || 0, conversiones: parseInt(eConvs) || 0, notas: eNotas.trim() };
+    // Los textos quedan como FOTO dormida de los ids elegidos (más los
+    // nombres viejos sin persona), para que las vistas anteriores y los
+    // equipos sin actualizar sigan mostrando algo fiel.
+    const data = {
+      fecha: eFecha, tipo: eTipo, zona: zonaCanonica(eZona, zonas),
+      liderId: eLiderId || null,
+      participanteIds: eParticipanteIds,
+      lider: eLiderId ? nombreDePersona(personasMap, eLiderId) : eLiderRespaldo,
+      participantes: [...eParticipanteIds.map((pid) => nombreDePersona(personasMap, pid)).filter(Boolean), ...eParticipantesRespaldo],
+      contactos: parseInt(eContactos) || 0, notas: eNotas.trim(),
+    };
     if (editEvangId) {
+      // La cifra manual vieja NO se toca: queda dormida; la viva es derivada.
       await db.evangelismos.update(editEvangId, data);
       showToast('Actividad actualizada');
     } else {
-      await db.evangelismos.add(createBaseRecord({ id: uuid(), ...data, creado: new Date().toISOString() }));
-      showToast(`Evangelismo guardado — ${eConvs} conversión(es)`);
+      await db.evangelismos.add(createBaseRecord({ id: uuid(), ...data, conversiones: 0, creado: new Date().toISOString() }));
+      showToast('Evangelismo guardado');
     }
     resetEvang(); setModal(null);
   };
@@ -603,8 +637,11 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         <EvangelismoTable
           evangels={evangels}
           evangelsFiltrados={evangelsFiltrados}
+          convs={convsCrudas}
+          personas={personas}
           openEditEvang={openEditEvang}
           onEliminar={(id) => { setSelectedId(id); setModal('confirmEvang'); }}
+          onRegistrarConversion={openNewConvDesdeEvangelismo}
         />
       )}
 
@@ -613,28 +650,15 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         onClose={() => setModal(null)}
         editConvId={editConvId}
         saveConv={saveConv}
-        miembros={miembros}
+        personas={personas}
         grupos={grupos}
-        fNombre={fNombre} setFNombre={setFNombre}
-        fApellido={fApellido} setFApellido={setFApellido}
-        fTelefono={fTelefono} setFTelefono={setFTelefono}
-        fEdad={fEdad} setFEdad={setFEdad}
-        fDireccion={fDireccion} setFDireccion={setFDireccion}
-        fFamilia={fFamilia} setFFamilia={setFFamilia}
+        evangelismos={evangels}
+        fPersonaId={fPersonaId} setFPersonaId={setFPersonaId}
         fFecha={fFecha} setFFecha={setFFecha}
-        fZona={fZona} setFZona={setFZona}
-        fLider={fLider} setFLider={setFLider}
-        fHermanoMayorId={fHermanoMayorId} setFHermanoMayorId={setFHermanoMayorId}
-        fLiderCustom={fLiderCustom} setFLiderCustom={setFLiderCustom}
+        fFamilia={fFamilia} setFFamilia={setFFamilia}
         fEstado={fEstado} setFEstado={setFEstado}
-        fGrupoId={fGrupoId} setFGrupoId={setFGrupoId}
         fNotas={fNotas} setFNotas={setFNotas}
-        fEmail={fEmail} setFEmail={setFEmail}
-        fProfesion={fProfesion} setFProfesion={setFProfesion}
-        fBautizado={fBautizado} setFBautizado={setFBautizado}
-        fFechaBautismo={fFechaBautismo} setFFechaBautismo={setFFechaBautismo}
-        fConyuge={fConyuge} setFConyuge={setFConyuge}
-        fHijos={fHijos} setFHijos={setFHijos}
+        fEvangelismoId={fEvangelismoId} setFEvangelismoId={setFEvangelismoId}
         fHistorial={fHistorial} setFHistorial={setFHistorial}
       />
 
@@ -658,16 +682,15 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         onClose={() => setModal(null)}
         editEvangId={editEvangId}
         saveEvang={saveEvang}
-        miembros={miembros}
+        personas={personas}
         eTipo={eTipo} setETipo={setETipo}
         eFecha={eFecha} setEFecha={setEFecha}
         eZona={eZona} setEZona={setEZona}
-        eLider={eLider} setELider={setELider}
-        eLiderCustom={eLiderCustom} setELiderCustom={setELiderCustom}
-        eParticipantes={eParticipantes} setEParticipantes={setEParticipantes}
-        ePartCustom={ePartCustom} setEPartCustom={setEPartCustom}
+        eLiderId={eLiderId} setELiderId={setELiderId}
+        eParticipanteIds={eParticipanteIds} setEParticipanteIds={setEParticipanteIds}
+        eParticipantesRespaldo={eParticipantesRespaldo} setEParticipantesRespaldo={setEParticipantesRespaldo}
+        eConvsDerivadas={editEvangId ? (conteoEvang.get(editEvangId) ?? 0) : 0}
         eContactos={eContactos} setEContactos={setEContactos}
-        eConvs={eConvs} setEConvs={setEConvs}
         eNotas={eNotas} setENotas={setENotas}
       />
 

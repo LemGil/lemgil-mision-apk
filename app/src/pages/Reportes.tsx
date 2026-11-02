@@ -111,7 +111,11 @@ export default function Reportes() {
     const convIntegrados = conv.filter((c) => c.estado === 'Integrado').length;
     const evang = enRango(evangels);
     const evangContactos = evang.reduce((s, e) => s + (e.contactos || 0), 0);
-    const evangConvs = evang.reduce((s, e) => s + (e.conversiones || 0), 0);
+    // P2 (§3.5): la cifra de conversiones del evangelismo es DERIVADA — las
+    // conversiones enlazadas a los evangelismos del período. La cifra
+    // manual vieja (e.conversiones) quedó dormida y ya no se suma.
+    const idsEvangEnRango = new Set(evang.map((e) => e.id));
+    const evangConvs = convs.filter((c) => c.evangelismoId && idsEvangEnRango.has(c.evangelismoId)).length;
 
     // Matrícula total de estudiantes activos (antes solo contaba los creados
     // dentro del rango, y la etiqueta «Estudiantes matriculados» no cuadraba).
