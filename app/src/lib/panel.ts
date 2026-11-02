@@ -66,7 +66,7 @@ export function actividadReciente(e: EntradaActividad): ActividadPanel[] {
       title: `${nombre || 'Conversión sin nombre'} — ${c.estado}`,
       meta: [v.zona, v.lider || 'Sin líder'].filter((x) => x && x.trim()).join(' · '),
       ts: c.creado,
-      href: `/mision-biblica?ver=${c.id}`,
+      href: `/mision?ver=${c.id}`,
     });
   });
   recientes(e.evangelismos, (ev) => ev.creado).forEach((ev) => {
@@ -76,7 +76,7 @@ export function actividadReciente(e: EntradaActividad): ActividadPanel[] {
       title: `${ev.tipo} — ${ev.contactos} contactos`,
       meta: [ev.zona, v.liderNombre || 'Sin líder'].filter((x) => x && x.trim()).join(' · '),
       ts: ev.creado,
-      href: '/mision-biblica',
+      href: '/mision',
     });
   });
   recientes(e.estudiantes, (es) => es.creado).forEach((es) => {
@@ -306,7 +306,7 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
   const out: AlertaPanel[] = [];
 
   if (!e.filterAno && e.mesCount === 0 && e.hayConversiones) {
-    out.push({ tipo: 'danger', texto: 'Sin conversiones registradas este mes', href: '/mision-biblica' });
+    out.push({ tipo: 'danger', texto: 'Sin conversiones registradas este mes', href: '/mision' });
   }
 
   const { vacios } = resumenGrupos(e.grupos, e.miembros, e.conversiones);
@@ -318,7 +318,7 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
     (c) => c.estado === 'Nuevo' && diasSinMovimiento(c, e.hoy) > 14,
   ).length;
   if (estancadas > 0) {
-    out.push({ tipo: 'warn', texto: `${estancadas} conversión(es) nueva(s) sin movimiento hace más de 14 días`, href: '/mision-biblica' });
+    out.push({ tipo: 'warn', texto: `${estancadas} conversión(es) nueva(s) sin movimiento hace más de 14 días`, href: '/mision' });
   }
 
   const pausados = e.estudiantes.filter((x) => x.estado === 'Pausado').length;
@@ -352,7 +352,7 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
     (ev) => !evangelismoConDatos(ev, e.personasMap).liderNombre,
   ).length;
   if (sinLider > 0) {
-    out.push({ tipo: 'info', texto: `${sinLider} actividad(es) sin líder asignado`, href: '/mision-biblica' });
+    out.push({ tipo: 'info', texto: `${sinLider} actividad(es) sin líder asignado`, href: '/mision' });
   }
 
   const ordenadas = [...out].sort((a, b) => SEVERIDAD[a.tipo] - SEVERIDAD[b.tipo]);

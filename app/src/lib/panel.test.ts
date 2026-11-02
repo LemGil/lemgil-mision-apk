@@ -94,7 +94,7 @@ describe('actividad reciente del Panel', () => {
     expect(a.title).toBe('Ana Díaz — Nuevo');
     expect(a.meta).toContain('Sur');
     expect(a.meta).toContain('Pedro Ruiz');
-    expect(a.href).toBe('/mision-biblica?ver=c9');
+    expect(a.href).toBe('/mision?ver=c9');
     expect(a.ts).toBe('2026-11-10T10:00:00');
   });
 
@@ -115,7 +115,7 @@ describe('actividad reciente del Panel', () => {
       '2026-11-03T10:00:00', '2026-11-01T10:00:00',
     ]);
     expect(acts[0].meta).toContain('Pedro Ruiz');
-    expect(acts[0].href).toBe('/mision-biblica');
+    expect(acts[0].href).toBe('/mision');
     expect(acts[1].href).toBe('/academia');
   });
 
@@ -305,7 +305,7 @@ describe('alertas del Panel', () => {
     const est = a.find((x) => x.texto.includes('sin movimiento'));
     expect(est).toBeDefined();
     expect(est!.texto).toContain('1 conversión');
-    expect(est!.href).toBe('/mision-biblica');
+    expect(est!.href).toBe('/mision');
     expect(diasSinMovimiento(vieja, HOY)).toBeGreaterThan(14);
     expect(diasSinMovimiento(conHistorial, HOY)).toBeLessThanOrEqual(14);
   });
@@ -341,5 +341,28 @@ describe('alertas del Panel', () => {
     const gv = a.find((x) => x.texto.includes('sin miembros activos'));
     expect(gv?.texto).toContain('1 grupo');
     expect(gv?.href).toBe('/miembros');
+  });
+});
+
+// Guardia (regresión 2026-11-02): los enlaces del Panel deben existir como
+// rutas reales en App.tsx. El paquete del Panel usó '/mision-biblica' y la
+// ruta verdadera es '/mision': al tocar esos atajos no había ruta que
+// coincidiera y la pantalla quedaba en blanco.
+import appSrc from '../App.tsx?raw';
+import panelSrc from './panel.ts?raw';
+import dashSrc from '../pages/Dashboard.tsx?raw';
+
+describe('las rutas que usa el Panel existen en App.tsx', () => {
+  const rutas = [...appSrc.matchAll(/path="([^"]+)"/g)].map((m) => m[1]);
+  it('declara las rutas destino del Panel', () => {
+    for (const p of ['/mision', '/academia', '/manos-abiertas', '/miembros', '/reportes']) {
+      expect(rutas).toContain(p);
+    }
+  });
+  it('ninguna salida del panel apunta a una ruta inexistente', () => {
+    for (const src of [panelSrc, dashSrc]) {
+      const destinos = [...src.matchAll(/(?:href:|to=|to=")\s*`?'?\/?([a-z-]+)/g)].map((m) => '/' + m[1]);
+      for (const d of destinos) expect(rutas).toContain(d);
+    }
   });
 });

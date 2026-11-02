@@ -264,8 +264,8 @@ export default function Dashboard() {
         <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt)' }}>🚀 Acceso Rápido</div>
         <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2, marginBottom: 12 }}>Lo que más se hace cada semana, a un toque: registrar, entregar y reportar.</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <Link to="/mision-biblica" className="btn btn-gold">🌱 Nueva conversión</Link>
-          <Link to="/mision-biblica" className="btn btn-secondary">📢 Evangelismo</Link>
+          <Link to="/mision" className="btn btn-gold">🌱 Nueva conversión</Link>
+          <Link to="/mision" className="btn btn-secondary">📢 Evangelismo</Link>
           <Link to="/manos-abiertas" className="btn btn-secondary">🤲 Nueva entrega</Link>
           <Link to="/reportes" className="btn btn-secondary">📊 Generar Reporte</Link>
         </div>
