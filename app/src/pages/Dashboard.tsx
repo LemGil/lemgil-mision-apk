@@ -329,6 +329,24 @@ export default function Dashboard() {
               borderLeft: `4px solid ${ALERTA_BORDE[a.tipo]}`,
               color: 'var(--txt-2)', textDecoration: 'none',
             };
+            // Con casos nombrados (items) la tarjeta no es un solo enlace:
+            // cada nombre lleva directo a su ficha, y «Ver →» a la lista.
+            if (a.items && a.items.length > 0) {
+              return (
+                <div key={i} style={estilo}>
+                  <span style={{ marginRight: 6 }}>{ALERTA_ICONO[a.tipo]}</span>
+                  {a.texto}
+                  {a.href && <Link to={a.href} style={{ float: 'right', fontWeight: 700, color: 'var(--oro-apostolico)', textDecoration: 'none' }}>Ver →</Link>}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {a.items.map((it, j) => (
+                      <Link key={j} to={it.href} style={{ fontSize: 12, fontWeight: 600, padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--txt)', textDecoration: 'none' }}>
+                        {it.texto}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
             const contenido = (
               <>
                 <span style={{ marginRight: 6 }}>{ALERTA_ICONO[a.tipo]}</span>

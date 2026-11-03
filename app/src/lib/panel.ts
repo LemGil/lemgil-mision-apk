@@ -259,12 +259,35 @@ export function sostenimientoContraMeta(aportes: Aporte[], filterAno: string, me
 
 export type TipoAlerta = 'danger' | 'warn' | 'info' | 'ok';
 
+export interface ItemAlerta {
+  texto: string;
+  href: string;
+}
+
 export interface AlertaPanel {
   tipo: TipoAlerta;
   /** Sin emojis de color: el icono se pinta una sola vez según el tipo. */
   texto: string;
   /** Destino al tocar la alerta (la lista a la que lleva). */
   href?: string;
+  /**
+   * Los casos concretos DETRÁS del conteo, por nombre y con enlace
+   * directo a su ficha: un aviso que solo dice «N casos» y lleva a la
+   * lista completa obliga a buscar a ciegas entre todos.
+   */
+  items?: ItemAlerta[];
+}
+
+/** Hasta 8 casos por nombre; el resto se resume en un «y N más…». */
+function itemsNombrados<T>(
+  lista: T[],
+  nombre: (x: T) => string,
+  href: (x: T) => string,
+  hrefResto: string,
+): ItemAlerta[] {
+  const items = lista.slice(0, 8).map((x) => ({ texto: nombre(x), href: href(x) }));
+  if (lista.length > 8) items.push({ texto: `y ${lista.length - 8} más…`, href: hrefResto });
+  return items;
 }
 
 export interface EntradaAlertas {
@@ -314,11 +337,26 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
     out.push({ tipo: 'warn', texto: `${vacios} grupo(s) sin miembros activos`, href: '/miembros' });
   }
 
-  const estancadas = e.conversiones.filter(
-    (c) => c.estado === 'Nuevo' && diasSinMovimiento(c, e.hoy) > 14,
-  ).length;
-  if (estancadas > 0) {
-    out.push({ tipo: 'warn', texto: `${estancadas} conversión(es) nueva(s) sin movimiento hace más de 14 días`, href: '/mision' });
+  const estancadas = e.conversiones
+    .filter((c) => c.estado === 'Nuevo' && diasSinMovimiento(c, e.hoy) > 14)
+    .map((c) => ({ c, dias: diasSinMovimiento(c, e.hoy) }))
+    .sort((a, b) => b.dias - a.dias);
+  if (estancadas.length > 0) {
+    out.push({
+      tipo: 'warn',
+      texto: `${estancadas.length} conversión(es) nueva(s) sin movimiento hace más de 14 días`,
+      href: '/mision',
+      items: itemsNombrados(
+        estancadas,
+        ({ c, dias }) => {
+          const v = conversionConDatos(c, e.personasMap);
+          const nombre = `${v.nombre} ${v.apellido}`.trim() || 'Conversión sin nombre';
+          return `${nombre} · ${dias} días`;
+        },
+        ({ c }) => `/mision?ver=${c.id}`,
+        '/mision',
+      ),
+    });
   }
 
   const pausados = e.estudiantes.filter((x) => x.estado === 'Pausado').length;
@@ -326,17 +364,27 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
     out.push({ tipo: 'warn', texto: `${pausados} estudiante(s) en pausa`, href: '/academia' });
   }
 
-  let sinGrupo = 0;
-  let sinHermanoMayor = 0;
+  const sinGrupoLista: Miembro[] = [];
+  const sinHermanoMayorLista: Miembro[] = [];
   for (const m of e.miembros) {
     if (m.estado !== 'Activo') continue;
     const p = m.personaId ? e.personasMap.get(m.personaId) : undefined;
     if (!p) continue;
-    if (!p.grupoId) sinGrupo++;
-    if (!p.hermanoMayorId) sinHermanoMayor++;
+    if (!p.grupoId) sinGrupoLista.push(m);
+    if (!p.hermanoMayorId) sinHermanoMayorLista.push(m);
   }
-  if (sinGrupo > 0) {
-    out.push({ tipo: 'warn', texto: `${sinGrupo} miembro(s) activo(s) sin grupo asignado`, href: '/miembros' });
+  const itemsDeMiembros = (lista: Miembro[]): ItemAlerta[] =>
+    itemsNombrados(
+      lista,
+      (m) => {
+        const p = m.personaId ? e.personasMap.get(m.personaId) : undefined;
+        return p ? `${p.nombre} ${p.apellido}`.trim() : 'Miembro sin nombre';
+      },
+      (m) => `/miembros?ver=${m.id}`,
+      '/miembros',
+    );
+  if (sinGrupoLista.length > 0) {
+    out.push({ tipo: 'warn', texto: `${sinGrupoLista.length} miembro(s) activo(s) sin grupo asignado`, href: '/miembros', items: itemsDeMiembros(sinGrupoLista) });
   }
 
   const borrador = e.cursos.filter((c) => c.estado === 'Borrador').length;
@@ -344,8 +392,8 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
     out.push({ tipo: 'info', texto: `${borrador} curso(s) en borrador`, href: '/academia' });
   }
 
-  if (sinHermanoMayor > 0) {
-    out.push({ tipo: 'info', texto: `${sinHermanoMayor} miembro(s) activo(s) sin hermano mayor`, href: '/miembros' });
+  if (sinHermanoMayorLista.length > 0) {
+    out.push({ tipo: 'info', texto: `${sinHermanoMayorLista.length} miembro(s) activo(s) sin hermano mayor`, href: '/miembros', items: itemsDeMiembros(sinHermanoMayorLista) });
   }
 
   const sinLider = e.evangelismos.filter(

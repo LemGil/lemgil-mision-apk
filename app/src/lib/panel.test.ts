@@ -310,6 +310,37 @@ describe('alertas del Panel', () => {
     expect(diasSinMovimiento(conHistorial, HOY)).toBeLessThanOrEqual(14);
   });
 
+  it('la alerta de estancadas nombra los casos con sus días y enlace directo a su ficha', () => {
+    const ana = personaBase({ id: 'pa', nombre: 'Ana', apellido: 'Pérez' });
+    const luis = personaBase({ id: 'pl', nombre: 'Luis', apellido: 'Díaz' });
+    const a = alertasDelPanel(entrada({
+      conversiones: [
+        convBase({ id: 'v1', personaId: 'pa', nombre: '', apellido: '', estado: 'Nuevo', creado: '2026-10-20T12:00:00', historial: [] }),
+        convBase({ id: 'v2', personaId: 'pl', nombre: '', apellido: '', estado: 'Nuevo', creado: '2026-10-01T12:00:00', historial: [] }),
+      ],
+      personasMap: mapaPersonas([ana, luis]),
+    }));
+    const est = a.find((x) => x.texto.includes('sin movimiento'));
+    expect(est?.items).toHaveLength(2);
+    // Ordenadas por días descendente: Luis (45) antes que Ana (26).
+    expect(est!.items![0].texto).toContain('Luis Díaz');
+    expect(est!.items![0].texto).toContain('45 días');
+    expect(est!.items![0].href).toBe('/mision?ver=v2');
+    expect(est!.items![1].texto).toContain('Ana Pérez');
+    expect(est!.items![1].texto).toContain('26 días');
+    expect(est!.items![1].href).toBe('/mision?ver=v1');
+  });
+
+  it('los casos nombrados se cortan a 8 y el resto se resume', () => {
+    const muchas = Array.from({ length: 10 }, (_, i) =>
+      convBase({ id: `x${i}`, estado: 'Nuevo', creado: '2026-10-01T12:00:00', historial: [] }));
+    const a = alertasDelPanel(entrada({ conversiones: muchas }));
+    const est = a.find((x) => x.texto.includes('sin movimiento'));
+    expect(est?.items).toHaveLength(9);
+    expect(est!.items![8].texto).toContain('y 2 más');
+    expect(est!.items![8].href).toBe('/mision');
+  });
+
   it('la alerta de «sin conversiones este mes» no se genera con filtro de año', () => {
     const a = alertasDelPanel(entrada({ mesCount: 0, filterAno: '2025' }));
     expect(a.every((x) => x.tipo !== 'danger')).toBe(true);
@@ -331,6 +362,18 @@ describe('alertas del Panel', () => {
     expect(sg?.texto).toContain('1 miembro');
     expect(sg?.href).toBe('/miembros');
     expect(sh?.texto).toContain('1 miembro');
+  });
+
+  it('sin grupo y sin hermano mayor nombran al miembro y enlazan a su ficha', () => {
+    const pedro = personaBase({ id: 'p2', nombre: 'Pedro', apellido: 'Ruiz', grupoId: null, hermanoMayorId: null });
+    const a = alertasDelPanel(entrada({
+      miembros: [miembroBase({ id: 'm2', personaId: 'p2', estado: 'Activo' })],
+      personasMap: mapaPersonas([pedro]),
+    }));
+    const sg = a.find((x) => x.texto.includes('sin grupo'));
+    const sh = a.find((x) => x.texto.includes('sin hermano mayor'));
+    expect(sg?.items).toEqual([{ texto: 'Pedro Ruiz', href: '/miembros?ver=m2' }]);
+    expect(sh?.items).toEqual([{ texto: 'Pedro Ruiz', href: '/miembros?ver=m2' }]);
   });
 
   it('grupos vacíos por el conteo derivado, no por el contador guardado', () => {
@@ -361,7 +404,7 @@ describe('las rutas que usa el Panel existen en App.tsx', () => {
   });
   it('ninguna salida del panel apunta a una ruta inexistente', () => {
     for (const src of [panelSrc, dashSrc]) {
-      const destinos = [...src.matchAll(/(?:href:|to=|to=")\s*`?'?\/?([a-z-]+)/g)].map((m) => '/' + m[1]);
+      const destinos = [...src.matchAll(/(?:href:|to=)\s*['"`]\/([a-z-]+)/g)].map((m) => '/' + m[1]);
       for (const d of destinos) expect(rutas).toContain(d);
     }
   });
