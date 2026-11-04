@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
+import { PersonaFormModal } from '../../components/PersonaFormModal';
+import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
 import { edadDesde, nombrePersona, situacionPersona, tarjetasDeProcesos, PROCESO_ETIQUETA, SITUACION_BADGE } from '../../lib/personaVista';
 import type { ProcesosAgrupados } from '../../lib/personaVista';
 import type { Persona } from '../../lib/types';
 
 /**
- * FICHA ÚNICA (P1) — la persona, una sola vez, de SOLO LECTURA.
+ * FICHA ÚNICA (P1) — la persona, una sola vez.
  * Muestra el núcleo completo y una tarjeta por proceso con su resumen y
- * el enlace a su módulo. No edita datos personales ni de proceso: la
- * única escritura permitida en P1 es la herramienta «Unir personas»
- * (§5.5 del diseño), que llega por `onUnir`.
+ * el enlace a su módulo. El NÚCLEO sí se edita desde aquí: el botón
+ * «Editar datos» abre PersonaFormModal, el mismo formulario del núcleo
+ * que usan todos los módulos (en P1 la ficha nació de solo lectura;
+ * LemGil pidió después poder corregir los datos sin ir al módulo).
+ * Los datos de PROCESO no se editan aquí: cada proceso se gestiona en
+ * su módulo, al que llevan las tarjetas. Se suma la herramienta
+ * «Unir personas» (§5.5 del diseño), que llega por `onUnir`.
  */
 interface PersonaDetailModalProps {
   open: boolean;
@@ -32,9 +38,11 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
   const [unirId, setUnirId] = useState('');
   const [confirmando, setConfirmando] = useState(false);
   const [uniendo, setUniendo] = useState(false);
+  const [editando, setEditando] = useState(false);
 
-  // Al cambiar de persona, la herramienta de unión vuelve a su estado inicial.
-  useEffect(() => { setUnirId(''); setConfirmando(false); }, [persona?.id]);
+  // Al cambiar de persona, la herramienta de unión y el editor vuelven
+  // a su estado inicial.
+  useEffect(() => { setUnirId(''); setConfirmando(false); setEditando(false); }, [persona?.id]);
 
   if (!persona) {
     return <Modal open={open} onClose={onClose} title="👤 Ficha de persona" wide>{null}</Modal>;
@@ -60,6 +68,7 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
   };
 
   return (
+    <>
     <Modal open={open} onClose={onClose} title="👤 Ficha de persona" wide footer={<button className="btn btn-secondary" onClick={onClose}>Cerrar</button>}>
       {/* HERO */}
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', padding: '4px 0 18px', borderBottom: '1px solid var(--border)', marginBottom: 18 }}>
@@ -77,6 +86,9 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
             📍 {persona.zona || 'Sin zona'}{grupoNombre ? ` · 👥 ${grupoNombre}` : ''}
           </div>
         </div>
+        <button type="button" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }} onClick={() => setEditando(true)}>
+          ✏️ Editar datos
+        </button>
       </div>
 
       {/* NÚCLEO */}
@@ -147,5 +159,20 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
         </>
       )}
     </Modal>
+
+    {/* EDITAR EL NÚCLEO: el mismo PersonaFormModal de los módulos, con
+        la persona precargada. Se monta solo al abrir el editor (la
+        ficha cerrada no lleva ningún campo editable encima). Al
+        guardar, la página — que lee la persona con useLiveQuery —
+        re-renderiza la ficha ya con los datos nuevos. */}
+    {editando && (
+      <PersonaFormModal
+        open
+        onClose={() => setEditando(false)}
+        persona={persona}
+        onSaved={() => { setEditando(false); showToast('Datos de la persona actualizados'); }}
+      />
+    )}
+    </>
   );
 }

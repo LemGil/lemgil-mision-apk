@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PersonaDetailModal } from './PersonaDetailModal';
+import { db } from '../../lib/database';
 import { procesosVacios } from '../../lib/personaVista';
 import type { Conversion, Estudiante, Miembro, Persona } from '../../lib/types';
 
@@ -86,8 +87,9 @@ describe('Ficha única P1 — render de la ficha con procesos mezclados', () => 
     expect(screen.getAllByText(/Ver en su módulo/)).toHaveLength(2); // conversión y miembro abren su ficha
     expect(screen.getByText(/Ir a su módulo/)).toBeInTheDocument(); // estudiante: solo ir al módulo
 
-    // Solo lectura: ningún campo editable de datos personales; solo el
-    // selector de la herramienta «Unir personas».
+    // Sin el editor abierto, la ficha no muestra campos editables de
+    // datos personales (el editor es un modal aparte, bajo demanda);
+    // solo el selector de la herramienta «Unir personas».
     expect(container.querySelectorAll('input')).toHaveLength(0);
     expect(screen.getByText(/Unir personas/)).toBeInTheDocument();
   });
@@ -152,5 +154,84 @@ describe('Ficha única P1 — render de la ficha con procesos mezclados', () => 
     expect(screen.getByText('Ana Sola')).toBeInTheDocument();
     expect(screen.getByText('Sin procesos todavía')).toBeInTheDocument();
     expect(screen.getByText(/aún no tiene procesos/)).toBeInTheDocument();
+  });
+});
+
+describe('Ficha única — editar el núcleo desde la propia ficha', () => {
+  const renderFicha = () => render(
+    <MemoryRouter>
+      <PersonaDetailModal
+        open
+        onClose={() => {}}
+        persona={persona}
+        procesos={procesosVacios()}
+        otrasPersonas={[]}
+        onUnir={vi.fn(async () => {})}
+      />
+    </MemoryRouter>,
+  );
+
+  it('muestra el botón «Editar datos» en la ficha', () => {
+    renderFicha();
+    expect(screen.getByRole('button', { name: /Editar datos/ })).toBeInTheDocument();
+  });
+
+  it('al pulsar «Editar datos» se abre PersonaFormModal con los datos de la persona cargados', async () => {
+    renderFicha();
+    fireEvent.click(screen.getByRole('button', { name: /Editar datos/ }));
+    // El mismo formulario del núcleo que usan los módulos, en modo edición.
+    expect(await screen.findByText('✏️ Editar persona')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByPlaceholderText('Juan')).toHaveValue('María'));
+    expect(screen.getByPlaceholderText('Pérez')).toHaveValue('González');
+    expect(screen.getByPlaceholderText('85010112345')).toHaveValue('90050112345');
+    expect(screen.getByPlaceholderText('5551234')).toHaveValue('5551234');
+  });
+
+  describe('con la base sembrada (guardia de carné y guardado)', () => {
+    const otra: Persona = {
+      ...persona, id: 'p2', nombre: 'Lucía', apellido: 'Mora',
+      numeroIdentidad: '80020299999', telefono: '222', grupoId: null, hermanoMayorId: null,
+    };
+
+    beforeEach(async () => {
+      await db.personas.clear();
+      await db.personas.bulkAdd([persona, otra]);
+    });
+    afterEach(async () => { await db.personas.clear(); });
+
+    it('su propio carné NO la bloquea; el carné de otra persona, sí', async () => {
+      renderFicha();
+      fireEvent.click(screen.getByRole('button', { name: /Editar datos/ }));
+      const carnet = await screen.findByPlaceholderText('85010112345');
+      await waitFor(() => expect(carnet).toHaveValue('90050112345'));
+      const guardar = screen.getByRole('button', { name: /Guardar/ });
+
+      // Teclear el carné de Lucía despierta la guardia (prueba de que la
+      // lista de personas sí cargó de la base): aviso y Guardar bloqueado.
+      fireEvent.change(carnet, { target: { value: '80020299999' } });
+      expect(await screen.findByText(/Ya existe una persona con este Nº de Identidad/)).toBeInTheDocument();
+      expect(guardar).toBeDisabled();
+
+      // Al volver a SU carné, la guardia se apaga: su propio carné no es
+      // duplicado (buscarPorIdentidad excluye a la persona en edición).
+      fireEvent.change(carnet, { target: { value: '90050112345' } });
+      await waitFor(() => expect(screen.queryByText(/Ya existe una persona con este Nº de Identidad/)).not.toBeInTheDocument());
+      expect(guardar).not.toBeDisabled();
+    });
+
+    it('al guardar, el cambio queda en la base y el formulario se cierra', async () => {
+      renderFicha();
+      fireEvent.click(screen.getByRole('button', { name: /Editar datos/ }));
+      const tel = await screen.findByPlaceholderText('5551234');
+      await waitFor(() => expect(tel).toHaveValue('5551234'));
+      fireEvent.change(tel, { target: { value: '5559999' } });
+      fireEvent.click(screen.getByRole('button', { name: /Guardar/ }));
+      await waitFor(async () => {
+        expect((await db.personas.get('p1'))?.telefono).toBe('5559999');
+      });
+      // El editor se desmonta al guardar (la página, que lee con
+      // useLiveQuery, re-renderiza la ficha ya con el dato nuevo).
+      await waitFor(() => expect(screen.queryByText('✏️ Editar persona')).not.toBeInTheDocument());
+    });
   });
 });
