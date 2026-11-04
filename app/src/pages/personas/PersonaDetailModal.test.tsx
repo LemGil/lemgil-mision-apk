@@ -92,6 +92,50 @@ describe('Ficha única P1 — render de la ficha con procesos mezclados', () => 
     expect(screen.getByText(/Unir personas/)).toBeInTheDocument();
   });
 
+  it('muestra la situación actual junto a las insignias: miembro activo', () => {
+    const procesos = {
+      ...procesosVacios(),
+      conversiones: [conversion],
+      miembros: [miembro],
+    };
+    render(
+      <MemoryRouter>
+        <PersonaDetailModal
+          open
+          onClose={() => {}}
+          persona={persona}
+          procesos={procesos}
+          otrasPersonas={[]}
+          onUnir={vi.fn(async () => {})}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Miembro activo')).toBeInTheDocument();
+  });
+
+  it('caso Martha: solo conversión en Apartado → la ficha dice «Apartado» junto a su nombre', () => {
+    const procesos = {
+      ...procesosVacios(),
+      conversiones: [{ ...conversion, estado: 'Apartado' as Conversion['estado'] }],
+    };
+    render(
+      <MemoryRouter>
+        <PersonaDetailModal
+          open
+          onClose={() => {}}
+          persona={{ ...persona, nombre: 'Martha', apellido: 'Ajedres' }}
+          procesos={procesos}
+          otrasPersonas={[]}
+          onUnir={vi.fn(async () => {})}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Martha Ajedres')).toBeInTheDocument();
+    // La insignia de situación (texto exacto) — la tarjeta del proceso
+    // dice «Estado: Apartado · …», que no es coincidencia exacta.
+    expect(screen.getByText('Apartado')).toBeInTheDocument();
+  });
+
   it('una persona sin procesos lo dice con claridad', () => {
     render(
       <MemoryRouter>

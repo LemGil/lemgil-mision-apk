@@ -6,7 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { unirPersonas, vincularProceso } from '../lib/personas';
 import type { FichasDePersona } from '../lib/personas';
-import { agruparProcesos, filtrarPersonas, nombrePersona, procesosHuerfanos, tiposPresentes, PROCESO_ETIQUETA, PROCESO_ICONO } from '../lib/personaVista';
+import { agruparProcesos, filtrarPersonas, nombrePersona, posiblesDuplicados, procesosHuerfanos, situacionPersona, tiposPresentes, PROCESO_ETIQUETA, PROCESO_ICONO, SITUACION_BADGE } from '../lib/personaVista';
 import type { ProcesoHuerfano } from '../lib/personaVista';
 import { showToast } from '../lib/notification';
 import type { Persona } from '../lib/types';
@@ -46,6 +46,7 @@ export default function Personas() {
     return (cursoId: string) => porId.get(cursoId);
   }, [cursos]);
   const huerfanos = useMemo(() => procesosHuerfanos(data, idsPersonas, cursoNombre), [data, idsPersonas, cursoNombre]);
+  const duplicados = useMemo(() => posiblesDuplicados(personas), [personas]);
   const filtradas = useMemo(
     () => [...filtrarPersonas(personas, search)].sort((a, b) =>
       `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)),
@@ -114,6 +115,7 @@ export default function Personas() {
               {filtradas.map((p) => {
                 const g = agrupados.get(p.id) ?? procesosVacios();
                 const tipos = tiposPresentes(g);
+                const situacion = situacionPersona(g);
                 return (
                   <tr key={p.id}>
                     <td>
@@ -127,6 +129,9 @@ export default function Personas() {
                         {tipos.map((t) => (
                           <span key={t} className="badge badge-purple">{PROCESO_ICONO[t]} {PROCESO_ETIQUETA[t]}</span>
                         ))}
+                        {situacion && (
+                          <span className={`badge ${SITUACION_BADGE[situacion.tono]}`}>{situacion.texto}</span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -139,6 +144,45 @@ export default function Personas() {
           </table>
         )}
       </div>
+
+      {duplicados.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-header">
+            <div>
+              <div className="card-title">👥 POSIBLES DUPLICADOS</div>
+              <div className="card-sub">Sospechas para revisar: fichas que podrían ser la misma persona creada dos veces. Nada se une solo — el nombre por sí solo nunca une dos fichas. Si confirmas que es la misma persona, abre la ficha que debe quedar y usa «Unir personas»: se conservan los datos de ESA ficha y los procesos de la otra pasan a ella.</div>
+            </div>
+          </div>
+          {duplicados.map((g) => (
+            <div key={g.personas.map((p) => p.id).join('|')} style={{ padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13, marginBottom: 2 }}>
+                <strong>{nombrePersona(g.personas[0])}</strong>
+                <span style={{ color: 'var(--dim)', fontSize: 12 }}> · {g.senales.join(' · ')}</span>
+              </div>
+              {g.personas.map((p) => {
+                const tipos = tiposPresentes(agrupados.get(p.id) ?? procesosVacios());
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{nombrePersona(p)}</div>
+                      <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+                        {p.telefono || 'Sin teléfono'}{p.numeroIdentidad ? ` · 🪪 ${p.numeroIdentidad}` : ''}{p.zona ? ` · ${p.zona}` : ''}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {tipos.length === 0 && <span style={{ fontSize: 11, color: 'var(--dim)' }}>Sin procesos</span>}
+                      {tipos.map((t) => (
+                        <span key={t} className="badge badge-purple">{PROCESO_ICONO[t]} {PROCESO_ETIQUETA[t]}</span>
+                      ))}
+                    </div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setSelectedId(p.id)}>👁 Ver ficha</button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
 
       {huerfanos.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>

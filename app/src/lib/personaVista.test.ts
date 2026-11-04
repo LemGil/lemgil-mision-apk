@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   agruparProcesos, tiposPresentes, totalProcesos, tarjetasDeProcesos,
   procesosHuerfanos, filtrarPersonas, edadDesde, procesosVacios, contarPersonasUnicas,
+  posiblesDuplicados, situacionPersona,
 } from './personaVista';
 import type { FichasDePersona } from './personas';
 import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, Persona } from './types';
@@ -188,5 +189,181 @@ describe('Ficha única P1 — composición de la vista (personaVista)', () => {
     ];
     expect(contarPersonasUnicas(procesos)).toBe(3);
     expect(contarPersonasUnicas([])).toBe(0);
+  });
+});
+
+describe('posiblesDuplicados: sospechas para revisar, nunca uniones', () => {
+  it('mismo nombre normalizado (mayúsculas, acentos y espacios no importan) forma grupo', () => {
+    const a = personaBase({ id: 'p1', nombre: 'MARTHA', apellido: '  AJEDRES ', telefono: '', numeroIdentidad: '', fechaNacimiento: '' });
+    const b = personaBase({ id: 'p2', nombre: 'Martha', apellido: 'Ajedres', telefono: '5999888', numeroIdentidad: '', fechaNacimiento: '' });
+    const sinRelacion = personaBase({ id: 'p3', nombre: 'Juan', apellido: 'Pérez', telefono: '', numeroIdentidad: '', fechaNacimiento: '' });
+    const grupos = posiblesDuplicados([a, b, sinRelacion]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].personas.map((p) => p.id).sort()).toEqual(['p1', 'p2']);
+    expect(grupos[0].senales).toEqual(['mismo nombre']);
+  });
+
+  it('mismo teléfono (comparado por dígitos) con nombres distintos forma grupo', () => {
+    const a = personaBase({ id: 'p1', nombre: 'Juan', apellido: 'Pérez', telefono: '(555) 123-4', numeroIdentidad: '', fechaNacimiento: '' });
+    const b = personaBase({ id: 'p2', nombre: 'Pedro', apellido: 'Ruiz', telefono: '5551234', numeroIdentidad: '', fechaNacimiento: '' });
+    const grupos = posiblesDuplicados([a, b]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].senales).toEqual(['mismo teléfono']);
+  });
+
+  it('mismo Nº de Identidad (por dígitos) forma grupo', () => {
+    const a = personaBase({ id: 'p1', nombre: 'Ana', apellido: 'Díaz', telefono: '5111', numeroIdentidad: '85010112345', fechaNacimiento: '' });
+    const b = personaBase({ id: 'p2', nombre: 'Luisa', apellido: 'Mora', telefono: '5222', numeroIdentidad: '850101-12345', fechaNacimiento: '' });
+    const grupos = posiblesDuplicados([a, b]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].senales).toEqual(['mismo Nº de Identidad']);
+  });
+
+  it('mismo apellido normalizado + misma fecha de nacimiento forma grupo', () => {
+    const a = personaBase({ id: 'p1', nombre: 'Martha', apellido: 'Ajedres', telefono: '5111', numeroIdentidad: '', fechaNacimiento: '1990-05-01' });
+    const b = personaBase({ id: 'p2', nombre: 'Marta', apellido: 'ÁJEDRES', telefono: '5222', numeroIdentidad: '', fechaNacimiento: '1990-05-01' });
+    const grupos = posiblesDuplicados([a, b]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].senales).toEqual(['mismo apellido y fecha de nacimiento']);
+  });
+
+  it('dos personas sin ninguna señal NO forman grupo', () => {
+    const a = personaBase({ id: 'p1', nombre: 'Ana', apellido: 'Díaz', telefono: '5111', numeroIdentidad: '111', fechaNacimiento: '1990-01-01' });
+    const b = personaBase({ id: 'p2', nombre: 'Luis', apellido: 'Mora', telefono: '5222', numeroIdentidad: '222', fechaNacimiento: '1985-06-15' });
+    expect(posiblesDuplicados([a, b])).toEqual([]);
+    // El mismo apellido SIN la misma fecha de nacimiento tampoco alcanza.
+    const c = personaBase({ id: 'p3', nombre: 'Elena', apellido: 'Díaz', telefono: '5333', numeroIdentidad: '333', fechaNacimiento: '1992-03-03' });
+    expect(posiblesDuplicados([a, c])).toEqual([]);
+  });
+
+  it('una sola persona (o ninguna) nunca forma grupo', () => {
+    expect(posiblesDuplicados([])).toEqual([]);
+    expect(posiblesDuplicados([personaBase({ id: 'p1' })])).toEqual([]);
+  });
+
+  it('un grupo de tres unido por señales distintas se devuelve junto', () => {
+    const a = personaBase({ id: 'p1', nombre: 'Ana', apellido: 'Sol', telefono: '5111', numeroIdentidad: '', fechaNacimiento: '' });
+    const b = personaBase({ id: 'p2', nombre: 'ANA', apellido: 'SOL', telefono: '5222', numeroIdentidad: '', fechaNacimiento: '' });
+    const c = personaBase({ id: 'p3', nombre: 'Otra', apellido: 'Persona', telefono: '5222', numeroIdentidad: '', fechaNacimiento: '' });
+    const grupos = posiblesDuplicados([a, b, c]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].personas.map((p) => p.id).sort()).toEqual(['p1', 'p2', 'p3']);
+    expect(grupos[0].senales).toEqual(['mismo nombre', 'mismo teléfono']);
+  });
+
+  it('las señales múltiples entre las mismas fichas se acumulan sin duplicar', () => {
+    const a = personaBase({ id: 'p1', nombre: 'Ana', apellido: 'Sol', telefono: '5111', numeroIdentidad: '999', fechaNacimiento: '' });
+    const b = personaBase({ id: 'p2', nombre: 'Ana', apellido: 'Sol', telefono: '5111', numeroIdentidad: '999', fechaNacimiento: '' });
+    const grupos = posiblesDuplicados([a, b]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].senales).toEqual(['mismo nombre', 'mismo teléfono', 'mismo Nº de Identidad']);
+  });
+});
+
+describe('situacionPersona: la situación actual que la ficha sí dice', () => {
+  const grupo = (over: Partial<import('./personaVista').ProcesosAgrupados>): import('./personaVista').ProcesosAgrupados => ({
+    ...procesosVacios(), ...over,
+  });
+  // Estados fuera de la unión actual (registros viejos/sincronizados):
+  // se construyen con cast porque el tipo ya no los admite.
+  const miembroApartado = miembroBase({ id: 'm-ap' }) as Miembro;
+  (miembroApartado as { estado: string }).estado = 'Apartado';
+  const convSeguimiento = convBase({ id: 'c-seg' }) as Conversion;
+  (convSeguimiento as { estado: string }).estado = 'Seguimiento';
+
+  it('regla 1: conversión Fallecido → Fallecido (danger)', () => {
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'Fallecido' })] })))
+      .toEqual({ texto: 'Fallecido', tono: 'danger' });
+  });
+
+  it('regla 1: miembro Fallecido → Fallecido (danger)', () => {
+    expect(situacionPersona(grupo({ miembros: [miembroBase({ estado: 'Fallecido' })] })))
+      .toEqual({ texto: 'Fallecido', tono: 'danger' });
+  });
+
+  it('regla 1 gana a la 2: Fallecido manda sobre Apartado', () => {
+    expect(situacionPersona(grupo({
+      conversiones: [convBase({ estado: 'Apartado' })],
+      miembros: [miembroBase({ estado: 'Fallecido' })],
+    }))).toEqual({ texto: 'Fallecido', tono: 'danger' });
+  });
+
+  it('regla 2, caso Martha: SOLO conversión en Apartado → Apartado (warn)', () => {
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'Apartado' })] })))
+      .toEqual({ texto: 'Apartado', tono: 'warn' });
+  });
+
+  it('regla 2: Apartado también sale del miembro (registro viejo)', () => {
+    expect(situacionPersona(grupo({ miembros: [miembroApartado] })))
+      .toEqual({ texto: 'Apartado', tono: 'warn' });
+  });
+
+  it('regla 2 gana a la 5: miembro apartado manda sobre conversión Integrado', () => {
+    expect(situacionPersona(grupo({
+      conversiones: [convBase({ estado: 'Integrado' })],
+      miembros: [miembroApartado],
+    }))).toEqual({ texto: 'Apartado', tono: 'warn' });
+  });
+
+  it('regla 3: miembro Inactivo → Inactivo (warn), y gana a conversión Integrado', () => {
+    expect(situacionPersona(grupo({ miembros: [miembroBase({ estado: 'Inactivo' })] })))
+      .toEqual({ texto: 'Inactivo', tono: 'warn' });
+    expect(situacionPersona(grupo({
+      conversiones: [convBase({ estado: 'Integrado' })],
+      miembros: [miembroBase({ estado: 'Inactivo' })],
+    }))).toEqual({ texto: 'Inactivo', tono: 'warn' });
+  });
+
+  it('regla 4: miembro Activo → «Miembro activo» (ok)', () => {
+    expect(situacionPersona(grupo({ miembros: [miembroBase({ estado: 'Activo' })] })))
+      .toEqual({ texto: 'Miembro activo', tono: 'ok' });
+  });
+
+  it('regla 4 gana a la 6: miembro Activo manda sobre conversión en proceso', () => {
+    expect(situacionPersona(grupo({
+      conversiones: [convBase({ estado: 'Nuevo' })],
+      miembros: [miembroBase({ estado: 'Activo' })],
+    }))).toEqual({ texto: 'Miembro activo', tono: 'ok' });
+  });
+
+  it('regla 5: solo conversión Integrado → Integrado (ok)', () => {
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'Integrado' })] })))
+      .toEqual({ texto: 'Integrado', tono: 'ok' });
+  });
+
+  it('regla 6: conversión en proceso, una sola → su estado (info)', () => {
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'Discipulado' })] })))
+      .toEqual({ texto: 'Discipulado', tono: 'info' });
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'Nuevo' })] })))
+      .toEqual({ texto: 'Nuevo', tono: 'info' });
+  });
+
+  it('regla 6: entre varias en proceso gana la más avanzada (Bautizado > Discipulado > Nuevo)', () => {
+    expect(situacionPersona(grupo({
+      conversiones: [
+        convBase({ id: 'c1', estado: 'Nuevo' }),
+        convBase({ id: 'c2', estado: 'Bautizado' }),
+        convBase({ id: 'c3', estado: 'Discipulado' }),
+      ],
+    }))).toEqual({ texto: 'Bautizado', tono: 'info' });
+  });
+
+  it('regla 6: Discipulado gana a Seguimiento (orden del brief, registro viejo)', () => {
+    expect(situacionPersona(grupo({ conversiones: [convSeguimiento, convBase({ id: 'c2', estado: 'Discipulado' })] })))
+      .toEqual({ texto: 'Discipulado', tono: 'info' });
+    expect(situacionPersona(grupo({ conversiones: [convSeguimiento] })))
+      .toEqual({ texto: 'Seguimiento', tono: 'info' });
+  });
+
+  it('regla 7: solo estudiante → null (su tarjeta ya dice su estado)', () => {
+    expect(situacionPersona(grupo({ estudiantes: [estBase({})] }))).toBeNull();
+  });
+
+  it('regla 7: solo diezmador → null', () => {
+    expect(situacionPersona(grupo({ dadores: [diezmBase({}) as Diezmador] }))).toBeNull();
+  });
+
+  it('regla 7: sin procesos → null', () => {
+    expect(situacionPersona(procesosVacios())).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { fmt } from '../../lib/utils';
-import { edadDesde, nombrePersona, tarjetasDeProcesos, PROCESO_ETIQUETA } from '../../lib/personaVista';
+import { edadDesde, nombrePersona, situacionPersona, tarjetasDeProcesos, PROCESO_ETIQUETA, SITUACION_BADGE } from '../../lib/personaVista';
 import type { ProcesosAgrupados } from '../../lib/personaVista';
 import type { Persona } from '../../lib/types';
 
@@ -41,6 +41,7 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
   }
 
   const tarjetas = tarjetasDeProcesos(procesos, cursoNombre);
+  const situacion = situacionPersona(procesos);
   const iniciales = `${persona.nombre[0] || ''}${persona.apellido[0] || ''}`.toUpperCase();
   const edad = edadDesde(persona.fechaNacimiento);
   const absorbida = otrasPersonas.find((p) => p.id === unirId);
@@ -66,6 +67,7 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-display)' }}>{nombrePersona(persona)}</h2>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+            {situacion && <span className={`badge ${SITUACION_BADGE[situacion.tono]}`}>{situacion.texto}</span>}
             {tarjetas.length === 0 && <span className="badge badge-blue">Sin procesos todavía</span>}
             {Array.from(new Set(tarjetas.map((t) => t.proceso))).map((p) => (
               <span key={p} className="badge badge-purple">{PROCESO_ETIQUETA[p]}</span>

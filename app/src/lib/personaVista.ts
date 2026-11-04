@@ -93,6 +93,67 @@ export function contarPersonasUnicas(
   return ids.size;
 }
 
+export type TonoSituacion = 'danger' | 'warn' | 'ok' | 'info';
+
+export interface SituacionPersona {
+  texto: string;
+  tono: TonoSituacion;
+}
+
+/** Tono de la situación → clase de insignia existente en el CSS global. */
+export const SITUACION_BADGE: Record<TonoSituacion, string> = {
+  danger: 'badge-red',
+  warn: 'badge-yellow',
+  ok: 'badge-green',
+  info: 'badge-blue',
+};
+
+/**
+ * SITUACIÓN ACTUAL — la situación real de la persona, derivada de los
+ * estados de sus procesos. La página Personas solo listaba los PROCESOS
+ * («Conversión») y nunca decía cómo está la persona hoy (caso Martha:
+ * su conversión estaba en «Apartado» en Misión y Personas no lo decía
+ * en ningún sitio visible).
+ *
+ * Prioridad fija (gana la primera que aplica):
+ * 1. Fallecido (conversión o miembro) — la situación más definitiva.
+ * 2. Apartado — de la conversión; en el miembro se lee con tolerancia:
+ *    el tipo actual ya no trae «Apartado» para miembros (una conversión
+ *    apartada se refleja como miembro Inactivo), pero registros viejos
+ *    o sincronizados podrían traerlo y no debe esconderse.
+ * 3. Miembro Inactivo.
+ * 4. Miembro Activo → «Miembro activo».
+ * 5. Conversión Integrado → «Integrado».
+ * 6. Conversión en proceso: la más avanzada del camino de Misión
+ *    (Bautizado > Discipulado > Seguimiento > Nuevo; «Seguimiento» no
+ *    es estado del tipo actual, se ordena por si un registro viejo lo
+ *    trajera).
+ * Si ningún proceso dice su situación (solo estudiante/diezmador/
+ * beneficiario, o sin procesos) → null: sin insignia, porque la tarjeta
+ * de cada proceso ya muestra su propio estado.
+ */
+export function situacionPersona(g: ProcesosAgrupados): SituacionPersona | null {
+  const convs = g.conversiones;
+  const miembros = g.miembros;
+  if (convs.some((c) => c.estado === 'Fallecido') || miembros.some((m) => m.estado === 'Fallecido')) {
+    return { texto: 'Fallecido', tono: 'danger' };
+  }
+  if (convs.some((c) => c.estado === 'Apartado') || miembros.some((m) => (m.estado as string) === 'Apartado')) {
+    return { texto: 'Apartado', tono: 'warn' };
+  }
+  if (miembros.some((m) => m.estado === 'Inactivo')) return { texto: 'Inactivo', tono: 'warn' };
+  if (miembros.some((m) => m.estado === 'Activo')) return { texto: 'Miembro activo', tono: 'ok' };
+  if (convs.some((c) => c.estado === 'Integrado')) return { texto: 'Integrado', tono: 'ok' };
+  const avance: Record<string, number> = { Nuevo: 0, Seguimiento: 1, Discipulado: 2, Bautizado: 3 };
+  let mejor: string | null = null;
+  for (const c of convs) {
+    const nivel = avance[c.estado];
+    if (nivel !== undefined && (mejor === null || nivel > avance[mejor])) mejor = c.estado;
+  }
+  if (mejor !== null) return { texto: mejor, tono: 'info' };
+  return null;
+}
+
 export interface TarjetaProceso {
   proceso: ProcesoPersona;
   procesoId: string;
@@ -214,4 +275,117 @@ export function edadDesde(fechaNacimiento: string, referencia: Date = new Date()
 /** Nombre visible de una persona («Nombre Apellido», con respaldo). */
 export function nombrePersona(p: Pick<Persona, 'nombre' | 'apellido'>): string {
   return `${p.nombre} ${p.apellido}`.trim() || '(sin nombre)';
+}
+
+export interface GrupoDuplicado {
+  /** Las fichas sospechosas de ser la misma persona (siempre ≥2). */
+  personas: Persona[];
+  /** Por qué se sospecha: las señales que unen a las fichas del grupo. */
+  senales: string[];
+}
+
+const SENAL_NOMBRE = 'mismo nombre';
+const SENAL_TELEFONO = 'mismo teléfono';
+const SENAL_IDENTIDAD = 'mismo Nº de Identidad';
+const SENAL_APELLIDO_NACIMIENTO = 'mismo apellido y fecha de nacimiento';
+/** Orden fijo de presentación de las señales (determinista). */
+const ORDEN_SENALES = [SENAL_NOMBRE, SENAL_TELEFONO, SENAL_IDENTIDAD, SENAL_APELLIDO_NACIMIENTO];
+
+const soloDigitos = (s: string | undefined | null): string => (s ?? '').replace(/\D/g, '');
+const textoNormalizado = (s: string): string => normalizeField(s).replace(/\s+/g, ' ').trim();
+
+/**
+ * POSIBLES DUPLICADOS — sospechas para revisar, NUNCA uniones.
+ *
+ * La migración P0 solo unió fichas por carné o teléfono (regla de
+ * LemGil: el nombre solo jamás une), así que una misma persona pudo
+ * quedar creada dos veces — p. ej. su conversión en una ficha y su
+ * membresía en otra — y cada ficha muestra solo parte de su historia.
+ * Esta función SURFACE esos casos para que la persona decida con
+ * «Unir personas»: agrupa fichas (union-find) que comparten alguna
+ * señal fuerte y devuelve las señales para que se entienda la sospecha.
+ *
+ * Aristas entre dos fichas distintas:
+ * - mismo nombre completo normalizado (minúsculas, sin diacríticos,
+ *   espacios colapsados — la normalización de `normalizeField`);
+ * - mismo teléfono (solo dígitos, no vacío);
+ * - mismo Nº de Identidad (solo dígitos, no vacío);
+ * - mismo apellido normalizado + misma fecha de nacimiento (no vacía).
+ *
+ * Determinista y sin efectos: mismos datos → mismos grupos, en el
+ * mismo orden (fichas ordenadas por apellido/nombre/id, grupos por su
+ * primera ficha, señales en el orden fijo de ORDEN_SENALES).
+ */
+export function posiblesDuplicados(personas: Persona[]): GrupoDuplicado[] {
+  // Ids únicos (PK de Dexie); si la entrada trajera un id repetido, la
+  // primera aparición manda y la otra se ignora.
+  const unicas: Persona[] = [];
+  const vistos = new Set<string>();
+  for (const p of personas) {
+    if (vistos.has(p.id)) continue;
+    vistos.add(p.id);
+    unicas.push(p);
+  }
+  const n = unicas.length;
+  if (n < 2) return [];
+
+  // Union-find por índice, con las señales acumuladas por raíz.
+  const padre = unicas.map((_, i) => i);
+  const senalesPorRaiz = new Map<number, Set<string>>();
+  const raiz = (i: number): number => {
+    let r = i;
+    while (padre[r] !== r) r = padre[r];
+    while (padre[i] !== r) { const sig = padre[i]; padre[i] = r; i = sig; }
+    return r;
+  };
+  const unir = (a: number, b: number, senal: string) => {
+    const ra = raiz(a); const rb = raiz(b);
+    const set = senalesPorRaiz.get(ra) ?? new Set<string>();
+    set.add(senal);
+    if (rb !== ra) {
+      padre[rb] = ra;
+      for (const s of senalesPorRaiz.get(rb) ?? []) set.add(s);
+      senalesPorRaiz.delete(rb);
+    }
+    senalesPorRaiz.set(ra, set);
+  };
+  /** Une a todas las fichas que comparten una clave no vacía. */
+  const unirPorClave = (clave: (p: Persona) => string, senal: string) => {
+    const porClave = new Map<string, number>();
+    unicas.forEach((p, i) => {
+      const k = clave(p);
+      if (!k) return;
+      const previo = porClave.get(k);
+      if (previo === undefined) porClave.set(k, i);
+      else unir(previo, i, senal);
+    });
+  };
+
+  unirPorClave((p) => textoNormalizado(`${p.nombre} ${p.apellido}`), SENAL_NOMBRE);
+  unirPorClave((p) => soloDigitos(p.telefono), SENAL_TELEFONO);
+  unirPorClave((p) => soloDigitos(p.numeroIdentidad), SENAL_IDENTIDAD);
+  unirPorClave((p) => {
+    const apellido = textoNormalizado(p.apellido);
+    const nacimiento = (p.fechaNacimiento ?? '').trim();
+    return apellido && nacimiento ? `${apellido}|${nacimiento}` : '';
+  }, SENAL_APELLIDO_NACIMIENTO);
+
+  const porRaiz = new Map<number, number[]>();
+  unicas.forEach((_, i) => {
+    const r = raiz(i);
+    const lista = porRaiz.get(r) ?? [];
+    lista.push(i);
+    porRaiz.set(r, lista);
+  });
+
+  const claveOrden = (p: Persona) => `${textoNormalizado(`${p.apellido} ${p.nombre}`)}|${p.id}`;
+  const grupos: GrupoDuplicado[] = [];
+  for (const [r, indices] of porRaiz) {
+    if (indices.length < 2) continue;
+    const fichas = indices.map((i) => unicas[i]).sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)));
+    const set = senalesPorRaiz.get(r) ?? new Set<string>();
+    grupos.push({ personas: fichas, senales: ORDEN_SENALES.filter((s) => set.has(s)) });
+  }
+  grupos.sort((a, b) => claveOrden(a.personas[0]).localeCompare(claveOrden(b.personas[0])));
+  return grupos;
 }
