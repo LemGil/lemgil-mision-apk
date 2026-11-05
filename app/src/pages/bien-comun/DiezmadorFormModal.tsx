@@ -53,7 +53,7 @@ export function DiezmadorFormModal(props: DiezmadorFormModalProps) {
         <div className="form-section">👤 Persona (se teclea una sola vez)</div>
         <div className="form-group">
           <label className="form-label">Persona de este diezmador *</label>
-          <PersonaSelect value={dPersonaId} onChange={setDPersonaId} emptyLabel="🔍 Buscar persona o crearla…" />
+          <PersonaSelect value={dPersonaId} onChange={setDPersonaId} emptyLabel="🔍 Buscar persona…" />
         </div>
         {persona && (
           <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginTop: 8 }}>

@@ -13,11 +13,21 @@ interface PersonaSelectProps {
 }
 
 /**
- * Ficha única (P0): selector ÚNICO de personas para todos los módulos del
- * alcance — sustituye a los tres selectores caseros que copiaban datos
- * (origen del estudiante, «Buscar en Miembros» del diezmador, origen del
- * beneficiario). Buscar → elegir; si no está → crearla ahí mismo con el
- * formulario del núcleo. Nace en P0 sin uso en páginas (se conecta en P2–P5).
+ * Ficha única: selector de personas SOLO entre las ya registradas, con
+ * la puerta del registro inicial al lado.
+ *
+ * Modelo final (regla de LemGil, 2026-11-04 — «el ideal: un solo
+ * formulario, puerta en cada formulario de proceso»): un solo
+ * formulario escribe los datos de las personas nuevas —
+ * PersonaFormModal («➕ Nueva persona») — porque quien no existe en la
+ * base no se puede seleccionar: hay que teclear sus datos por primera
+ * vez. Ese formulario tiene varias puertas: la oficina del registro es
+ * la página Personas, y cada formulario de proceso abre la suya con el
+ * botón «➕ Nueva persona» junto a este selector; al guardar, la persona
+ * recién registrada queda SELECCIONADA aquí y se sigue donde se estaba,
+ * sin pantallas intermedias. La LISTA sigue conteniendo solo
+ * registradas: crear no es seleccionar, por eso la opción de crear no
+ * vive dentro de la lista sino en su propio botón.
  */
 export function PersonaSelect({ value, onChange, className, required, emptyLabel = 'Seleccionar persona…' }: PersonaSelectProps) {
   const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
@@ -26,30 +36,39 @@ export function PersonaSelect({ value, onChange, className, required, emptyLabel
 
   return (
     <>
-      <select
-        className={className || 'form-select'}
-        value={value}
-        required={required}
-        onChange={(e) => {
-          if (e.target.value === '__nueva__') setCreando(true);
-          else onChange(e.target.value);
-        }}
-      >
-        <option value="">{emptyLabel}</option>
-        {ordenadas.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.nombre} {p.apellido}{p.telefono ? ` · ${p.telefono}` : ''}
-          </option>
-        ))}
-        {value && !ordenadas.some((p) => p.id === value) && <option value={value}>📌 Persona existente</option>}
-        <option value="__nueva__">➕ Nueva persona…</option>
-      </select>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <select
+          className={className || 'form-select'}
+          style={{ flex: 1, minWidth: 0 }}
+          value={value}
+          required={required}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">{emptyLabel}</option>
+          {ordenadas.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nombre} {p.apellido}{p.telefono ? ` · ${p.telefono}` : ''}
+            </option>
+          ))}
+          {value && !ordenadas.some((p) => p.id === value) && <option value={value}>📌 Persona existente</option>}
+        </select>
+        <button type="button" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }} onClick={() => setCreando(true)}>
+          ➕ Nueva persona
+        </button>
+      </div>
 
-      <PersonaFormModal
-        open={creando}
-        onClose={() => setCreando(false)}
-        onSaved={(id) => { onChange(id); setCreando(false); }}
-      />
+      {/* REGISTRO INICIAL desde el proceso: el mismo PersonaFormModal
+          de siempre (el único que teclea datos de personas nuevas),
+          montado solo al abrirlo — Modal pinta sus hijos aunque esté
+          cerrado. Al guardar, onSaved trae el id y la persona queda
+          seleccionada en el formulario de proceso. */}
+      {creando && (
+        <PersonaFormModal
+          open
+          onClose={() => setCreando(false)}
+          onSaved={(id) => { onChange(id); setCreando(false); }}
+        />
+      )}
     </>
   );
 }

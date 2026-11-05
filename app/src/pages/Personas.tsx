@@ -11,20 +11,29 @@ import type { ProcesoHuerfano } from '../lib/personaVista';
 import { showToast } from '../lib/notification';
 import type { Persona } from '../lib/types';
 import { PersonaDetailModal } from './personas/PersonaDetailModal';
+import { PersonaFormModal } from '../components/PersonaFormModal';
 import { procesosVacios } from '../lib/personaVista';
 
 /**
- * FICHA ÚNICA (P1) — ruta /personas: la vista de SOLO LECTURA que se SUMA
- * a la app sin tocar ninguna ficha actual (decisión 2 del diseño).
+ * FICHA ÚNICA — ruta /personas: la casa de la persona en la app.
  * Lista de personas con buscador, su ficha completa con una tarjeta por
  * proceso, y las dos herramientas de enlace tardío de §5.5: «Vincular
  * proceso» (abajo, sobre los huérfanos) y «Unir personas» (en la ficha).
+ *
+ * Regla de LemGil (2026-11-04): SOLO un formulario escribe los datos de
+ * las personas nuevas — PersonaFormModal — y su puerta es ESTA página
+ * («➕ Nueva persona» en el encabezado): quien no existe en la base no
+ * se puede seleccionar, hay que teclear sus datos por primera vez. Los
+ * formularios de proceso solo seleccionan personas ya registradas
+ * (PersonaSelect ya no crea a nadie). El núcleo además se edita desde
+ * la propia ficha; lo de cada proceso se gestiona en su módulo.
  * La Red de Colaboradores no aparece: no es proceso de la persona.
  */
 export default function Personas() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creando, setCreando] = useState(false);
 
   const personas = useLiveQuery(() => db.personas.toArray()) ?? [];
   const conversiones = useLiveQuery(() => db.conversiones.toArray()) ?? [];
@@ -100,6 +109,7 @@ export default function Personas() {
             <div className="card-title">👤 FICHA ÚNICA DE PERSONAS</div>
             <div className="card-sub">Cada persona, una sola vez: su identidad y todos sus procesos en un sitio · {personas.length} persona(s)</div>
           </div>
+          <button type="button" className="btn btn-gold" onClick={() => setCreando(true)}>➕ Nueva persona</button>
         </div>
         <div className="search-bar">
           <input className="search-input" placeholder="🔍 Buscar por nombre, teléfono o Nº de Identidad..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -196,6 +206,18 @@ export default function Personas() {
             <FilaHuerfano key={`${h.proceso}:${h.id}`} huerfano={h} personas={personas} onVincular={handleVincular} />
           ))}
         </div>
+      )}
+
+      {/* REGISTRO INICIAL: el único formulario que teclea los datos de
+          una persona nueva vive aquí. Se monta solo al abrirlo (Modal
+          pinta sus hijos aunque esté cerrado). Al guardar, la ficha de
+          la persona recién creada queda abierta. */}
+      {creando && (
+        <PersonaFormModal
+          open
+          onClose={() => setCreando(false)}
+          onSaved={(id) => { setCreando(false); setSelectedId(id); }}
+        />
       )}
 
       <PersonaDetailModal

@@ -62,7 +62,7 @@ export function BeneficiarioFormModal(props: BeneficiarioFormModalProps) {
           {esPersona ? (
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <label className="form-label">Persona beneficiaria *</label>
-              <PersonaSelect value={bPersonaId} onChange={setBPersonaId} emptyLabel="🔍 Buscar persona o crearla…" />
+              <PersonaSelect value={bPersonaId} onChange={setBPersonaId} emptyLabel="🔍 Buscar persona…" />
             </div>
           ) : (
             <>

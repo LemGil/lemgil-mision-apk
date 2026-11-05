@@ -61,7 +61,7 @@ export function EvangelismoFormModal(props: EvangelismoFormModalProps) {
           <div className="form-group"><label className="form-label">Fecha *</label><input className="form-input" type="date" value={eFecha} onChange={(e) => setEFecha(e.target.value)} /></div>
           <div className="form-group"><label className="form-label">Zona</label><ZonaSelect value={eZona} onChange={setEZona} allowEmpty={false} emptyLabel="" /></div>
           <div className="form-group"><label className="form-label">Ministro (persona)</label>
-            <PersonaSelect value={eLiderId} onChange={(id) => { setELiderId(id); if (id) setELiderExterno(''); }} emptyLabel="🔍 Buscar ministro o crearlo…" />
+            <PersonaSelect value={eLiderId} onChange={(id) => { setELiderId(id); if (id) setELiderExterno(''); }} emptyLabel="🔍 Buscar ministro…" />
             {!eLiderId && (
               <input className="form-input" style={{ marginTop: 8 }} placeholder="…o escribe su nombre si no tiene ficha" value={eLiderExterno} onChange={(e) => setELiderExterno(e.target.value)} />
             )}
