@@ -6,7 +6,7 @@ import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
 import { edadDesde, nombrePersona, situacionPersona, tarjetasDeProcesos, PROCESO_ETIQUETA, SITUACION_BADGE } from '../../lib/personaVista';
 import type { ProcesosAgrupados } from '../../lib/personaVista';
-import type { Persona } from '../../lib/types';
+import type { PasoSeguimiento, Persona } from '../../lib/types';
 
 /**
  * FICHA ÚNICA (P1) — la persona, una sola vez.
@@ -27,13 +27,15 @@ interface PersonaDetailModalProps {
   grupoNombre?: string;
   hermanoMayorNombre?: string;
   cursoNombre?: (cursoId: string) => string | undefined;
+  /** Catálogo de pasos (Fase 2): la situación y la tarjeta de conversión nombran el estado con su etiqueta viva. */
+  pasosMision?: PasoSeguimiento[];
   /** Todas las demás personas, para la herramienta «Unir personas». */
   otrasPersonas: Persona[];
   onUnir: (absorbidaId: string) => Promise<void>;
 }
 
 export function PersonaDetailModal(props: PersonaDetailModalProps) {
-  const { open, onClose, persona, procesos, grupoNombre, hermanoMayorNombre, cursoNombre, otrasPersonas, onUnir } = props;
+  const { open, onClose, persona, procesos, grupoNombre, hermanoMayorNombre, cursoNombre, pasosMision, otrasPersonas, onUnir } = props;
   const navigate = useNavigate();
   const [unirId, setUnirId] = useState('');
   const [confirmando, setConfirmando] = useState(false);
@@ -48,8 +50,8 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
     return <Modal open={open} onClose={onClose} title="👤 Ficha de persona" wide>{null}</Modal>;
   }
 
-  const tarjetas = tarjetasDeProcesos(procesos, cursoNombre);
-  const situacion = situacionPersona(procesos);
+  const tarjetas = tarjetasDeProcesos(procesos, cursoNombre, pasosMision);
+  const situacion = situacionPersona(procesos, pasosMision);
   const iniciales = `${persona.nombre[0] || ''}${persona.apellido[0] || ''}`.toUpperCase();
   const edad = edadDesde(persona.fechaNacimiento);
   const absorbida = otrasPersonas.find((p) => p.id === unirId);

@@ -25,7 +25,16 @@ export interface Conversion {
   fechaBautismo: string;
   conyuge: string;
   hijos: string;
-  estado: 'Nuevo' | 'Discipulado' | 'Bautizado' | 'Integrado' | 'Apartado' | 'Fallecido';
+  /**
+   * Fase 2 (pasos editables): el estado guarda la IDENTIDAD del paso del
+   * catálogo `pasosSeguimiento` (ámbito 'mision': 'ps-nuevo',
+   * 'ps-discipulado', …), ya no la etiqueta. La etiqueta vive en el
+   * catálogo y se resuelve al pintar (lib/pasosMision.ts); renombrar un
+   * paso no toca ninguna ficha. Los registros anteriores a la Fase 2
+   * traen la etiqueta vieja y el pase `migrarEstadosAPasos` los traduce
+   * al arrancar; la lectura tolera ambas formas (alias en pasosMision).
+   */
+  estado: string;
   /** P0.1: Nº de Identidad capturado en esta ficha (la migración lo sube al núcleo). */
   numeroIdentidad?: string;
   /** Ficha única (P0): la persona dueña de este proceso (→ personas.id). */
@@ -519,6 +528,17 @@ export interface Hito {
 export type FuentePasoSeguimiento = 'integracion' | 'grupo' | 'academia' | 'ministerio' | 'hermanoMayor' | 'manual';
 
 /**
+ * Fase 2: el ROL de un paso del ámbito 'mision' dentro del camino.
+ * - inicio: el primer paso (protegido; las conversiones nacen aquí).
+ * - camino: pasos intermedios libres (agregar/quitar/reordenar).
+ * - gozne: el paso que crea al miembro (protegido; ancla de syncMember).
+ * - salida: salidas del camino (Apartado/Fallecido; protegidas, fijas
+ *   al final, no forman parte de la ruta de avance).
+ * En el ámbito 'miembro' el rol no aplica (manda la `fuente`).
+ */
+export type RolPasoSeguimiento = 'inicio' | 'camino' | 'gozne' | 'salida';
+
+/**
  * Un paso del seguimiento EDITABLE (modelo aprobado por LemGil
  * 2026-11-05): la identidad (`id`) es fija para siempre; la etiqueta
  * (`nombre`, `emoji`) y el orden son libres, para adaptarlos según el
@@ -535,6 +555,8 @@ export interface PasoSeguimiento {
   emoji: string;
   orden: number;
   fuente: FuentePasoSeguimiento;
+  /** Solo ámbito 'mision' (Fase 2): su papel en el camino. */
+  rol?: RolPasoSeguimiento;
   protegido?: boolean;
   creado: string;
   version: number;

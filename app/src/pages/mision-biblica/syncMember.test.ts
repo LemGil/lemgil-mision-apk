@@ -56,7 +56,7 @@ const convBase = (over: Partial<Conversion> = {}): Conversion => ({
   fechaBautismo: "",
   conyuge: "",
   hijos: "",
-  estado: "Integrado",
+  estado: "ps-integrado",
   personaId: "p-juan",
   notas: "",
   historial: [],
@@ -151,8 +151,8 @@ describe("syncMemberFromConversion (P2: proceso miembro sobre la misma persona)"
     const id = await syncMemberFromConversion(convBase({
       fecha: "2024-01-15",
       historial: [
-        { fecha: "2024-01-15", estado: "Nuevo", nota: "Registro inicial" },
-        { fecha: "2025-06-20", estado: "Integrado", nota: "Se integró" },
+        { fecha: "2024-01-15", estado: "ps-nuevo", nota: "Registro inicial" },
+        { fecha: "2025-06-20", estado: "ps-integrado", nota: "Se integró" },
       ],
     }));
     const m = await db.miembros.get(id!);
@@ -171,8 +171,8 @@ describe("syncMemberFromConversion (P2: proceso miembro sobre la misma persona)"
     expect(m?.fechaIngreso).toBe(hoy);
   });
 
-  it("una conversión que no está Integrado no crea miembro", async () => {
-    const id = await syncMemberFromConversion(convBase({ estado: "Discipulado" }));
+  it("una conversión que no está en el gozne no crea miembro", async () => {
+    const id = await syncMemberFromConversion(convBase({ estado: "ps-discipulado" }));
     expect(id).toBeNull();
     expect(await db.miembros.count()).toBe(0);
   });

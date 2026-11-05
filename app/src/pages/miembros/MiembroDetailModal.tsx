@@ -6,6 +6,7 @@ import { showToast } from '../../lib/notification';
 import { accentStyle, fmt } from '../../lib/utils';
 import { reflejarFallecimientoEnConversion } from '../../lib/propagacion';
 import { escaleraDeMiembro } from '../../lib/pasosMiembro';
+import { etiquetaDe } from '../../lib/pasosMision';
 import type { Conversion, Estudiante, Grupo, Hito, Miembro, MiembroMinisterio, Ministerio, PasoSeguimiento, Persona } from '../../lib/types';
 import { CIVIL_BADGE, EST_BADGE, HITO_BADGE, HITO_TIPOS, ROLES, aniosEnIglesia, calcAge, diasEnIglesia, diasHastaCumple } from './constants';
 
@@ -154,7 +155,7 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Origen — Conversión</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--oro-sombra)' }}>Convertido el {fmt(conversionOrigen.fecha)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Estado en Misión Bíblica: <strong>{conversionOrigen.estado}</strong>{conversionOrigen.lider ? ` · Mayor: ${conversionOrigen.lider}` : ''}</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Estado en Misión Bíblica: <strong>{etiquetaDe(pasosSeguimiento, conversionOrigen.estado)}</strong>{conversionOrigen.lider ? ` · Mayor: ${conversionOrigen.lider}` : ''}</div>
                 </div>
                 <button type="button" className="btn btn-gold btn-sm" onClick={() => navigate(`/mision?ver=${conversionOrigen.id}`)}>Ver conversión →</button>
               </div>

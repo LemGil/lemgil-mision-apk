@@ -9,6 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { MS_FULL, fmt, monthKey, inRange, money } from '../lib/utils';
+import { esGozne } from '../lib/pasosMision';
 import { showToast } from '../lib/notification';
 
 const num = (n: number) => n.toLocaleString('en-US');
@@ -18,6 +19,7 @@ type Tab = 'actual' | 'historial';
 
 export default function Reportes() {
   const convs = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray(), []) ?? [];
   const personasReg = useLiveQuery(() => db.personas.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
@@ -109,7 +111,8 @@ export default function Reportes() {
       const mk = monthKey(c.fecha);
       return mk >= mkDesde && mk <= mkHasta;
     }).length;
-    const convIntegrados = conv.filter((c) => c.estado === 'Integrado').length;
+    // Fase 2: «integrados» = conversiones en el paso-GOZNE del catálogo.
+    const convIntegrados = conv.filter((c) => esGozne(pasosSeguimiento, c.estado)).length;
     const evang = enRango(evangels);
     const evangContactos = evang.reduce((s, e) => s + (e.contactos || 0), 0);
     // P2 (§3.5): la cifra de conversiones del evangelismo es DERIVADA — las
@@ -180,7 +183,7 @@ export default function Reportes() {
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
     };
-  }, [convs, personasReg, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, desde, hasta]);
+  }, [convs, personasReg, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, pasosSeguimiento, desde, hasta]);
 
   /* Constructores de exportación compartidos: el cálculo en vivo y el
      snapshot guardado (Historial) exportan con el MISMO formato. */

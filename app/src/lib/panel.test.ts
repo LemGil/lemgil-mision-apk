@@ -25,7 +25,7 @@ const convBase = (over: Partial<Conversion> = {}): Conversion => ({
   edad: '', direccion: '', familia: '', fecha: '2026-01-15', zona: 'Norte',
   lider: '', grupoId: '', hermanoMayorId: null, email: '', profesion: '',
   bautizado: false, fechaBautismo: '', conyuge: '', hijos: '',
-  estado: 'Nuevo', notas: '', historial: [], creado: '2026-01-15T10:00:00',
+  estado: 'ps-nuevo', notas: '', historial: [], creado: '2026-01-15T10:00:00',
   version: 1, ...over,
 });
 
@@ -85,7 +85,7 @@ describe('actividad reciente del Panel', () => {
   it('resuelve nombre, zona y líder desde la persona (la ficha cruda viene vacía)', () => {
     const cruda = convBase({
       id: 'c9', nombre: '', apellido: '', zona: '', lider: '', personaId: 'p1',
-      estado: 'Nuevo', creado: '2026-11-10T10:00:00',
+      estado: 'ps-nuevo', creado: '2026-11-10T10:00:00',
     });
     const [a] = actividadReciente({
       conversiones: [cruda], evangelismos: [], estudiantes: [], certificados: [],
@@ -145,7 +145,7 @@ describe('resumen de grupos desde el conteo derivado', () => {
   });
 
   it('una conversión en proceso también ocupa el grupo', () => {
-    const r = resumenGrupos([grupo('g1', 0)], [], [convBase({ grupoId: 'g1', estado: 'Discipulado' })]);
+    const r = resumenGrupos([grupo('g1', 0)], [], [convBase({ grupoId: 'g1', estado: 'ps-discipulado' })]);
     expect(r.activos).toBe(1);
     expect(r.vacios).toBe(0);
   });
@@ -281,7 +281,7 @@ describe('alertas del Panel', () => {
       grupos: [grupo('g1', 0)],
       miembros: [miembroBase({ personaId: 'ps', estado: 'Activo' })],
       personasMap: mapaPersonas([pSin]),
-      conversiones: [convBase({ id: 'cv', estado: 'Nuevo', creado: '2026-10-20T12:00:00', historial: [] })],
+      conversiones: [convBase({ id: 'cv', estado: 'ps-nuevo', creado: '2026-10-20T12:00:00', historial: [] })],
       estudiantes: [estBase({ estado: 'Pausado' })],
       cursos: [cursoBase({ estado: 'Borrador' })],
       evangelismos: [evangBase()],
@@ -294,8 +294,8 @@ describe('alertas del Panel', () => {
   });
 
   it('conversiones estancadas: >14 días sin movimiento cuentan; las recientes o con historial fresco, no', () => {
-    const vieja = convBase({ id: 'v', estado: 'Nuevo', creado: '2026-10-20T12:00:00', historial: [] });
-    const reciente = convBase({ id: 'r', estado: 'Nuevo', creado: '2026-11-12T12:00:00', historial: [] });
+    const vieja = convBase({ id: 'v', estado: 'ps-nuevo', creado: '2026-10-20T12:00:00', historial: [] });
+    const reciente = convBase({ id: 'r', estado: 'ps-nuevo', creado: '2026-11-12T12:00:00', historial: [] });
     const conHistorial = convBase({
       id: 'h', estado: 'Nuevo', creado: '2026-10-01T12:00:00',
       historial: [{ fecha: '2026-11-13', estado: 'Nuevo', nota: 'Visita de seguimiento' }],
@@ -315,7 +315,7 @@ describe('alertas del Panel', () => {
     const luis = personaBase({ id: 'pl', nombre: 'Luis', apellido: 'Díaz' });
     const a = alertasDelPanel(entrada({
       conversiones: [
-        convBase({ id: 'v1', personaId: 'pa', nombre: '', apellido: '', estado: 'Nuevo', creado: '2026-10-20T12:00:00', historial: [] }),
+        convBase({ id: 'v1', personaId: 'pa', nombre: '', apellido: '', estado: 'ps-nuevo', creado: '2026-10-20T12:00:00', historial: [] }),
         convBase({ id: 'v2', personaId: 'pl', nombre: '', apellido: '', estado: 'Nuevo', creado: '2026-10-01T12:00:00', historial: [] }),
       ],
       personasMap: mapaPersonas([ana, luis]),

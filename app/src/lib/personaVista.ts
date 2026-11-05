@@ -1,6 +1,7 @@
 import { normalizeField } from './csvImport';
 import { fmt } from './utils';
-import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, Persona } from './types';
+import { PS_APARTADO, PS_FALLECIDO, enCamino, esGozne, etiquetaDe, idCanonico, indiceEnRuta } from './pasosMision';
+import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, PasoSeguimiento, Persona } from './types';
 import type { FichasDePersona, ProcesoPersona } from './personas';
 
 /**
@@ -123,34 +124,41 @@ export const SITUACION_BADGE: Record<TonoSituacion, string> = {
  *    o sincronizados podrían traerlo y no debe esconderse.
  * 3. Miembro Inactivo.
  * 4. Miembro Activo → «Miembro activo».
- * 5. Conversión Integrado → «Integrado».
- * 6. Conversión en proceso: la más avanzada del camino de Misión
- *    (Bautizado > Discipulado > Seguimiento > Nuevo; «Seguimiento» no
- *    es estado del tipo actual, se ordena por si un registro viejo lo
- *    trajera).
+ * 5. Conversión en el paso-gozne → su etiqueta viva («Integrado»).
+ * 6. Conversión en proceso: la más avanzada de la RUTA del catálogo
+ *    de pasos de Misión (Fase 2; el «Seguimiento» legado entra por el
+ *    alias como Discipulado).
  * Si ningún proceso dice su situación (solo estudiante/diezmador/
  * beneficiario, o sin procesos) → null: sin insignia, porque la tarjeta
  * de cada proceso ya muestra su propio estado.
  */
-export function situacionPersona(g: ProcesosAgrupados): SituacionPersona | null {
+export function situacionPersona(g: ProcesosAgrupados, pasos?: PasoSeguimiento[]): SituacionPersona | null {
   const convs = g.conversiones;
   const miembros = g.miembros;
-  if (convs.some((c) => c.estado === 'Fallecido') || miembros.some((m) => m.estado === 'Fallecido')) {
-    return { texto: 'Fallecido', tono: 'danger' };
+  // Fase 2: los estados de la conversión se razonan por IDENTIDAD de
+  // paso y el texto de la insignia es la ETIQUETA VIVA del catálogo
+  // (si la iglesia renombra «Integrado», Personas lo dice con el nombre
+  // nuevo). Sin catálogo a la mano vale la semilla de pasosMision.
+  if (convs.some((c) => idCanonico(c.estado) === PS_FALLECIDO) || miembros.some((m) => m.estado === 'Fallecido')) {
+    return { texto: etiquetaDe(pasos, PS_FALLECIDO), tono: 'danger' };
   }
-  if (convs.some((c) => c.estado === 'Apartado') || miembros.some((m) => (m.estado as string) === 'Apartado')) {
-    return { texto: 'Apartado', tono: 'warn' };
+  if (convs.some((c) => idCanonico(c.estado) === PS_APARTADO) || miembros.some((m) => (m.estado as string) === 'Apartado')) {
+    return { texto: etiquetaDe(pasos, PS_APARTADO), tono: 'warn' };
   }
   if (miembros.some((m) => m.estado === 'Inactivo')) return { texto: 'Inactivo', tono: 'warn' };
   if (miembros.some((m) => m.estado === 'Activo')) return { texto: 'Miembro activo', tono: 'ok' };
-  if (convs.some((c) => c.estado === 'Integrado')) return { texto: 'Integrado', tono: 'ok' };
-  const avance: Record<string, number> = { Nuevo: 0, Seguimiento: 1, Discipulado: 2, Bautizado: 3 };
-  let mejor: string | null = null;
+  const enElGozne = convs.find((c) => esGozne(pasos, c.estado));
+  if (enElGozne) return { texto: etiquetaDe(pasos, enElGozne.estado), tono: 'ok' };
+  // En proceso: la más avanzada según su posición en la RUTA del
+  // catálogo (el alias mapea el «Seguimiento» legado al Discipulado).
+  let mejor: Conversion | null = null;
+  let mejorNivel = -1;
   for (const c of convs) {
-    const nivel = avance[c.estado];
-    if (nivel !== undefined && (mejor === null || nivel > avance[mejor])) mejor = c.estado;
+    if (!enCamino(pasos, c.estado)) continue;
+    const nivel = indiceEnRuta(pasos, c.estado);
+    if (nivel > mejorNivel) { mejorNivel = nivel; mejor = c; }
   }
-  if (mejor !== null) return { texto: mejor, tono: 'info' };
+  if (mejor !== null) return { texto: etiquetaDe(pasos, mejor.estado), tono: 'info' };
   return null;
 }
 
@@ -168,12 +176,12 @@ export interface TarjetaProceso {
 
 type CursoNombre = (cursoId: string) => string | undefined;
 
-function tarjetaDe(proceso: ProcesoPersona, r: RegistroProceso, cursoNombre?: CursoNombre): TarjetaProceso {
+function tarjetaDe(proceso: ProcesoPersona, r: RegistroProceso, cursoNombre?: CursoNombre, pasos?: PasoSeguimiento[]): TarjetaProceso {
   const base = { proceso, procesoId: r.id, icono: PROCESO_ICONO[proceso], titulo: PROCESO_ETIQUETA[proceso] };
   switch (proceso) {
     case 'conversiones': {
       const c = r as Conversion;
-      return { ...base, lineas: [`Estado: ${c.estado}`, `Convertido el ${fmt(c.fecha)}`], ruta: `/mision?ver=${c.id}`, abreFicha: true };
+      return { ...base, lineas: [`Estado: ${etiquetaDe(pasos, c.estado)}`, `Convertido el ${fmt(c.fecha)}`], ruta: `/mision?ver=${c.id}`, abreFicha: true };
     }
     case 'miembros': {
       const m = r as Miembro;
@@ -196,10 +204,10 @@ function tarjetaDe(proceso: ProcesoPersona, r: RegistroProceso, cursoNombre?: Cu
 }
 
 /** Una tarjeta-resumen por cada proceso del grupo (varias si hubiera más de uno del mismo tipo). */
-export function tarjetasDeProcesos(g: ProcesosAgrupados, cursoNombre?: CursoNombre): TarjetaProceso[] {
+export function tarjetasDeProcesos(g: ProcesosAgrupados, cursoNombre?: CursoNombre, pasos?: PasoSeguimiento[]): TarjetaProceso[] {
   const tarjetas: TarjetaProceso[] = [];
   for (const p of ORDEN_PROCESOS) {
-    for (const r of g[p]) tarjetas.push(tarjetaDe(p, r, cursoNombre));
+    for (const r of g[p]) tarjetas.push(tarjetaDe(p, r, cursoNombre, pasos));
   }
   return tarjetas;
 }

@@ -17,14 +17,14 @@ describe("Conteo único de grupo (B4)", () => {
     miembro("m6", null, "Activo"),
   ];
   const conversiones: Conversion[] = [
-    conv("c1", "g1", "Nuevo"),
-    conv("c2", "g1", "Discipulado"),
-    conv("c3", "g1", "Discipulado"),
-    conv("c4", "g1", "Bautizado"),
-    conv("c5", "g1", "Integrado"),
-    conv("c6", "g1", "Apartado"),
-    conv("c7", "g1", "Fallecido"),
-    conv("c8", "g2", "Nuevo"),
+    conv("c1", "g1", "ps-nuevo"),
+    conv("c2", "g1", "ps-discipulado"),
+    conv("c3", "g1", "ps-discipulado"),
+    conv("c4", "g1", "ps-bautizado"),
+    conv("c5", "g1", "ps-integrado"),
+    conv("c6", "g1", "ps-apartado"),
+    conv("c7", "g1", "ps-fallecido"),
+    conv("c8", "g2", "ps-nuevo"),
   ];
 
   it("grupo mixto: total = miembros activos + conversiones en proceso", () => {

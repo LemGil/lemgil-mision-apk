@@ -4,6 +4,7 @@ import { createBaseRecord } from '../../lib/utils/recordHelpers';
 import { today } from '../../lib/utils';
 import { showToast } from '../../lib/notification';
 import { asegurarPersonaDeConversion } from '../../lib/personas';
+import { esGozne, tipoHitoDe } from '../../lib/pasosMision';
 import type { Conversion, Miembro } from '../../lib/types';
 
 /**
@@ -24,15 +25,19 @@ import type { Conversion, Miembro } from '../../lib/types';
  *   asegura con la regla determinista de la migración (lib/personas.ts).
  */
 export const syncMemberFromConversion = async (c: Conversion): Promise<string | null> => {
-  if (c.estado !== 'Integrado') return null;
+  // Fase 2: el miembro nace al llegar al paso-GOZNE del catálogo, sea
+  // cual sea su etiqueta viva ('ps-integrado' por identidad; el alias
+  // tolera fichas aún con la etiqueta vieja).
+  const pasos = await db.pasosSeguimiento.toArray();
+  if (!esGozne(pasos, c.estado)) return null;
   // A1: si el miembro de esta conversión fue eliminado a propósito, no recrearlo.
   if (c.miembroDescartado) return null;
   const existing = await db.miembros.where('conversionId').equals(c.id).first();
   if (existing) return null;
   const now = new Date().toISOString();
-  // A4: el ingreso es la fecha en que llegó a «Integrado» según el historial;
+  // A4: el ingreso es la fecha en que llegó al gozne según el historial;
   // si el historial no lo registra, hoy. Nunca la fecha de conversión.
-  const fechaIngreso = c.historial?.find((h) => h.estado === 'Integrado')?.fecha || today();
+  const fechaIngreso = c.historial?.find((h) => esGozne(pasos, h.estado))?.fecha || today();
 
   // La persona de la conversión (las altas nuevas ya nacen enlazadas; una
   // ficha vieja puede no traerla y se asegura aquí, sin copiar nada).
@@ -50,7 +55,7 @@ export const syncMemberFromConversion = async (c: Conversion): Promise<string | 
       id: uuid(),
       miembroId: deLaPersona.id,
       fecha: fechaIngreso,
-      tipo: 'Integración',
+      tipo: tipoHitoDe(c.estado),
       descripcion: descripcionHito,
       creado: now,
     }));
@@ -94,7 +99,7 @@ export const syncMemberFromConversion = async (c: Conversion): Promise<string | 
     id: uuid(),
     miembroId,
     fecha: fechaIngreso,
-    tipo: 'Integración',
+    tipo: tipoHitoDe(c.estado),
     descripcion: descripcionHito,
     creado: now,
   }));

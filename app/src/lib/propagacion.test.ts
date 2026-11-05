@@ -28,7 +28,7 @@ const convBase: Conversion = {
   fechaBautismo: "",
   conyuge: "",
   hijos: "",
-  estado: "Integrado",
+  estado: "ps-integrado",
   notas: "Contactada en campaña",
   historial: [],
   creado: "2026-01-10T00:00:00.000Z",
@@ -48,14 +48,14 @@ describe("reflejarFallecimientoEnConversion (B3, sentido inverso)", () => {
     await db.conversiones.add(convBase);
     await reflejarFallecimientoEnConversion({ estado: "Fallecido", conversionId: "c1" });
     const conv = await db.conversiones.get("c1");
-    expect(conv?.estado).toBe("Fallecido");
+    expect(conv?.estado).toBe("ps-fallecido");
     expect(conv?.historial).toEqual([
-      { fecha: today(), estado: "Fallecido", nota: "Marcado fallecido desde Miembros" },
+      { fecha: today(), estado: "ps-fallecido", nota: "Marcado fallecido desde Miembros" },
     ]);
   });
 
   it("conserva el historial previo y agrega la entrada al final", async () => {
-    const previa = { fecha: "2025-05-01", estado: "Integrado", nota: "Integración" };
+    const previa = { fecha: "2025-05-01", estado: "ps-integrado", nota: "Integración" };
     await db.conversiones.add({ ...convBase, historial: [previa] });
     await reflejarFallecimientoEnConversion({ estado: "Fallecido", conversionId: "c1" });
     const conv = await db.conversiones.get("c1");
@@ -68,12 +68,12 @@ describe("reflejarFallecimientoEnConversion (B3, sentido inverso)", () => {
     await db.conversiones.add(convBase);
     await reflejarFallecimientoEnConversion({ estado: "Activo", conversionId: "c1" });
     const conv = await db.conversiones.get("c1");
-    expect(conv?.estado).toBe("Integrado");
+    expect(conv?.estado).toBe("ps-integrado");
     expect(conv?.historial).toEqual([]);
   });
 
   it("conversión ya Fallecido → no duplica la entrada del historial", async () => {
-    await db.conversiones.add({ ...convBase, estado: "Fallecido" });
+    await db.conversiones.add({ ...convBase, estado: "ps-fallecido" });
     await reflejarFallecimientoEnConversion({ estado: "Fallecido", conversionId: "c1" });
     const conv = await db.conversiones.get("c1");
     expect(conv?.historial).toEqual([]);

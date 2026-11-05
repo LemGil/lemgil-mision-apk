@@ -43,6 +43,7 @@ export default function Personas() {
   const beneficiarios = useLiveQuery(() => db.beneficiarios.toArray()) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray()) ?? [];
   const cursos = useLiveQuery(() => db.cursos.toArray()) ?? [];
+  const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray()) ?? [];
 
   const data = useMemo<FichasDePersona>(
     () => ({ miembros, conversiones, estudiantes, dadores, beneficiarios }),
@@ -125,7 +126,7 @@ export default function Personas() {
               {filtradas.map((p) => {
                 const g = agrupados.get(p.id) ?? procesosVacios();
                 const tipos = tiposPresentes(g);
-                const situacion = situacionPersona(g);
+                const situacion = situacionPersona(g, pasosSeguimiento);
                 return (
                   <tr key={p.id}>
                     <td>
@@ -228,6 +229,7 @@ export default function Personas() {
         grupoNombre={selGrupo?.nombre}
         hermanoMayorNombre={selHermano ? nombrePersona(selHermano) : undefined}
         cursoNombre={cursoNombre}
+        pasosMision={pasosSeguimiento}
         otrasPersonas={personas.filter((p) => p.id !== selPersona?.id)}
         onUnir={handleUnir}
       />

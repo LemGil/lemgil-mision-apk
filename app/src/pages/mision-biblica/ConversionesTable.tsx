@@ -1,10 +1,12 @@
 import { EmptyState } from '../../components/EmptyState';
 import { exportConversionesPDF, safeExport } from '../../lib/pdfExport';
 import { fmt } from '../../lib/utils';
-import type { Conversion, Grupo } from '../../lib/types';
-import { EST_BADGE } from './constants';
+import type { Conversion, Grupo, PasoSeguimiento } from '../../lib/types';
+import { badgeDe, esGozne, etiquetaDe } from '../../lib/pasosMision';
 
 interface ConversionesTableProps {
+  /** Catálogo de pasos (Fase 2): insignia y etiqueta vivas del estado. */
+  pasos: PasoSeguimiento[];
   convs: Conversion[];
   filtered: Conversion[];
   grupos: Grupo[];
@@ -18,7 +20,7 @@ interface ConversionesTableProps {
 }
 
 export function ConversionesTable(props: ConversionesTableProps) {
-  const { convs, filtered, grupos, filterEstado, filterZona, filterAnoConv, filterMesConv, openDetail, openEditConv, quickAdv } = props;
+  const { pasos, convs, filtered, grupos, filterEstado, filterZona, filterAnoConv, filterMesConv, openDetail, openEditConv, quickAdv } = props;
   return (
         <div className="card">
            <div className="card-header">
@@ -26,7 +28,7 @@ export function ConversionesTable(props: ConversionesTableProps) {
                <div className="card-title">📋 Registro de Conversiones</div>
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{convs.length} registros</div>
              </div>
-             <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv } }))}>📄 Exportar PDF</button>
+             <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv }, pasos }))}>📄 Exportar PDF</button>
            </div>
            {filtered.length === 0 ? (
              <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />
@@ -44,7 +46,7 @@ export function ConversionesTable(props: ConversionesTableProps) {
                      <td>{fmt(c.fecha)}</td>
                      <td>{c.lider || '—'}</td>
                      <td>{grupoAsignado ? <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: '11px', fontWeight: 700, border: '1px solid var(--gold)', whiteSpace: 'nowrap' }}>👥 {grupoAsignado.nombre}</span> : <span style={{ color: 'var(--dim)', fontSize: '11px' }}>—</span>}</td>
-                     <td><span className={`badge ${EST_BADGE[c.estado] || 'badge-blue'}`}>{c.estado}</span>{c.estado === 'Integrado' && <><br /><span style={{ padding: '1px 5px', borderRadius: 4, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 9, fontWeight: 700, border: '1px solid var(--gold)' }}>✓ Miembro</span></>}</td>
+                     <td><span className={`badge ${badgeDe(pasos, c.estado)}`}>{etiquetaDe(pasos, c.estado)}</span>{esGozne(pasos, c.estado) && <><br /><span style={{ padding: '1px 5px', borderRadius: 4, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 9, fontWeight: 700, border: '1px solid var(--gold)' }}>✓ Miembro</span></>}</td>
                      <td>
                        <div style={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
                          <button className="btn btn-secondary btn-sm" onClick={() => openDetail(c.id)}>👁</button>

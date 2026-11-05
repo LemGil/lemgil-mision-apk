@@ -46,6 +46,14 @@ describe("Pasos del miembro (Fase 1) — fuente integración", () => {
     expect(e.fecha).toBe("2024-02-01");
   });
 
+  it("cumplido por la conversión con el estado como IDENTIDAD (Fase 2: ps-integrado)", () => {
+    const conversion = { id: "c1", estado: "ps-integrado", fecha: "2024-01-10", historial: [{ estado: "ps-integrado", fecha: "2024-02-05" }] } as unknown as Conversion;
+    const r = escaleraDeMiembro(SEMILLA, ctx({ conversionOrigen: conversion }));
+    const e = porId(r, "pm-integracion");
+    expect(e.cumplido).toBe(true);
+    expect(e.fecha).toBe("2024-02-05");
+  });
+
   it("cumplido sin fecha en el alta manual (sin conversión de origen)", () => {
     const r = escaleraDeMiembro(SEMILLA, ctx({ miembro: miembro({ conversionId: null }) }));
     const e = porId(r, "pm-integracion");

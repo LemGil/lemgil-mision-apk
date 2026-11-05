@@ -1,5 +1,6 @@
 import type { Conversion, Estudiante, Hito, Miembro, MiembroMinisterio, PasoSeguimiento } from './types';
 import { fechaDeEstado } from './utils';
+import { PS_INTEGRADO, esGozne } from './pasosMision';
 
 /**
  * Pasos del miembro (Fase 1): la SEGUNDA parte del seguimiento. Misión
@@ -69,7 +70,7 @@ export function ordenarPasos(pasos: PasoSeguimiento[]): PasoSeguimiento[] {
 const primeraFecha = (fechas: string[]): string | undefined =>
   fechas.filter(Boolean).sort()[0];
 
-function estadoDe(paso: PasoSeguimiento, ctx: ContextoPasosMiembro): EstadoPaso {
+function estadoDe(paso: PasoSeguimiento, ctx: ContextoPasosMiembro, catalogo: PasoSeguimiento[]): EstadoPaso {
   const no: EstadoPaso = { paso, cumplido: false };
   switch (paso.fuente) {
     case 'integracion': {
@@ -78,10 +79,13 @@ function estadoDe(paso: PasoSeguimiento, ctx: ContextoPasosMiembro): EstadoPaso 
       const fechaHito = primeraFecha(ctx.hitos.filter((h) => h.tipo === 'Integración').map((h) => h.fecha));
       if (fechaHito) return { paso, cumplido: true, fecha: fechaHito };
       const c = ctx.conversionOrigen;
-      if (c && (c.estado === 'Integrado' || (c.historial ?? []).some((h) => h.estado === 'Integrado'))) {
-        // Integrado hoy, o lo estuvo (el historial lo recuerda aunque
+      // Fase 2: el gozne se reconoce por ROL sobre la identidad del
+      // paso (el catálogo completo viaja en `catalogo`); el alias
+      // tolera fichas aún con la etiqueta vieja.
+      if (c && (esGozne(catalogo, c.estado) || (c.historial ?? []).some((h) => esGozne(catalogo, h.estado)))) {
+        // En el gozne hoy, o lo estuvo (el historial lo recuerda aunque
         // la conversión después se haya apartado: el gozne ocurrió).
-        return { paso, cumplido: true, fecha: fechaDeEstado(c, 'Integrado') || undefined };
+        return { paso, cumplido: true, fecha: fechaDeEstado(c, PS_INTEGRADO) || undefined };
       }
       // Alta manual de miembro: nació ya miembro, sin pasar por Misión
       // en esta app. Cumplido, sin fecha conocida.
@@ -129,7 +133,7 @@ function estadoDe(paso: PasoSeguimiento, ctx: ContextoPasosMiembro): EstadoPaso 
 /** La escalera completa de un miembro: estados por paso + paso actual. */
 export function escaleraDeMiembro(pasos: PasoSeguimiento[], ctx: ContextoPasosMiembro): EscaleraMiembro {
   const ordenados = ordenarPasos(pasos.filter((p) => p.ambito === 'miembro'));
-  const estados = ordenados.map((p) => estadoDe(p, ctx));
+  const estados = ordenados.map((p) => estadoDe(p, ctx, pasos));
   const primeroPendiente = estados.find((e) => !e.cumplido);
   return {
     estados,

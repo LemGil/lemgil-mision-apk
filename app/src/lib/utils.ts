@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { Conversion } from './types';
+import { idCanonico } from './pasosMision';
 
 export const today = () => new Date().toISOString().split('T')[0];
 
@@ -9,7 +10,10 @@ export const today = () => new Date().toISOString().split('T')[0];
  * (Lógica que antes vivía como `getFechaEstado` dentro de MisionBiblica.)
  */
 export const fechaDeEstado = (c: Conversion, estado: string): string => {
-  const entry = c.historial?.find((h) => h.estado === estado);
+  // Fase 2: compara por IDENTIDAD de paso — el historial migrado trae
+  // ids ('ps-integrado') y el alias tolera entradas aún en etiqueta.
+  const buscado = idCanonico(estado);
+  const entry = c.historial?.find((h) => idCanonico(h.estado ?? '') === buscado);
   return entry?.fecha || c.fecha || '';
 };
 

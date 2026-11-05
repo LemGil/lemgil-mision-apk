@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { showToast } from './notification';
 import { fmt } from './utils';
 import { conteoGrupo } from './grupoStats';
+import { esGozne, etiquetaDe } from './pasosMision';
 import type { DiezmadorVista, EvangelismoVista } from './personaDatos';
 import type {
   AporteComun,
@@ -16,6 +17,7 @@ import type {
   Miembro,
   MiembroMinisterio,
   Ministerio,
+  PasoSeguimiento,
 } from './types';
 
 /**
@@ -1052,16 +1054,19 @@ export function exportCertificadosPDF(opts: { certs: Certificado[]; estudiantes:
   doc.save(`academia-certificados-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtros?: { estado?: string; zona?: string; ano?: string; mes?: string } }) {
-  const { conversiones, filtros } = opts;
+export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtros?: { estado?: string; zona?: string; ano?: string; mes?: string }; pasos?: PasoSeguimiento[] }) {
+  const { conversiones, filtros, pasos } = opts;
   const doc = new jsPDF();
+  // Fase 2: el filtro y la tabla nombran el estado con la ETIQUETA viva
+  // del catálogo (el dato guarda la identidad del paso).
+  const nombreEstado = (valor?: string) => (valor ? etiquetaDe(pasos, valor) : valor);
   const subtitulo = filtros 
-    ? `Filtros: ${[filtros.estado, filtros.zona].filter(Boolean).join(' · ')}`
+    ? `Filtros: ${[nombreEstado(filtros.estado), filtros.zona].filter(Boolean).join(' · ')}`
     : `${conversiones.length} registros en total`;
   header(doc, 'Registro de Conversiones', subtitulo, 'Misión Bíblica');
 
   const total = conversiones.length;
-  const integrados = conversiones.filter(c => c.estado === 'Integrado').length;
+  const integrados = conversiones.filter(c => esGozne(pasos, c.estado)).length;
   const pctInt = total > 0 ? (integrados / total * 100).toFixed(1) : '0';
 
   kpiBox(doc, 14, 34, 58, 18, 'Total', total.toString(), COLORS.blue);
@@ -1071,7 +1076,7 @@ export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtro
   const rows = conversiones.map((c, i) => [
     (i + 1).toString(),
     `${c.nombre} ${c.apellido}`,
-    c.estado,
+    etiquetaDe(pasos, c.estado),
     c.zona || '—',
     c.lider || '—',
     c.fecha,

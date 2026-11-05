@@ -1,6 +1,7 @@
 import { db } from './database';
 import { today } from './utils';
-import type { Conversion, Miembro } from './types';
+import { PS_FALLECIDO, idCanonico } from './pasosMision';
+import type { Miembro } from './types';
 
 /**
  * Este módulo nació con la propagación B2 («sin pisar») entre la ficha de
@@ -29,10 +30,12 @@ export async function reflejarFallecimientoEnConversion(
 ): Promise<void> {
   if (miembro.estado !== 'Fallecido' || !miembro.conversionId) return;
   const conv = await db.conversiones.get(miembro.conversionId);
-  if (conv && conv.estado !== 'Fallecido') {
+  // Fase 2: la conversión guarda la IDENTIDAD del paso de salida
+  // ('ps-fallecido'); el alias tolera fichas aún con la etiqueta vieja.
+  if (conv && idCanonico(conv.estado) !== PS_FALLECIDO) {
     await db.conversiones.update(miembro.conversionId, {
-      estado: 'Fallecido' as Conversion['estado'],
-      historial: [...conv.historial, { fecha: today(), estado: 'Fallecido', nota: 'Marcado fallecido desde Miembros' }],
+      estado: PS_FALLECIDO,
+      historial: [...conv.historial, { fecha: today(), estado: PS_FALLECIDO, nota: 'Marcado fallecido desde Miembros' }],
     });
   }
 }

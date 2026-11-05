@@ -4,12 +4,28 @@ import { PersonaSelect } from '../../components/PersonaSelect';
 import { PersonaFormModal } from '../../components/PersonaFormModal';
 import { fmt, today } from '../../lib/utils';
 import { edadDesde } from '../../lib/personaVista';
-import type { Evangelismo, Grupo, Persona } from '../../lib/types';
-import { ESTADOS } from './constants';
+import type { Evangelismo, Grupo, PasoSeguimiento, Persona } from '../../lib/types';
+import { rutaDe, salidasDe } from '../../lib/pasosMision';
+
+/** Las opciones de estado: la RUTA del catálogo y, aparte, las salidas (Fase 2). */
+function OpcionesEstado({ pasos }: { pasos: PasoSeguimiento[] }) {
+  return (
+    <>
+      <optgroup label="Camino">
+        {rutaDe(pasos).map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.nombre}</option>)}
+      </optgroup>
+      <optgroup label="Salidas">
+        {salidasDe(pasos).map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.nombre}</option>)}
+      </optgroup>
+    </>
+  );
+}
 
 type HistorialItem = { fecha: string; estado: string; nota: string };
 
 interface ConversionFormModalProps {
+  /** Catálogo de pasos (Fase 2): el selector de estado lista la ruta y las salidas por identidad. */
+  pasos: PasoSeguimiento[];
   open: boolean;
   onClose: () => void;
   editConvId: string | null;
@@ -35,7 +51,7 @@ interface ConversionFormModalProps {
  * notas de contacto e historial.
  */
 export function ConversionFormModal(props: ConversionFormModalProps) {
-  const { open, onClose, editConvId, saveConv, personas, grupos, evangelismos, fPersonaId, setFPersonaId, fFecha, setFFecha, fFamilia, setFFamilia, fEstado, setFEstado, fNotas, setFNotas, fEvangelismoId, setFEvangelismoId, fHistorial, setFHistorial } = props;
+  const { pasos, open, onClose, editConvId, saveConv, personas, grupos, evangelismos, fPersonaId, setFPersonaId, fFecha, setFFecha, fFamilia, setFFamilia, fEstado, setFEstado, fNotas, setFNotas, fEvangelismoId, setFEvangelismoId, fHistorial, setFHistorial } = props;
   const [editandoPersona, setEditandoPersona] = useState(false);
   const persona = personas.find((p) => p.id === fPersonaId);
   const grupo = persona?.grupoId ? grupos.find((g) => g.id === persona.grupoId) : undefined;
@@ -75,7 +91,7 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
         <div className="form-section" style={{ marginTop: 16 }}>✝️ Datos de la conversión</div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">Fecha *</label><input className="form-input" type="date" value={fFecha} onChange={(e) => setFFecha(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Estado Inicial</label><select className="form-select" value={fEstado} onChange={(e) => setFEstado(e.target.value)}>{ESTADOS.map((e) => <option key={e}>{e}</option>)}</select></div>
+          <div className="form-group"><label className="form-label">Estado Inicial</label><select className="form-select" value={fEstado} onChange={(e) => setFEstado(e.target.value)}><OpcionesEstado pasos={pasos} /></select></div>
         </div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">¿Familia en el ministerio?</label><select className="form-select" value={fFamilia} onChange={(e) => setFFamilia(e.target.value)}><option>No</option><option>Sí</option></select></div>
@@ -98,7 +114,7 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
           <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, background: 'var(--surface-2)', borderRadius: 8, padding: '8px 10px' }}>
             <input className="form-input" type="date" value={h.fecha} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], fecha: e.target.value }; setFHistorial(n); }} style={{ flex: '0 0 140px' }} />
             <select className="form-select" value={h.estado} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], estado: e.target.value }; setFHistorial(n); }} style={{ flex: 1 }}>
-              {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
+              <OpcionesEstado pasos={pasos} />
             </select>
             <input className="form-input" value={h.nota} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], nota: e.target.value }; setFHistorial(n); }} placeholder="Nota (opcional)" style={{ flex: 1 }} />
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFHistorial(fHistorial.filter((_, j) => j !== i))} title="Eliminar">🗑️</button>

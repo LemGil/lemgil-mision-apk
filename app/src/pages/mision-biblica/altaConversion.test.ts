@@ -40,11 +40,11 @@ const conversionNueva = (over: Partial<Conversion> = {}): Conversion => ({
   bautizado: false, fechaBautismo: "", conyuge: "", hijos: "",
   familia: "No",
   fecha: "2024-01-15",
-  estado: "Nuevo",
+  estado: "ps-nuevo",
   personaId: null,
   evangelismoId: null,
   notas: "",
-  historial: [{ fecha: "2024-01-15", estado: "Nuevo", nota: "Registro inicial" }],
+  historial: [{ fecha: "2024-01-15", estado: "ps-nuevo", nota: "Registro inicial" }],
   creado: "2024-01-15T00:00:00.000Z",
   version: 1,
   ...over,
@@ -100,7 +100,7 @@ describe("Alta de conversión sobre la ficha única (P2)", () => {
 
   it("historia completa: alta → integración → el miembro comparte la persona y el teléfono se edita una vez", async () => {
     await db.personas.add({ id: "p1", creado: "2024-01-01T00:00:00.000Z", version: 1, ...datosPersona() });
-    const conv = conversionNueva({ personaId: "p1", estado: "Integrado" });
+    const conv = conversionNueva({ personaId: "p1", estado: "ps-integrado" });
     await db.conversiones.add(conv);
 
     const miembroId = await syncMemberFromConversion(conv);

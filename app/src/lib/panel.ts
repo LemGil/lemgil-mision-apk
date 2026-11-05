@@ -1,8 +1,9 @@
 import type {
-  Aporte, Certificado, Conversion, Curso, Estudiante, Evangelismo, Grupo, Miembro, Persona,
+  Aporte, Certificado, Conversion, Curso, Estudiante, Evangelismo, Grupo, Miembro, PasoSeguimiento, Persona,
 } from './types';
 import { conversionConDatos, estudianteConDatos, evangelismoConDatos } from './personaDatos';
 import { conteoGrupo } from './grupoStats';
+import { esInicio, etiquetaDe } from './pasosMision';
 import { monthKey, MS, MS_FULL } from './utils';
 
 /**
@@ -40,6 +41,8 @@ export interface EntradaActividad {
   certificados: Certificado[];
   cursos: Curso[];
   personasMap: Map<string, Persona>;
+  /** Catálogo de pasos (Fase 2): la actividad nombra el estado con su etiqueta viva. */
+  pasosMision?: PasoSeguimiento[];
 }
 
 /** Las 5 más recientes de una corriente, POR TIMESTAMP (no por orden de claves). */
@@ -63,7 +66,7 @@ export function actividadReciente(e: EntradaActividad): ActividadPanel[] {
     const nombre = `${v.nombre} ${v.apellido}`.trim();
     all.push({
       icon: '🌱', bg: 'var(--mision-purple-soft)',
-      title: `${nombre || 'Conversión sin nombre'} — ${c.estado}`,
+      title: `${nombre || 'Conversión sin nombre'} — ${etiquetaDe(e.pasosMision, c.estado)}`,
       meta: [v.zona, v.lider || 'Sin líder'].filter((x) => x && x.trim()).join(' · '),
       ts: c.creado,
       href: `/mision?ver=${c.id}`,
@@ -121,11 +124,11 @@ export interface ResumenGrupos {
  * se crea en 0 y nadie mantiene: daba 0 grupos activos y una alerta de
  * «grupos sin miembros» permanente, contradiciendo a Miembros.
  */
-export function resumenGrupos(grupos: Grupo[], miembros: Miembro[], conversiones: Conversion[]): ResumenGrupos {
+export function resumenGrupos(grupos: Grupo[], miembros: Miembro[], conversiones: Conversion[], pasos?: PasoSeguimiento[]): ResumenGrupos {
   let activos = 0;
   let vacios = 0;
   for (const g of grupos) {
-    if (conteoGrupo(g.id, miembros, conversiones).totalAsignados > 0) activos++;
+    if (conteoGrupo(g.id, miembros, conversiones, pasos).totalAsignados > 0) activos++;
     else vacios++;
   }
   return { activos, vacios };
@@ -298,6 +301,8 @@ export interface EntradaAlertas {
   cursos: Curso[];
   evangelismos: Evangelismo[];
   personasMap: Map<string, Persona>;
+  /** Catálogo de pasos (Fase 2): «estancadas» se ancla al paso de inicio por rol. */
+  pasosMision?: PasoSeguimiento[];
   /** Conversiones del mes según el KPI (solo se usa sin filtro). */
   mesCount: number;
   hayConversiones: boolean;
@@ -332,13 +337,16 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
     out.push({ tipo: 'danger', texto: 'Sin conversiones registradas este mes', href: '/mision' });
   }
 
-  const { vacios } = resumenGrupos(e.grupos, e.miembros, e.conversiones);
+  const { vacios } = resumenGrupos(e.grupos, e.miembros, e.conversiones, e.pasosMision);
   if (vacios > 0) {
     out.push({ tipo: 'warn', texto: `${vacios} grupo(s) sin miembros activos`, href: '/miembros' });
   }
 
+  // Fase 2: «nuevas» = en el paso de INICIO del catálogo (antes el
+  // literal 'Nuevo'). La población de la alerta no cambia: el editor de
+  // pasos no permite crear otro paso de inicio.
   const estancadas = e.conversiones
-    .filter((c) => c.estado === 'Nuevo' && diasSinMovimiento(c, e.hoy) > 14)
+    .filter((c) => esInicio(e.pasosMision, c.estado) && diasSinMovimiento(c, e.hoy) > 14)
     .map((c) => ({ c, dias: diasSinMovimiento(c, e.hoy) }))
     .sort((a, b) => b.dias - a.dias);
   if (estancadas.length > 0) {

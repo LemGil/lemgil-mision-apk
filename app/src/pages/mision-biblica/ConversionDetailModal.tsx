@@ -2,19 +2,33 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { accentStyle, fmt } from '../../lib/utils';
-import type { Conversion, Grupo, Hito, Miembro } from '../../lib/types';
+import type { Conversion, Grupo, Hito, Miembro, PasoSeguimiento } from '../../lib/types';
 import { EST_BADGE as MIEMBRO_EST_BADGE, HITO_BADGE } from '../miembros/constants';
-import { ESTADOS, ESTADOS_COLOR, ESTADOS_EMOJI, EST_BADGE } from './constants';
+import {
+  PS_FALLECIDO, badgeDe, colorDe, emojiDe, esGozne, esSalida, etiquetaDe,
+  idCanonico, indiceEnRuta, pasosDeMision, siguientePaso,
+} from '../../lib/pasosMision';
 
-const updateSteps = (est: string) => {
-  if (est === 'Apartado' || est === 'Fallecido') {
-    return ESTADOS.map((e, i) => ({ estado: e, emoji: ['🌱', '📖', '💧', '🏘️'][i], cls: 'step' }));
-  }
-  const idx = ESTADOS.indexOf(est as typeof ESTADOS[number]);
-  return ESTADOS.map((e, i) => ({ estado: e, emoji: ['🌱', '📖', '💧', '🏘️'][i], cls: i < idx ? 'step done' : i === idx ? 'step active' : 'step' }));
+/**
+ * Fase 2: el pipeline pinta el CATÁLOGO (ruta + salidas) con las
+ * etiquetas vivas. Las clases done/active se calculan por la posición
+ * en la RUTA; si el estado actual es una salida, todo queda en reposo
+ * (como antes). Cada paso es clicable: elige el estado destino del
+ * seguimiento (tempEst), incluidas las salidas.
+ */
+const pasosPipeline = (pasos: PasoSeguimiento[], actual: string) => {
+  const idx = indiceEnRuta(pasos, actual);
+  const enRuta = idx >= 0 && !esSalida(pasos, actual);
+  return pasosDeMision(pasos).map((p) => {
+    const i = indiceEnRuta(pasos, p.id);
+    const cls = enRuta && i >= 0 ? (i < idx ? 'step done' : i === idx ? 'step active' : 'step') : 'step';
+    return { id: p.id, etiqueta: p.nombre, emoji: p.emoji, cls };
+  });
 };
 
 interface ConversionDetailModalProps {
+  /** Catálogo de pasos (Fase 2): pipeline, insignias e historial con etiquetas vivas. */
+  pasos: PasoSeguimiento[];
   open: boolean;
   onClose: () => void;
   onEliminar: () => void;
@@ -33,7 +47,7 @@ interface ConversionDetailModalProps {
 }
 
 export function ConversionDetailModal(props: ConversionDetailModalProps) {
-  const { open, onClose, onEliminar, onPermitirRecrear, saveSeg, selConv, miembroVinculado, hitosVinculado, onVerMiembro, grupos, tempEst, setTempEst, sNota, setSNota, sHito, setSHito } = props;
+  const { pasos, open, onClose, onEliminar, onPermitirRecrear, saveSeg, selConv, miembroVinculado, hitosVinculado, onVerMiembro, grupos, tempEst, setTempEst, sNota, setSNota, sHito, setSHito } = props;
   const navigate = useNavigate();
   return (
       <Modal open={open} onClose={onClose} title={`📄 ${selConv?.nombre} ${selConv?.apellido}`} wide footer={<><button className="btn btn-danger btn-sm" onClick={onEliminar}>🗑️ Eliminar</button>{selConv?.personaId && <button className="btn btn-secondary" onClick={() => navigate(`/personas?ver=${selConv.personaId}`)}>👤 Ver ficha completa</button>}<button className="btn btn-secondary" onClick={onClose}>Cerrar</button><button className="btn btn-gold" onClick={saveSeg}>💾 Guardar Cambios</button></>}>
@@ -43,12 +57,12 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
           const diasEnProceso = isNaN(fechaCreado.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - fechaCreado.getTime()) / 86400000));
           const lastHistDate = selConv.historial.length > 0 ? new Date(selConv.historial[selConv.historial.length - 1].fecha) : fechaCreado;
           const diasEnEstado = isNaN(lastHistDate.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - lastHistDate.getTime()) / 86400000));
-          const idxActual = selConv.estado === 'Apartado' || selConv.estado === 'Fallecido' ? -1 : ESTADOS.indexOf(selConv.estado);
-          const proxEstado = idxActual >= 0 && idxActual < ESTADOS.length - 1 ? ESTADOS[idxActual + 1] : null;
-          const progreso = Math.round(((idxActual + 1) / ESTADOS.length) * 100);
+          const totalPasos = pasosDeMision(pasos).length;
+          const idxActual = indiceEnRuta(pasos, selConv.estado);
+          const proxPaso = siguientePaso(pasos, selConv.estado);
+          const progreso = Math.round(((idxActual + 1) / totalPasos) * 100);
           const grupoAsignado = selConv.grupoId ? grupos.find((g) => g.id === selConv.grupoId) : null;
           const telLimpio = (selConv.telefono || '').replace(/\D/g, '');
-          const esFinal = idxActual === ESTADOS.length - 1;
           return (<>
             {/* HERO */}
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', padding: '4px 0 18px', borderBottom: '1px solid var(--border)', marginBottom: 18 }}>
@@ -56,7 +70,7 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-display)' }}>{selConv.nombre} {selConv.apellido}</h2>
-                  <span className={`badge ${EST_BADGE[selConv.estado]}`}>{ESTADOS_EMOJI[selConv.estado]} {selConv.estado}</span>
+                  <span className={`badge ${badgeDe(pasos, selConv.estado)}`}>{emojiDe(pasos, selConv.estado)} {etiquetaDe(pasos, selConv.estado)}</span>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 6 }}>
                   📍 {selConv.zona || 'Sin zona'} · 👤 Mayor: {selConv.lider || '—'} · ⏱️ {diasEnProceso === 0 ? 'registrado hoy' : `${diasEnProceso} ${diasEnProceso === 1 ? 'día' : 'días'} en proceso`}
@@ -80,55 +94,60 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
                 <div className="kpi-value" style={{ fontSize: 24 }}>{diasEnProceso}</div>
                 <div className="kpi-sub">desde {fmt(selConv.fecha)}</div>
               </div>
-              <div className="kpi" style={accentStyle(ESTADOS_COLOR[idxActual] || 'var(--gold)')}>
+              <div className="kpi" style={accentStyle(idxActual >= 0 ? colorDe(pasos, selConv.estado) : 'var(--gold)')}>
                 <div className="kpi-label">⏱️ En estado actual</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{diasEnEstado}</div>
                 <div className="kpi-sub">{diasEnEstado === 0 ? 'cambió hoy' : `hace ${diasEnEstado} ${diasEnEstado === 1 ? 'día' : 'días'}`}</div>
               </div>
               <div className="kpi" style={accentStyle('var(--green)')}>
                 <div className="kpi-label">🎯 Próximo objetivo</div>
-                <div className="kpi-value" style={{ fontSize: 16 }}>{proxEstado ? `${ESTADOS_EMOJI[proxEstado]} ${proxEstado}` : '✓ Completo'}</div>
-                <div className="kpi-sub">{proxEstado ? `avanzar a ${proxEstado}` : 'proceso finalizado'}</div>
+                <div className="kpi-value" style={{ fontSize: 16 }}>{proxPaso ? `${proxPaso.emoji} ${proxPaso.nombre}` : '✓ Completo'}</div>
+                <div className="kpi-sub">{proxPaso ? `avanzar a ${proxPaso.nombre}` : 'proceso finalizado'}</div>
               </div>
               <div className="kpi" style={accentStyle('var(--purple)')}>
                 <div className="kpi-label">📊 Progreso</div>
                 <div className="kpi-value" style={{ fontSize: 24 }}>{progreso}%</div>
-                <div className="kpi-sub">paso {idxActual + 1} de {ESTADOS.length}</div>
+                <div className="kpi-sub">paso {idxActual + 1} de {totalPasos}</div>
               </div>
             </div>
 
             {/* PROGRESS BAR */}
             <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden', marginBottom: 8, display: 'flex' }}>
-              {ESTADOS.map((e, i) => {
-                const fill = i < idxActual ? '100%' : i === idxActual ? `${((diasEnEstado % 30) / 30) * 100}%` : '0%';
-                return <div key={e} title={e} style={{ flex: 1, height: '100%', background: i <= idxActual ? ESTADOS_COLOR[i] : 'transparent', borderRight: i < ESTADOS.length - 1 ? '1px solid var(--surface)' : 'none', position: 'relative' }}><div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: fill, background: i === idxActual ? `${ESTADOS_COLOR[i]}cc` : ESTADOS_COLOR[i] }} /></div>;
+              {pasosDeMision(pasos).map((p, i, arr) => {
+                const ri = indiceEnRuta(pasos, p.id);
+                const fill = ri >= 0 && ri < idxActual ? '100%' : ri >= 0 && ri === idxActual ? `${((diasEnEstado % 30) / 30) * 100}%` : '0%';
+                const color = colorDe(pasos, p.id);
+                return <div key={p.id} title={p.nombre} style={{ flex: 1, height: '100%', background: ri >= 0 && ri <= idxActual ? color : 'transparent', borderRight: i < arr.length - 1 ? '1px solid var(--surface)' : 'none', position: 'relative' }}><div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: fill, background: ri === idxActual ? `${color}cc` : color }} /></div>;
               })}
             </div>
 
             {/* PIPELINE */}
             <div className="form-section">Pipeline — clic para avanzar</div>
             <div className="steps">
-              {updateSteps(tempEst || selConv.estado).map((s) => (
-                <div key={s.estado} className={s.cls} onClick={() => setTempEst(s.estado)}>
+              {pasosPipeline(pasos, tempEst || selConv.estado).map((s) => (
+                <div key={s.id} className={s.cls} onClick={() => setTempEst(s.id)}>
                   <div className="step-dot">{s.emoji}</div>
-                  <div className="step-label">{s.estado}</div>
+                  <div className="step-label">{s.etiqueta}</div>
                 </div>
               ))}
             </div>
 
-            {/* QUICK ADVANCE */}
-            {!esFinal && (() => {
-              const nextEst = ESTADOS[idxActual + 1] as typeof ESTADOS[number];
+            {/* QUICK ADVANCE — Fase 2: avanzar sigue la RUTA (el gozne y
+                las salidas no tienen «siguiente»: al gozne se llega por el
+                pipeline o el formulario, y salir del camino es una
+                elección del pipeline, no un avance). */}
+            {proxPaso && (() => {
+              const nextEst = proxPaso.id;
               const yaSeleccionado = tempEst === nextEst;
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, marginBottom: 18, padding: '10px 12px', background: 'var(--gold-glow)', borderRadius: 8, border: '1px solid var(--gold)' }}>
                   <span style={{ fontSize: 20 }}>⚡</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--oro-sombra)' }}>Acción rápida</div>
-                    <div style={{ fontSize: 11, color: 'var(--dim)' }}>{yaSeleccionado ? `Listo para promover a ${nextEst}` : `Promover al siguiente estado del pipeline`}</div>
+                    <div style={{ fontSize: 11, color: 'var(--dim)' }}>{yaSeleccionado ? `Listo para promover a ${proxPaso.nombre}` : `Promover al siguiente estado del pipeline`}</div>
                   </div>
                   <button type="button" className="btn btn-gold btn-sm" disabled={yaSeleccionado} onClick={() => setTempEst(nextEst)}>
-                    {ESTADOS_EMOJI[nextEst]} {yaSeleccionado ? 'Seleccionado' : `Promover a ${nextEst}`} →
+                    {proxPaso.emoji} {yaSeleccionado ? 'Seleccionado' : `Promover a ${proxPaso.nombre}`} →
                   </button>
                 </div>
               );
@@ -159,13 +178,13 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
                 </div>
                 <button type="button" className="btn btn-gold btn-sm" onClick={() => onVerMiembro(miembroVinculado.id)}>Ver miembro →</button>
               </div>
-            ) : selConv.estado === 'Integrado' && !selConv.miembroDescartado && (
+            ) : esGozne(pasos, selConv.estado) && !selConv.miembroDescartado && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 18 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⚠</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Miembro de la iglesia</div>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>Sin miembro vinculado</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión está «Integrado», pero no existe un miembro nacido de ella (dato anterior a este vínculo).</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión está «{etiquetaDe(pasos, selConv.estado)}», pero no existe un miembro nacido de ella (dato anterior a este vínculo).</div>
                 </div>
               </div>
             )}
@@ -175,7 +194,7 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Miembro eliminado</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--red, #ef4444)' }}>Su miembro fue eliminado — no se recreará</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión sigue «Integrado», pero el miembro borrado desde Miembros no volverá a crearse automáticamente.</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión sigue «{etiquetaDe(pasos, selConv.estado)}», pero el miembro borrado desde Miembros no volverá a crearse automáticamente.</div>
                 </div>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={onPermitirRecrear}>Permitir recrear</button>
               </div>
@@ -199,13 +218,13 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
               <div className="form-section" style={{ marginTop: 20 }}>Historial de Seguimiento</div>
               <div className="timeline">
                 {selConv.historial.slice().reverse().map((h, i) => {
-                  const idxH = h.estado === 'Apartado' || h.estado === 'Fallecido' ? -1 : ESTADOS.indexOf(h.estado as typeof ESTADOS[number]);
+                  const idxH = indiceEnRuta(pasos, h.estado);
                   return (
                     <div key={i} className="timeline-item">
-                      <div className="timeline-dot" style={{ background: idxH >= 0 ? ESTADOS_COLOR[idxH] : h.estado === 'Fallecido' ? 'var(--dim)' : 'var(--red, #ef4444)' }} />
+                      <div className="timeline-dot" style={{ background: idxH >= 0 ? colorDe(pasos, h.estado) : idCanonico(h.estado) === PS_FALLECIDO ? 'var(--dim)' : 'var(--red, #ef4444)' }} />
                       <div className="timeline-date">{fmt(h.fecha)}</div>
                       <div className="timeline-content">
-                        <span className={`badge ${EST_BADGE[h.estado] || 'badge-blue'}`} style={{ fontSize: 10 }}>{h.estado}</span>
+                        <span className={`badge ${badgeDe(pasos, h.estado)}`} style={{ fontSize: 10 }}>{etiquetaDe(pasos, h.estado)}</span>
                         <div style={{ fontSize: 12, marginTop: 4, whiteSpace: 'pre-wrap' }}>{h.nota || <em style={{ color: 'var(--dim)' }}>Sin nota descriptiva</em>}</div>
                       </div>
                     </div>
@@ -238,7 +257,7 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
             {/* AGREGAR NOTA */}
             <div className="form-section" style={{ marginTop: 20 }}>Agregar Nota de Seguimiento</div>
             <textarea className="form-textarea" value={sNota} onChange={(e) => setSNota(e.target.value)} placeholder="Visita, bautismo, integración, conversación…" />
-            {selConv.estado === 'Integrado' && (
+            {esGozne(pasos, selConv.estado) && (
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12, color: 'var(--oro-sombra)', cursor: 'pointer', userSelect: 'none' }}>
                 <input type="checkbox" checked={sHito} onChange={(e) => setSHito(e.target.checked)} disabled={!sNota.trim()} style={{ width: 16, height: 16, cursor: sNota.trim() ? 'pointer' : 'not-allowed' }} />
                 <span>📌 También registrar como <strong>Hito</strong> en el miembro vinculado</span>

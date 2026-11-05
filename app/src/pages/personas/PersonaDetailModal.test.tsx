@@ -22,7 +22,7 @@ const conversion: Conversion = {
   edad: '', direccion: '', familia: '', fecha: '2024-01-15', zona: 'Norte',
   lider: '', grupoId: 'g1', hermanoMayorId: null, email: '', profesion: '',
   bautizado: true, fechaBautismo: '', conyuge: '', hijos: '',
-  estado: 'Integrado', notas: '', historial: [], personaId: 'p1',
+  estado: 'ps-integrado', notas: '', historial: [], personaId: 'p1',
   creado: '2024-01-15T00:00:00.000Z', version: 1,
 };
 
@@ -118,7 +118,7 @@ describe('Ficha única P1 — render de la ficha con procesos mezclados', () => 
   it('caso Martha: solo conversión en Apartado → la ficha dice «Apartado» junto a su nombre', () => {
     const procesos = {
       ...procesosVacios(),
-      conversiones: [{ ...conversion, estado: 'Apartado' as Conversion['estado'] }],
+      conversiones: [{ ...conversion, estado: 'ps-apartado' }],
     };
     render(
       <MemoryRouter>

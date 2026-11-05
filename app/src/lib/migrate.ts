@@ -5,6 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
+import { PASOS_MISION_DEFECTO, idCanonico } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -139,12 +140,58 @@ export const PASOS_MIEMBRO_SEMILLA: Array<Pick<PasoSeguimiento, 'id' | 'nombre' 
 ];
 
 export async function ensurePasosMiembro(): Promise<PasoSeguimiento[]> {
-  const existentes = await db.pasosSeguimiento.toArray();
+  // Por ÁMBITO (Fase 2): la tabla también guarda los pasos de Misión;
+  // que existan filas de un ámbito no debe impedir sembrar el otro.
+  const existentes = await db.pasosSeguimiento.where('ambito').equals('miembro').toArray();
   if (existentes.length > 0) return existentes;
   const now = new Date().toISOString();
   const pasos = PASOS_MIEMBRO_SEMILLA.map((p) => createBaseRecord({ ...p, ambito: 'miembro' as const, creado: now, version: 1 }));
   await db.pasosSeguimiento.bulkAdd(pasos);
   return pasos;
+}
+
+/**
+ * Fase 2 (Misión): la semilla del ámbito 'mision' son los seis estados
+ * de siempre, ahora como DATOS con identidad fija y rol (la definición
+ * vive en lib/pasosMision.ts, que es también el respaldo de lectura).
+ * Mismo patrón que la Fase 1: ids fijos → los equipos convergen al
+ * sincronizar; idempotente por vacío DEL ÁMBITO.
+ */
+export async function ensurePasosMision(): Promise<PasoSeguimiento[]> {
+  const existentes = await db.pasosSeguimiento.where('ambito').equals('mision').toArray();
+  if (existentes.length > 0) return existentes;
+  const now = new Date().toISOString();
+  const pasos = PASOS_MISION_DEFECTO.map((p) => createBaseRecord({ ...p, creado: now, version: 1 }));
+  await db.pasosSeguimiento.bulkAdd(pasos);
+  return pasos;
+}
+
+/**
+ * Fase 2: pase único que traduce el `estado` de cada conversión — y el
+ * de cada entrada de su `historial` — de la ETIQUETA vieja ('Integrado')
+ * a la IDENTIDAD del paso ('ps-integrado'). Lo que ya es un id, o una
+ * etiqueta desconocida, queda intacto (la lectura lo tolera igual: ver
+ * el alias en lib/pasosMision.ts). Los HITOS no se tocan: sus tipos son
+ * el vocabulario fijo del historial de la iglesia.
+ */
+export async function migrarEstadosAPasos(): Promise<number> {
+  const FLAG_KEY = 'lemgil_estados_pasos_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  let cambios = 0;
+  const convs = await db.conversiones.toArray();
+  for (const c of convs) {
+    const estadoNuevo = idCanonico(c.estado);
+    const historialViejo = c.historial ?? [];
+    const historialNuevo = historialViejo.map((h) => ({ ...h, estado: idCanonico(h.estado ?? '') }));
+    const cambioHistorial = historialNuevo.some((h, i) => h.estado !== historialViejo[i].estado);
+    if (estadoNuevo !== c.estado || cambioHistorial) {
+      await db.conversiones.update(c.id, { estado: estadoNuevo, historial: historialNuevo });
+      cambios++;
+    }
+  }
+  localStorage.setItem(FLAG_KEY, '1');
+  if (cambios > 0) console.log(`Pasos de Misión (Fase 2): ${cambios} conversión(es) traducidas a identidad de paso`);
+  return cambios;
 }
 
 export async function ensureMetas(): Promise<Metas> {

@@ -49,6 +49,7 @@ export default function Dashboard() {
   // Bloque 3: mientras las consultas principales no respondan, el Panel
   // muestra «Cargando…» en vez de un tablero en ceros que parece roto.
   const convsQ = useLiveQuery(() => db.conversiones.toArray(), []);
+  const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray(), []) ?? [];
   const miembrosQ = useLiveQuery(() => db.miembros.toArray(), []);
   const gruposQ = useLiveQuery(() => db.grupos.toArray(), []);
   const evangelsQ = useLiveQuery(() => db.evangelismos.toArray(), []);
@@ -118,7 +119,7 @@ export default function Dashboard() {
     // conteo derivado de grupoStats y certificados del período (año en
     // curso sin filtro), no todo el histórico.
     const kpiConv = kpiConversiones(convs, filterAno, today);
-    const gruposResumen = resumenGrupos(grupos, miembros, convs);
+    const gruposResumen = resumenGrupos(grupos, miembros, convs, pasosSeguimiento);
     // P6: la membresía cuenta PERSONAS ÚNICAS con proceso de miembro
     // (una persona, un conteo), no sumas de fichas ni contadores por
     // grupo: la misma persona no puede contar dos veces.
@@ -131,7 +132,7 @@ export default function Dashboard() {
       activos: gruposResumen.activos, miembrosUnicos, estActivos, certCount,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convs, grupos, miembros, estudiantes, certs, filterAno]);
+  }, [convs, grupos, miembros, estudiantes, certs, pasosSeguimiento, filterAno]);
 
   const chart = useMemo(() => barrasCrecimiento(convs, filterAno, today),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,17 +142,17 @@ export default function Dashboard() {
   // timestamp real (lib/panel). El texto relativo se calcula al pintar.
   const activities = useMemo(() => actividadReciente({
     conversiones: convsF, evangelismos: evangelsF, estudiantes,
-    certificados: certs, cursos, personasMap,
-  }), [convsF, evangelsF, estudiantes, certs, cursos, personasMap]);
+    certificados: certs, cursos, personasMap, pasosMision: pasosSeguimiento,
+  }), [convsF, evangelsF, estudiantes, certs, cursos, personasMap, pasosSeguimiento]);
 
   // Bloque 2: alertas accionables y con señal (lib/panel).
   const alerts = useMemo(() => alertasDelPanel({
     grupos, miembros, conversiones: convs, estudiantes, cursos,
-    evangelismos: evangels, personasMap,
+    evangelismos: evangels, personasMap, pasosMision: pasosSeguimiento,
     mesCount: kpis.mesCount, hayConversiones: convs.length > 0,
     filterAno, hoy: today,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [grupos, miembros, convs, estudiantes, cursos, evangels, personasMap, kpis.mesCount, filterAno]);
+  }), [grupos, miembros, convs, estudiantes, cursos, evangels, personasMap, pasosSeguimiento, kpis.mesCount, filterAno]);
 
   const impact = useMemo(() => {
     const uniqIds = new Set(entregasF.map((e) => e.beneficiarioId));
