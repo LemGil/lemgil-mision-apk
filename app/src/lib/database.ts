@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { SyncTableName } from './sync/types';
-import type { Persona, Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Diezmador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, Colaborador, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador } from './types';
+import type { Persona, Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Diezmador, Aporte, Beneficiario, Campana, Entrega, Metas, Negocio, Publicacion, Reporte, Colaborador, AporteComun, Miembro, Ministerio, MiembroMinisterio, Hito, Zona, TipoPlan, PlanColaborador, PasoSeguimiento } from './types';
 
 /** Entrada de la bandeja de salida: un registro local cambió y falta subirlo. */
 export interface SyncOutboxEntry {
@@ -45,6 +45,7 @@ const database = new Dexie('LemGilDB') as Dexie & {
   colaboradores: EntityTable<Colaborador, 'id'>;
   tiposPlanes: EntityTable<TipoPlan, 'id'>;
   planesColaborador: EntityTable<PlanColaborador, 'id'>;
+  pasosSeguimiento: EntityTable<PasoSeguimiento, 'id'>;
   // Infraestructura de sincronización (Fase 1): bandeja de salida de cambios
   // y registro de borrados. No caducan: todo cambio se sube a la nube.
   syncQueue: EntityTable<SyncOutboxEntry, 'id'>;
@@ -301,6 +302,17 @@ database.version(23).stores({
   // upgrade (tiempo de ejecución) el ciclo ya no existe.
   const { rescatarMiembrosComunEnUpgrade } = await import('./rescateMiembrosComun');
   await rescatarMiembrosComunEnUpgrade(tx);
+});
+
+// Pasos del seguimiento (Fase 1 — Miembros): nace el catálogo EDITABLE de
+// pasos `pasosSeguimiento` (identidad estable, etiqueta libre; el ámbito
+// 'mision' queda admitido para la Fase 2). Solo se declara el esquema:
+// la SEMILLA de los pasos del miembro vive en lib/migrate.ts
+// (ensurePasosMiembro, idempotente por vacío, ids fijos), como las demás
+// siembras de la app, no en un upgrade de Dexie. `Hito.pasoId` no se
+// indexa: ningún cambio de esquema para hitos.
+database.version(24).stores({
+  pasosSeguimiento: 'id, ambito, orden',
 });
 
 export { database as db };

@@ -494,6 +494,48 @@ export interface Hito {
   fecha: string;
   tipo: 'Conversión' | 'Bautismo' | 'Discipulado' | 'Curso Completado' | 'Integración' | 'Liderazgo' | 'Matrimonio' | 'Otro';
   descripcion: string;
+  /**
+   * Pasos del miembro (Fase 1): cuando el hito REGISTRA un paso de la
+   * escalera editable, guarda la identidad estable del paso
+   * (→ pasosSeguimiento.id). Los hitos viejos no lo traen: quedan dormidos
+   * sin él, y la escalera los sigue leyendo por `tipo` donde aplica
+   * (Integración y el Liderazgo legado de la semilla).
+   */
+  pasoId?: string;
+  creado: string;
+  version: number;
+  updatedAt?: string | number;
+}
+
+/**
+ * De dónde sale la verdad de un paso del seguimiento: una fuente
+ * automática (un dato que ya vive en la app — la ficha única otra vez,
+ * nadie teclea dos veces) o el registro manual como hito.
+ * - integracion: el gozne con Misión (hito Integración, conversión
+ *   Integrado o alta manual de miembro).
+ * - grupo / academia / ministerio / hermanoMayor: datos vivos.
+ * - manual: se registra (y se quita) como hito con pasoId.
+ */
+export type FuentePasoSeguimiento = 'integracion' | 'grupo' | 'academia' | 'ministerio' | 'hermanoMayor' | 'manual';
+
+/**
+ * Un paso del seguimiento EDITABLE (modelo aprobado por LemGil
+ * 2026-11-05): la identidad (`id`) es fija para siempre; la etiqueta
+ * (`nombre`, `emoji`) y el orden son libres, para adaptarlos según el
+ * desarrollo de la iglesia sin romper fichas ni historiales.
+ * `ambito` separa las dos partes del seguimiento: 'mision' (hasta
+ * Integrado — Fase 2, la tabla ya lo admite) y 'miembro' (desde
+ * Integrado — esta fase). `protegido` marca el paso-gozne: se puede
+ * renombrar, pero no borrar ni cambiarle la fuente.
+ */
+export interface PasoSeguimiento {
+  id: string;
+  ambito: 'miembro' | 'mision';
+  nombre: string;
+  emoji: string;
+  orden: number;
+  fuente: FuentePasoSeguimiento;
+  protegido?: boolean;
   creado: string;
   version: number;
   updatedAt?: string | number;

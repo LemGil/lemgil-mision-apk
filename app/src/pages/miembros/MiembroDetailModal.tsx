@@ -5,7 +5,8 @@ import { db } from '../../lib/database';
 import { showToast } from '../../lib/notification';
 import { accentStyle, fmt } from '../../lib/utils';
 import { reflejarFallecimientoEnConversion } from '../../lib/propagacion';
-import type { Conversion, Grupo, Hito, Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
+import { escaleraDeMiembro } from '../../lib/pasosMiembro';
+import type { Conversion, Estudiante, Grupo, Hito, Miembro, MiembroMinisterio, Ministerio, PasoSeguimiento, Persona } from '../../lib/types';
 import { CIVIL_BADGE, EST_BADGE, HITO_BADGE, HITO_TIPOS, ROLES, aniosEnIglesia, calcAge, diasEnIglesia, diasHastaCumple } from './constants';
 
 interface MiembroDetailModalProps {
@@ -16,6 +17,12 @@ interface MiembroDetailModalProps {
   onDesvincular: () => void;
   asignacionesPorMiembro: Record<string, MiembroMinisterio[]>;
   hitosPorMiembro: Record<string, Hito[]>;
+  /** Pasos del miembro (Fase 1): catálogo editable + fuentes vivas. */
+  pasosSeguimiento: PasoSeguimiento[];
+  estudiantes: Estudiante[];
+  personas: Persona[];
+  onRegistrarPaso: (paso: PasoSeguimiento) => void;
+  onQuitarPaso: (hitoId: string) => void;
   grupos: Grupo[];
   ministerios: Ministerio[];
   qhTipo: string; setQhTipo: Dispatch<SetStateAction<string>>;
@@ -33,7 +40,7 @@ interface MiembroDetailModalProps {
 
 export function MiembroDetailModal(props: MiembroDetailModalProps) {
   const navigate = useNavigate();
-  const { open, onClose, selMiembro, conversiones, onDesvincular, asignacionesPorMiembro, hitosPorMiembro, grupos, ministerios, qhTipo, setQhTipo, qhFecha, setQhFecha, qhDesc, setQhDesc, quickAddHito, updateAsigRol, quickRemoveAsig, openEditH, onAsignar, onEditarPerfil, onEliminar, onEliminarHito } = props;
+  const { open, onClose, selMiembro, conversiones, onDesvincular, asignacionesPorMiembro, hitosPorMiembro, pasosSeguimiento, estudiantes, personas, onRegistrarPaso, onQuitarPaso, grupos, ministerios, qhTipo, setQhTipo, qhFecha, setQhFecha, qhDesc, setQhDesc, quickAddHito, updateAsigRol, quickRemoveAsig, openEditH, onAsignar, onEditarPerfil, onEliminar, onEliminarHito } = props;
   return (
       <Modal open={open} onClose={onClose} title="Perfil del miembro" wide>
         {selMiembro && (() => {
@@ -49,6 +56,17 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
           const esHuerfano = !!selMiembro.conversionId && !conversiones.some((c) => c.id === selMiembro.conversionId);
           // C1: la conversión de origen, cuando el vínculo resuelve.
           const conversionOrigen = selMiembro.conversionId ? conversiones.find((c) => c.id === selMiembro.conversionId) : undefined;
+          // Fase 1: la escalera de pasos del miembro — la segunda parte
+          // del seguimiento, continuación de la de Misión. Su verdad
+          // sale de las fuentes vivas (lib/pasosMiembro.ts).
+          const escalera = escaleraDeMiembro(pasosSeguimiento, {
+            miembro: selMiembro,
+            conversionOrigen,
+            hitos: histo,
+            estudiantes,
+            asignaciones: asigs,
+            esHermanoMayor: !!selMiembro.personaId && personas.some((p) => p.id !== selMiembro.personaId && p.hermanoMayorId === selMiembro.personaId),
+          });
           const ultimoHito = histo.length > 0 ? histo[0] : null;
           const diasUltimoHito = ultimoHito ? Math.max(0, Math.floor((Date.now() - new Date(ultimoHito.fecha).getTime()) / 86400000)) : null;
           const sinHitoReciente = diasUltimoHito !== null && diasUltimoHito > 180;
@@ -191,6 +209,43 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
                         {ROLES.map((r) => <option key={r}>{r}</option>)}
                       </select>
                       <button type="button" className="btn btn-danger btn-sm" onClick={() => quickRemoveAsig(a.id, mn.nombre)}>🗑</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* PASOS DEL MIEMBRO (Fase 1): la escalera que continúa el
+                seguimiento tras la integración. Automáticos: su verdad
+                viene de los datos. Manuales: se registran como hito. */}
+            <div className="form-section" style={{ marginTop: 18 }}>🧭 Pasos del miembro ({escalera.cumplidos} de {escalera.total} pasos)</div>
+            {escalera.total === 0 ? (
+              <div style={{ color: 'var(--dim)', fontSize: 13, padding: 12, textAlign: 'center', background: 'var(--surface-2)', borderRadius: 8 }}>Sin pasos definidos · créalos con «⚙️ Pasos» en la página de Miembros</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {escalera.estados.map((e) => {
+                  const esActual = escalera.actual?.id === e.paso.id;
+                  return (
+                    <div key={e.paso.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: 'var(--surface-2)', borderRadius: 8, border: esActual ? '1px solid var(--gold)' : '1px solid transparent' }}>
+                      <span style={{ fontSize: 18 }}>{e.cumplido ? '✅' : esActual ? '🔵' : '⚪'}</span>
+                      <span style={{ fontSize: 20 }}>{e.paso.emoji}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>
+                          {e.paso.nombre}
+                          {esActual && <span style={{ color: 'var(--oro-sombra)', fontSize: 11, fontWeight: 700 }}> · paso actual</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+                          {e.cumplido
+                            ? (e.fecha ? `Cumplido · ${fmt(e.fecha)}` : 'Cumplido')
+                            : (e.paso.fuente === 'manual' ? 'Pendiente · se registra a mano' : 'Pendiente · se marca solo desde sus datos')}
+                        </div>
+                      </div>
+                      {e.paso.fuente === 'manual' && !e.cumplido && (
+                        <button type="button" className="btn btn-gold btn-sm" onClick={() => onRegistrarPaso(e.paso)}>Registrar paso</button>
+                      )}
+                      {e.paso.fuente === 'manual' && e.cumplido && e.hitoId && (
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => onQuitarPaso(e.hitoId!)}>Quitar</button>
+                      )}
                     </div>
                   );
                 })}

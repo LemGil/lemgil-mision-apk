@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
-import type { Hito, Miembro, MiembroMinisterio } from '../lib/types';
+import type { Hito, Miembro, MiembroMinisterio, PasoSeguimiento } from '../lib/types';
 import { today } from '../lib/utils';
 import { mapaPersonas, miembroConDatos } from '../lib/personaDatos';
 import { reflejarFallecimientoEnConversion } from '../lib/propagacion';
@@ -21,6 +21,7 @@ import { MinisterioFormModal } from './miembros/MinisterioFormModal';
 import { AsignarFormModal } from './miembros/AsignarFormModal';
 import { HitoFormModal } from './miembros/HitoFormModal';
 import { MiembroDetailModal } from './miembros/MiembroDetailModal';
+import { PasosMiembroEditorModal } from './miembros/PasosMiembroEditorModal';
 import { MinisterioDetailModal } from './miembros/MinisterioDetailModal';
 import { DeleteModals } from './miembros/DeleteModals';
 
@@ -36,6 +37,11 @@ export default function Miembros() {
   const asignaciones = useLiveQuery(() => db.miembrosMinisterios.toArray(), []) ?? [];
   const hitos = useLiveQuery(() => db.hitos.toArray(), []) ?? [];
   const conversiones = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  // Pasos del miembro (Fase 1): el catálogo editable y la fuente
+  // «academia» (los estudiantes se filtran por persona en la escalera).
+  const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray(), []) ?? [];
+  const estudiantes = useLiveQuery(() => db.estudiantes.toArray(), []) ?? [];
+  const [pasosEditorOpen, setPasosEditorOpen] = useState(false);
    const zonasDb = useLiveQuery(() => db.zonas.toArray(), []) ?? [];
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -336,6 +342,24 @@ export default function Miembros() {
     showToast('Hito registrado');
   };
 
+  // Pasos del miembro (Fase 1): registrar un paso manual = crear su
+  // hito con pasoId por el MISMO camino de guardado de quickAddHito
+  // (db.hitos.add + createBaseRecord: entra en la cola de sync por los
+  // ganchos de Dexie). Quitar el registro = borrar ese hito; el resto
+  // del historial no se toca.
+  const registrarPaso = async (paso: PasoSeguimiento) => {
+    if (!selMiembro) return;
+    await db.hitos.add(createBaseRecord({
+      id: uuid(), miembroId: selMiembro.id, fecha: today(),
+      tipo: 'Otro' as Hito['tipo'], descripcion: paso.nombre, pasoId: paso.id,
+    }));
+    showToast(`Paso «${paso.nombre}» registrado`);
+  };
+  const quitarPaso = async (hitoId: string) => {
+    await db.hitos.delete(hitoId);
+    showToast('Registro del paso eliminado');
+  };
+
   const openNewH = (preM?: string) => { resetH(); if (preM) setHMiembro(preM); setModal('hito'); };
   const openEditH = (id: string) => {
     const h = hitos.find((x) => x.id === id); if (!h) return;
@@ -411,10 +435,13 @@ export default function Miembros() {
         <CumpleanosCard proximosCumples={proximosCumples} />
       )}
 
-      <div className="tabs">
-        <button className={`tab ${tab === 'directorio' ? 'active' : ''}`} onClick={() => setTab('directorio')}>📖 Directorio · {miembros.length}</button>
-        <button className={`tab ${tab === 'ministerios' ? 'active' : ''}`} onClick={() => setTab('ministerios')}>⛪ Ministerios · {ministerios.length}</button>
-        <button className={`tab ${tab === 'hitos' ? 'active' : ''}`} onClick={() => setTab('hitos')}>📍 Hitos · {hitos.length}</button>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <div className="tabs" style={{ flex: 1 }}>
+          <button className={`tab ${tab === 'directorio' ? 'active' : ''}`} onClick={() => setTab('directorio')}>📖 Directorio · {miembros.length}</button>
+          <button className={`tab ${tab === 'ministerios' ? 'active' : ''}`} onClick={() => setTab('ministerios')}>⛪ Ministerios · {ministerios.length}</button>
+          <button className={`tab ${tab === 'hitos' ? 'active' : ''}`} onClick={() => setTab('hitos')}>📍 Hitos · {hitos.length}</button>
+        </div>
+        <button className="btn btn-secondary btn-sm" style={{ marginTop: 4 }} onClick={() => setPasosEditorOpen(true)}>⚙️ Pasos</button>
       </div>
 
       {tab === 'directorio' && (
@@ -525,6 +552,11 @@ export default function Miembros() {
         onDesvincular={desvincularOrigen}
         asignacionesPorMiembro={asignacionesPorMiembro}
         hitosPorMiembro={hitosPorMiembro}
+        pasosSeguimiento={pasosSeguimiento}
+        estudiantes={estudiantes}
+        personas={personas}
+        onRegistrarPaso={(paso) => void registrarPaso(paso)}
+        onQuitarPaso={(hitoId) => void quitarPaso(hitoId)}
         grupos={grupos}
         ministerios={ministerios}
         qhTipo={qhTipo} setQhTipo={setQhTipo}
@@ -538,6 +570,12 @@ export default function Miembros() {
         onEditarPerfil={() => { if (selMiembro) { setModal(null); openEditM(selMiembro.id); } }}
         onEliminar={() => setModal('delM')}
         onEliminarHito={(id) => { setSelectedId(id); setModal('delH'); }}
+      />
+
+      <PasosMiembroEditorModal
+        open={pasosEditorOpen}
+        onClose={() => setPasosEditorOpen(false)}
+        pasos={pasosSeguimiento}
       />
 
       <MinisterioDetailModal

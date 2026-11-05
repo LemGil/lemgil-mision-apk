@@ -1,6 +1,6 @@
 import { db } from './database';
 import { createBaseRecord } from './utils/recordHelpers';
-import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Metas, Miembro, Hito, Zona } from './types';
+import type { Conversion, Grupo, Evangelismo, Curso, Leccion, Estudiante, Certificado, Metas, Miembro, Hito, Zona, PasoSeguimiento } from './types';
 import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
@@ -116,6 +116,35 @@ export async function backfillIntegrados(): Promise<number> {
   localStorage.setItem(FLAG_KEY, '1');
   console.log(`Backfill: ${aCrear.length} miembro(s) creado(s) a partir de conversiones integradas`);
   return aCrear.length;
+}
+
+/**
+ * Pasos del seguimiento, Fase 1 (Miembros): la semilla del catálogo
+ * editable. Ids FIJOS y legibles a propósito: la identidad de cada paso
+ * es estable para siempre (renombrar es cambiar la etiqueta, no la
+ * identidad), y al ser fijos, dos equipos que siembran por su cuenta
+ * convergen en las mismas filas al sincronizar — sin duplicados.
+ * Idempotente por vacío, el patrón de ensureZonas: si la tabla ya tiene
+ * filas (sembradas o llegadas por sync), no toca nada; el catálogo es
+ * del usuario desde que nace. La Fase 2 sembrará el ámbito 'mision'
+ * con su propio pase.
+ */
+export const PASOS_MIEMBRO_SEMILLA: Array<Pick<PasoSeguimiento, 'id' | 'nombre' | 'emoji' | 'orden' | 'fuente' | 'protegido'>> = [
+  { id: 'pm-integracion', nombre: 'Integrado', emoji: '🏘️', orden: 1, fuente: 'integracion', protegido: true },
+  { id: 'pm-grupo', nombre: 'En un grupo', emoji: '👥', orden: 2, fuente: 'grupo' },
+  { id: 'pm-academia', nombre: 'En la Academia', emoji: '🎓', orden: 3, fuente: 'academia' },
+  { id: 'pm-ministerio', nombre: 'Sirviendo en un ministerio', emoji: '🤲', orden: 4, fuente: 'ministerio' },
+  { id: 'pm-hermano-mayor', nombre: 'Hermano mayor de alguien', emoji: '🌱', orden: 5, fuente: 'hermanoMayor' },
+  { id: 'pm-liderazgo', nombre: 'Liderazgo', emoji: '⭐', orden: 6, fuente: 'manual' },
+];
+
+export async function ensurePasosMiembro(): Promise<PasoSeguimiento[]> {
+  const existentes = await db.pasosSeguimiento.toArray();
+  if (existentes.length > 0) return existentes;
+  const now = new Date().toISOString();
+  const pasos = PASOS_MIEMBRO_SEMILLA.map((p) => createBaseRecord({ ...p, ambito: 'miembro' as const, creado: now, version: 1 }));
+  await db.pasosSeguimiento.bulkAdd(pasos);
+  return pasos;
 }
 
 export async function ensureMetas(): Promise<Metas> {

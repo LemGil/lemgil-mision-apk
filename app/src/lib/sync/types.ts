@@ -36,7 +36,8 @@ export type SyncTableName =
   | "colaboradores"
   | "tiposPlanes"
   | "planesColaborador"
-  | "aportesComun";
+  | "aportesComun"
+  | "pasosSeguimiento";
 
 export interface SyncOp {
   table: SyncTableName;
