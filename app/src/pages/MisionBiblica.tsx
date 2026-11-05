@@ -22,6 +22,7 @@ import {
   emojiDe, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
 } from '../lib/pasosMision';
 import { PasosMisionEditorModal } from './mision-biblica/PasosMisionEditorModal';
+import { reflejoDeSalidaEnMiembro } from '../lib/propagacion';
 import { syncMemberFromConversion } from './mision-biblica/syncMember';
 import { ConversionesTable } from './mision-biblica/ConversionesTable';
 import { GruposTab } from './mision-biblica/GruposTab';
@@ -208,20 +209,18 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
 
   // B3 (solo reflejo de estados): la propagación B2 se jubiló en P2 — los
   // datos personales viven en el núcleo y ambas páginas los leen de ahí.
-  // Queda la regla del proceso: Fallecido/Apartado de la conversión se
-  // refleja en su miembro. Con la bandera de descarte (A1) o sin miembro,
-  // no se toca nada.
+  // Queda la regla del proceso: las SALIDAS de la conversión se reflejan
+  // en su miembro (la decisión vive en lib/propagacion.ts:
+  // Fallecido→Fallecido, Traslado→Trasladado, Apartado y cualquier otra
+  // salida del catálogo→Inactivo). Con la bandera de descarte (A1) o sin
+  // miembro, no se toca nada.
   const reflejarEstadoEnMiembro = async (convDespues: Conversion) => {
     if (convDespues.miembroDescartado) return;
-    // Fase 2: las salidas se reconocen por IDENTIDAD (alias tolerante).
-    const estadoId = idCanonico(convDespues.estado);
-    if (estadoId !== PS_FALLECIDO && estadoId !== PS_APARTADO) return;
     const vinculado = await db.miembros.where('conversionId').equals(convDespues.id).first();
     if (!vinculado) return;
-    if (estadoId === PS_FALLECIDO && vinculado.estado !== 'Fallecido') {
-      await db.miembros.update(vinculado.id, { estado: 'Fallecido', actualizado: new Date().toISOString() });
-    } else if (estadoId === PS_APARTADO && vinculado.estado === 'Activo') {
-      await db.miembros.update(vinculado.id, { estado: 'Inactivo', actualizado: new Date().toISOString() });
+    const nuevoEstado = reflejoDeSalidaEnMiembro(convDespues.estado, pasosSeguimiento, vinculado.estado);
+    if (nuevoEstado) {
+      await db.miembros.update(vinculado.id, { estado: nuevoEstado, actualizado: new Date().toISOString() });
     }
   };
 

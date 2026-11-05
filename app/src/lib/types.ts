@@ -532,8 +532,10 @@ export type FuentePasoSeguimiento = 'integracion' | 'grupo' | 'academia' | 'mini
  * - inicio: el primer paso (protegido; las conversiones nacen aquí).
  * - camino: pasos intermedios libres (agregar/quitar/reordenar).
  * - gozne: el paso que crea al miembro (protegido; ancla de syncMember).
- * - salida: salidas del camino (Apartado/Fallecido; protegidas, fijas
- *   al final, no forman parte de la ruta de avance).
+ * - salida: salidas del camino (las de la casa — Apartado/Traslado/
+ *   Fallecido — protegidas; la iglesia puede crear las suyas, que se
+ *   borran si nadie las usa). Fijas al final, no forman parte de la
+ *   ruta de avance.
  * En el ámbito 'miembro' el rol no aplica (manda la `fuente`).
  */
 export type RolPasoSeguimiento = 'inicio' | 'camino' | 'gozne' | 'salida';

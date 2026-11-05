@@ -4,8 +4,9 @@ import {
   procesosHuerfanos, filtrarPersonas, edadDesde, procesosVacios, contarPersonasUnicas,
   posiblesDuplicados, situacionPersona,
 } from './personaVista';
+import { PASOS_MISION_DEFECTO } from './pasosMision';
 import type { FichasDePersona } from './personas';
-import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, Persona } from './types';
+import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, PasoSeguimiento, Persona } from './types';
 
 const personaBase = (over: Partial<Persona> = {}): Persona => ({
   id: 'p1', nombre: 'María', apellido: 'González', numeroIdentidad: '', telefono: '5551234',
@@ -298,14 +299,51 @@ describe('situacionPersona: la situación actual que la ficha sí dice', () => {
       .toEqual({ texto: 'Apartado', tono: 'warn' });
   });
 
-  it('regla 2 gana a la 5: miembro apartado manda sobre conversión Integrado', () => {
+  it('regla 2 gana a la 6: miembro apartado manda sobre conversión Integrado', () => {
     expect(situacionPersona(grupo({
       conversiones: [convBase({ estado: 'ps-integrado' })],
       miembros: [miembroApartado],
     }))).toEqual({ texto: 'Apartado', tono: 'warn' });
   });
 
-  it('regla 3: miembro Inactivo → Inactivo (warn), y gana a conversión Integrado', () => {
+  it('regla 3: conversión en Traslado → «Trasladado» (info, tono neutro)', () => {
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-traslado' })] })))
+      .toEqual({ texto: 'Trasladado', tono: 'info' });
+  });
+
+  it('regla 3: conversión en una salida PERSONALIZADA → su etiqueta viva (info)', () => {
+    const salidaPropia: PasoSeguimiento = {
+      id: 'ps-mudanza', ambito: 'mision', nombre: 'Se mudó del país', emoji: '✈️',
+      orden: 8, fuente: 'manual', rol: 'salida', creado: '2026-01-01T00:00:00.000Z', version: 1,
+    };
+    const catalogo = [...PASOS_MISION_DEFECTO, salidaPropia];
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-mudanza' })] }), catalogo))
+      .toEqual({ texto: 'Se mudó del país', tono: 'info' });
+    // Y si la iglesia la renombra, la insignia dice el nombre nuevo.
+    const renombrado = catalogo.map((p) => (p.id === 'ps-mudanza' ? { ...p, nombre: 'Emigró' } : p));
+    expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-mudanza' })] }), renombrado))
+      .toEqual({ texto: 'Emigró', tono: 'info' });
+  });
+
+  it('regla 3: miembro Trasladado → «Trasladado» (info), y gana a su conversión Integrado', () => {
+    // CAMBIO documentado: antes esta combinación caía a la regla del
+    // gozne y la insignia decía «Integrado»; ahora manda el traslado.
+    expect(situacionPersona(grupo({ miembros: [miembroBase({ estado: 'Trasladado' })] })))
+      .toEqual({ texto: 'Trasladado', tono: 'info' });
+    expect(situacionPersona(grupo({
+      conversiones: [convBase({ estado: 'ps-integrado' })],
+      miembros: [miembroBase({ estado: 'Trasladado' })],
+    }))).toEqual({ texto: 'Trasladado', tono: 'info' });
+  });
+
+  it('regla 2 gana a la 3: Apartado manda sobre Traslado', () => {
+    expect(situacionPersona(grupo({
+      conversiones: [convBase({ estado: 'ps-apartado' })],
+      miembros: [miembroBase({ estado: 'Trasladado' })],
+    }))).toEqual({ texto: 'Apartado', tono: 'warn' });
+  });
+
+  it('regla 4: miembro Inactivo → Inactivo (warn), y gana a conversión Integrado', () => {
     expect(situacionPersona(grupo({ miembros: [miembroBase({ estado: 'Inactivo' })] })))
       .toEqual({ texto: 'Inactivo', tono: 'warn' });
     expect(situacionPersona(grupo({
@@ -314,31 +352,31 @@ describe('situacionPersona: la situación actual que la ficha sí dice', () => {
     }))).toEqual({ texto: 'Inactivo', tono: 'warn' });
   });
 
-  it('regla 4: miembro Activo → «Miembro activo» (ok)', () => {
+  it('regla 5: miembro Activo → «Miembro activo» (ok)', () => {
     expect(situacionPersona(grupo({ miembros: [miembroBase({ estado: 'Activo' })] })))
       .toEqual({ texto: 'Miembro activo', tono: 'ok' });
   });
 
-  it('regla 4 gana a la 6: miembro Activo manda sobre conversión en proceso', () => {
+  it('regla 5 gana a la 7: miembro Activo manda sobre conversión en proceso', () => {
     expect(situacionPersona(grupo({
       conversiones: [convBase({ estado: 'ps-nuevo' })],
       miembros: [miembroBase({ estado: 'Activo' })],
     }))).toEqual({ texto: 'Miembro activo', tono: 'ok' });
   });
 
-  it('regla 5: solo conversión Integrado → Integrado (ok)', () => {
+  it('regla 6: solo conversión Integrado → Integrado (ok)', () => {
     expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-integrado' })] })))
       .toEqual({ texto: 'Integrado', tono: 'ok' });
   });
 
-  it('regla 6: conversión en proceso, una sola → su estado (info)', () => {
+  it('regla 7: conversión en proceso, una sola → su estado (info)', () => {
     expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-discipulado' })] })))
       .toEqual({ texto: 'Discipulado', tono: 'info' });
     expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-nuevo' })] })))
       .toEqual({ texto: 'Nuevo', tono: 'info' });
   });
 
-  it('regla 6: entre varias en proceso gana la más avanzada (Bautizado > Discipulado > Nuevo)', () => {
+  it('regla 7: entre varias en proceso gana la más avanzada (Bautizado > Discipulado > Nuevo)', () => {
     expect(situacionPersona(grupo({
       conversiones: [
         convBase({ id: 'c1', estado: 'ps-nuevo' }),
@@ -348,22 +386,22 @@ describe('situacionPersona: la situación actual que la ficha sí dice', () => {
     }))).toEqual({ texto: 'Bautizado', tono: 'info' });
   });
 
-  it('regla 6: el «Seguimiento» legado entra por el alias como Discipulado (Fase 2)', () => {
+  it('regla 7: el «Seguimiento» legado entra por el alias como Discipulado (Fase 2)', () => {
     expect(situacionPersona(grupo({ conversiones: [convSeguimiento, convBase({ id: 'c2', estado: 'ps-discipulado' })] })))
       .toEqual({ texto: 'Discipulado', tono: 'info' });
     expect(situacionPersona(grupo({ conversiones: [convSeguimiento] })))
       .toEqual({ texto: 'Discipulado', tono: 'info' });
   });
 
-  it('regla 7: solo estudiante → null (su tarjeta ya dice su estado)', () => {
+  it('sin situación: solo estudiante → null (su tarjeta ya dice su estado)', () => {
     expect(situacionPersona(grupo({ estudiantes: [estBase({})] }))).toBeNull();
   });
 
-  it('regla 7: solo diezmador → null', () => {
+  it('sin situación: solo diezmador → null', () => {
     expect(situacionPersona(grupo({ dadores: [diezmBase({}) as Diezmador] }))).toBeNull();
   });
 
-  it('regla 7: sin procesos → null', () => {
+  it('sin situación: sin procesos → null', () => {
     expect(situacionPersona(procesosVacios())).toBeNull();
   });
 });

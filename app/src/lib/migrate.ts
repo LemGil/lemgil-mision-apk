@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
-import { PASOS_MISION_DEFECTO, idCanonico } from './pasosMision';
+import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_TRASLADO, idCanonico } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -151,19 +151,44 @@ export async function ensurePasosMiembro(): Promise<PasoSeguimiento[]> {
 }
 
 /**
- * Fase 2 (Misión): la semilla del ámbito 'mision' son los seis estados
- * de siempre, ahora como DATOS con identidad fija y rol (la definición
+ * Fase 2 (Misión): la semilla del ámbito 'mision' son los estados de
+ * siempre, ahora como DATOS con identidad fija y rol (la definición
  * vive en lib/pasosMision.ts, que es también el respaldo de lectura).
  * Mismo patrón que la Fase 1: ids fijos → los equipos convergen al
  * sincronizar; idempotente por vacío DEL ÁMBITO.
+ *
+ * Traslado (post-Fase 2): la tercera salida de la casa llegó DESPUÉS de
+ * que los equipos ya sembraron su catálogo, así que la siembra tiene
+ * dos pisos: el ámbito vacío recibe la semilla completa, y en un
+ * catálogo ya sembrado los pasos PROTEGIDOS se aseguran POR ID (si
+ * falta uno, entra; si un equipo viejo lo trae por sync, no se
+ * duplica). Los de camino NO se resiembran: si la iglesia borró uno,
+ * no resucita.
  */
 export async function ensurePasosMision(): Promise<PasoSeguimiento[]> {
   const existentes = await db.pasosSeguimiento.where('ambito').equals('mision').toArray();
-  if (existentes.length > 0) return existentes;
   const now = new Date().toISOString();
-  const pasos = PASOS_MISION_DEFECTO.map((p) => createBaseRecord({ ...p, creado: now, version: 1 }));
-  await db.pasosSeguimiento.bulkAdd(pasos);
-  return pasos;
+  if (existentes.length === 0) {
+    const pasos = PASOS_MISION_DEFECTO.map((p) => createBaseRecord({ ...p, creado: now, version: 1 }));
+    await db.pasosSeguimiento.bulkAdd(pasos);
+    return pasos;
+  }
+  const porId = new Map(existentes.map((p) => [p.id, p]));
+  for (const semilla of PASOS_MISION_DEFECTO.filter((p) => p.protegido)) {
+    if (porId.has(semilla.id)) continue;
+    if (semilla.id === PS_TRASLADO) {
+      // Orden visible de las salidas: Apartado → Traslado → Fallecido.
+      // El traslado toma el `orden` que tenga Fallecido y éste sube uno
+      // (solo se toca su orden: ni su nombre ni ningún otro campo).
+      const fallecido = porId.get(PS_FALLECIDO);
+      const orden = fallecido ? fallecido.orden : semilla.orden;
+      if (fallecido) await db.pasosSeguimiento.update(PS_FALLECIDO, { orden: fallecido.orden + 1 });
+      await db.pasosSeguimiento.add(createBaseRecord({ ...semilla, orden, creado: now, version: 1 }));
+    } else {
+      await db.pasosSeguimiento.add(createBaseRecord({ ...semilla, creado: now, version: 1 }));
+    }
+  }
+  return db.pasosSeguimiento.where('ambito').equals('mision').toArray();
 }
 
 /**

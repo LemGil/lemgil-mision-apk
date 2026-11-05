@@ -422,6 +422,8 @@ a.btn {
 .step.active .step-dot { background: var(--oro-apostolico); border-color: var(--oro-apostolico); color: #fff; }
 .step-label { font-size: 10px; color: var(--dim); font-weight: 600; }
 .step.done .step-label, .step.active .step-label { color: var(--txt); }
+.step.salida-activa .step-dot { color: #fff; }
+.step.salida-activa .step-label { color: var(--txt); font-weight: 700; }
 
 /* ═══ TOAST ═══ */
 .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }

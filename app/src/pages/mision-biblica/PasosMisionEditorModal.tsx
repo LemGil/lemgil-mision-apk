@@ -4,7 +4,7 @@ import { Modal } from '../../components/Modal';
 import { db } from '../../lib/database';
 import { createBaseRecord } from '../../lib/utils/recordHelpers';
 import { showToast } from '../../lib/notification';
-import { pasosDeMision, rutaDe, salidasDe } from '../../lib/pasosMision';
+import { contarUsoPaso, pasosDeMision, rutaDe, salidasDe } from '../../lib/pasosMision';
 import type { PasoSeguimiento } from '../../lib/types';
 
 interface PasosMisionEditorModalProps {
@@ -30,9 +30,14 @@ const ROL_LABEL: Record<string, string> = {
  * - Agregar = un paso intermedio nuevo (rol camino), insertado antes
  *   del gozne. Borrar un paso intermedio SOLO si ninguna conversión lo
  *   usa (se cuenta y se bloquea: nadie queda en el aire).
- * - Protegidos (inicio, gozne y las salidas): sin borrar y sin mover;
- *   el inicio abre el camino, el gozne lo cierra y crea al miembro, y
- *   las salidas viven aparte, fijas al final.
+ * - Las SALIDAS también se pueden crear («➕ Nueva salida»): nacen sin
+ *   proteger y se comportan con el reflejo genérico (sacan a la
+ *   persona del proceso, su miembro pasa a Inactivo y Personas las
+ *   muestra con su nombre). Una salida creada se borra con la misma
+ *   guarda de uso que un paso intermedio.
+ * - Protegidos (inicio, gozne y las salidas de la casa): sin borrar y
+ *   sin mover; el inicio abre el camino, el gozne lo cierra y crea al
+ *   miembro, y las salidas viven aparte, fijas al final.
  * Los cambios se guardan al momento y viajan por la cola de sync.
  */
 export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEditorModalProps) {
@@ -84,17 +89,34 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
     showToast('Paso agregado al camino: edita su nombre en la lista');
   };
 
+  const agregarSalida = async () => {
+    const nuevo = createBaseRecord({
+      id: uuid(), ambito: 'mision' as const, nombre: 'Nueva salida', emoji: '🚪',
+      orden: 0, fuente: 'manual' as PasoSeguimiento['fuente'], rol: 'salida' as PasoSeguimiento['rol'],
+    });
+    await db.pasosSeguimiento.add(nuevo);
+    await persistirOrden([...todos, nuevo]);
+    showToast('Salida agregada: edita su nombre en la lista');
+  };
+
   const borrar = async (p: PasoSeguimiento) => {
-    if (p.protegido || p.rol !== 'camino') return;
-    const enUso = await db.conversiones.filter((c) => c.estado === p.id).count();
+    if (p.protegido || (p.rol !== 'camino' && p.rol !== 'salida')) return;
+    // El uso se cuenta por IDENTIDAD canónica: una ficha que aún guarda
+    // la etiqueta legada de un paso cuenta como uso suyo igual.
+    const convs = await db.conversiones.toArray();
+    const enUso = contarUsoPaso(convs.map((c) => c.estado), p.id);
+    const esSalidaPaso = p.rol === 'salida';
     if (enUso > 0) {
-      showToast(`No se puede eliminar «${p.nombre}»: ${enUso} conversión(es) están en ese paso. Muévelas primero a otro paso.`);
+      showToast(`No se puede eliminar «${p.nombre}»: ${enUso} conversión(es) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'}. Muévelas primero a otro ${esSalidaPaso ? 'estado' : 'paso'}.`);
       return;
     }
-    if (!window.confirm(`¿Eliminar el paso «${p.nombre}» del camino? Ninguna conversión lo está usando.`)) return;
+    const pregunta = esSalidaPaso
+      ? `¿Eliminar la salida «${p.nombre}»? Ninguna conversión la está usando.`
+      : `¿Eliminar el paso «${p.nombre}» del camino? Ninguna conversión lo está usando.`;
+    if (!window.confirm(pregunta)) return;
     await db.pasosSeguimiento.delete(p.id);
     await persistirOrden(todos.filter((x) => x.id !== p.id));
-    showToast(`Paso «${p.nombre}» eliminado`);
+    showToast(`${esSalidaPaso ? 'Salida' : 'Paso'} «${p.nombre}» ${esSalidaPaso ? 'eliminada' : 'eliminado'}`);
   };
 
   const fila = (p: PasoSeguimiento, i: number, enRuta: boolean) => {
@@ -121,8 +143,8 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
               <button type="button" className="btn btn-secondary btn-sm" disabled={i === ruta.length - 1} onClick={() => void mover(p, 1)} title="Bajar">⬇</button>
             </>
           )}
-          {p.rol === 'camino' && !p.protegido && (
-            <button type="button" className="btn btn-danger btn-sm" onClick={() => void borrar(p)} title="Eliminar paso">🗑</button>
+          {(p.rol === 'camino' || p.rol === 'salida') && !p.protegido && (
+            <button type="button" className="btn btn-danger btn-sm" onClick={() => void borrar(p)} title={p.rol === 'salida' ? 'Eliminar salida' : 'Eliminar paso'}>🗑</button>
           )}
         </div>
         <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 6 }}>
@@ -156,6 +178,16 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
       <div className="form-section" style={{ marginTop: 18 }}>🚪 Salidas</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {salidas.map((p, i) => fila(p, i, false))}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 10 }}>
+        Las salidas de la casa (Apartado, Trasladado, Fallecido) son fijas. Puedes crear
+        otras salidas para las formas de salir que tu iglesia conozca: quien entra en una
+        sale del proceso, su miembro pasa a Inactivo y en Personas se muestra con el
+        nombre de la salida. Una salida creada solo se puede eliminar si ninguna
+        conversión está en ella.
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <button type="button" className="btn btn-secondary" onClick={() => void agregarSalida()}>➕ Nueva salida</button>
       </div>
 
       <div className="modal-footer">

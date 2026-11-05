@@ -5,26 +5,9 @@ import { accentStyle, fmt } from '../../lib/utils';
 import type { Conversion, Grupo, Hito, Miembro, PasoSeguimiento } from '../../lib/types';
 import { EST_BADGE as MIEMBRO_EST_BADGE, HITO_BADGE } from '../miembros/constants';
 import {
-  PS_FALLECIDO, badgeDe, colorDe, emojiDe, esGozne, esSalida, etiquetaDe,
-  idCanonico, indiceEnRuta, pasosDeMision, siguientePaso,
+  PS_FALLECIDO, badgeDe, colorDe, emojiDe, esGozne, etiquetaDe,
+  idCanonico, indiceEnRuta, pasosDeMision, pasosPipeline, siguientePaso,
 } from '../../lib/pasosMision';
-
-/**
- * Fase 2: el pipeline pinta el CATÁLOGO (ruta + salidas) con las
- * etiquetas vivas. Las clases done/active se calculan por la posición
- * en la RUTA; si el estado actual es una salida, todo queda en reposo
- * (como antes). Cada paso es clicable: elige el estado destino del
- * seguimiento (tempEst), incluidas las salidas.
- */
-const pasosPipeline = (pasos: PasoSeguimiento[], actual: string) => {
-  const idx = indiceEnRuta(pasos, actual);
-  const enRuta = idx >= 0 && !esSalida(pasos, actual);
-  return pasosDeMision(pasos).map((p) => {
-    const i = indiceEnRuta(pasos, p.id);
-    const cls = enRuta && i >= 0 ? (i < idx ? 'step done' : i === idx ? 'step active' : 'step') : 'step';
-    return { id: p.id, etiqueta: p.nombre, emoji: p.emoji, cls };
-  });
-};
 
 interface ConversionDetailModalProps {
   /** Catálogo de pasos (Fase 2): pipeline, insignias e historial con etiquetas vivas. */
@@ -126,7 +109,7 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
             <div className="steps">
               {pasosPipeline(pasos, tempEst || selConv.estado).map((s) => (
                 <div key={s.id} className={s.cls} onClick={() => setTempEst(s.id)}>
-                  <div className="step-dot">{s.emoji}</div>
+                  <div className="step-dot" style={s.dotColor ? { background: s.dotColor, borderColor: s.dotColor } : undefined}>{s.emoji}</div>
                   <div className="step-label">{s.etiqueta}</div>
                 </div>
               ))}

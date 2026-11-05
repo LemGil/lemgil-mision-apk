@@ -8,7 +8,7 @@ import { createBaseRecord } from '../lib/utils/recordHelpers';
 import type { Hito, Miembro, MiembroMinisterio, PasoSeguimiento } from '../lib/types';
 import { today } from '../lib/utils';
 import { mapaPersonas, miembroConDatos } from '../lib/personaDatos';
-import { reflejarFallecimientoEnConversion } from '../lib/propagacion';
+import { reflejarFallecimientoEnConversion, reflejarTrasladoEnConversion } from '../lib/propagacion';
 import { showToast } from '../lib/notification';
 import { diasHastaCumple } from './miembros/constants';
 import type { ModalType, Tab } from './miembros/constants';
@@ -220,9 +220,11 @@ export default function Miembros() {
         ? `Miembro "${nombrePersona}" registrado y vinculado a su conversión`
         : `Miembro "${nombrePersona}" registrado`);
     }
-    // B3 (sentido inverso): si el miembro queda «Fallecido», reflejarlo en
-    // su conversión vinculada, dejando la entrada en su historial.
+    // B3 (sentido inverso): si el miembro queda «Fallecido» o
+    // «Trasladado», reflejarlo en su conversión vinculada, dejando la
+    // entrada en su historial.
     await reflejarFallecimientoEnConversion({ estado: data.estado, conversionId });
+    await reflejarTrasladoEnConversion({ estado: data.estado, conversionId });
     resetM(); setModal(null);
   };
   const saveM = async () => {

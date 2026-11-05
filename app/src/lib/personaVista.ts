@@ -1,6 +1,6 @@
 import { normalizeField } from './csvImport';
 import { fmt } from './utils';
-import { PS_APARTADO, PS_FALLECIDO, enCamino, esGozne, etiquetaDe, idCanonico, indiceEnRuta } from './pasosMision';
+import { PS_APARTADO, PS_FALLECIDO, enCamino, esGozne, esSalida, etiquetaDe, idCanonico, indiceEnRuta } from './pasosMision';
 import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, PasoSeguimiento, Persona } from './types';
 import type { FichasDePersona, ProcesoPersona } from './personas';
 
@@ -122,10 +122,16 @@ export const SITUACION_BADGE: Record<TonoSituacion, string> = {
  *    el tipo actual ya no trae «Apartado» para miembros (una conversión
  *    apartada se refleja como miembro Inactivo), pero registros viejos
  *    o sincronizados podrían traerlo y no debe esconderse.
- * 3. Miembro Inactivo.
- * 4. Miembro Activo → «Miembro activo».
- * 5. Conversión en el paso-gozne → su etiqueta viva («Integrado»).
- * 6. Conversión en proceso: la más avanzada de la RUTA del catálogo
+ * 3. Salida «del resto» (Traslado o una salida personalizada del
+ *    catálogo) o miembro Trasladado — la persona salió del camino sin
+ *    apartarse ni fallecer: la insignia es la etiqueta VIVA de esa
+ *    salida, en tono neutro (info). Ojo al cambio: un miembro
+ *    Trasladado cuya conversión sigue en el gozne antes caía a la
+ *    regla del gozne («Integrado»); ahora manda el traslado.
+ * 4. Miembro Inactivo.
+ * 5. Miembro Activo → «Miembro activo».
+ * 6. Conversión en el paso-gozne → su etiqueta viva («Integrado»).
+ * 7. Conversión en proceso: la más avanzada de la RUTA del catálogo
  *    de pasos de Misión (Fase 2; el «Seguimiento» legado entra por el
  *    alias como Discipulado).
  * Si ningún proceso dice su situación (solo estudiante/diezmador/
@@ -145,6 +151,12 @@ export function situacionPersona(g: ProcesosAgrupados, pasos?: PasoSeguimiento[]
   if (convs.some((c) => idCanonico(c.estado) === PS_APARTADO) || miembros.some((m) => (m.estado as string) === 'Apartado')) {
     return { texto: etiquetaDe(pasos, PS_APARTADO), tono: 'warn' };
   }
+  const salidaExtra = convs.find((c) => {
+    const id = idCanonico(c.estado);
+    return id !== PS_APARTADO && id !== PS_FALLECIDO && esSalida(pasos, c.estado);
+  });
+  if (salidaExtra) return { texto: etiquetaDe(pasos, salidaExtra.estado), tono: 'info' };
+  if (miembros.some((m) => m.estado === 'Trasladado')) return { texto: 'Trasladado', tono: 'info' };
   if (miembros.some((m) => m.estado === 'Inactivo')) return { texto: 'Inactivo', tono: 'warn' };
   if (miembros.some((m) => m.estado === 'Activo')) return { texto: 'Miembro activo', tono: 'ok' };
   const enElGozne = convs.find((c) => esGozne(pasos, c.estado));

@@ -12,7 +12,10 @@ import type { Hito, PasoSeguimiento } from './types';
  * - `inicio` (protegido): donde nacen las conversiones.
  * - `camino`: pasos intermedios libres.
  * - `gozne` (protegido): el que crea al miembro (syncMember).
- * - `salida` (protegidas): Apartado/Fallecido; no avanzan por la ruta.
+ * - `salida`: salen del camino; no avanzan por la ruta. Las de la casa
+ *   (Apartado/Traslado/Fallecido) son protegidas; la iglesia puede
+ *   crear las suyas desde el editor, con el reflejo genérico (el
+ *   miembro pasa a Inactivo y Personas las muestra con su nombre).
  *
  * TOLERANCIA LEGADO: los registros anteriores a esta fase guardan la
  * ETIQUETA ('Integrado') en vez del id. El pase `migrarEstadosAPasos`
@@ -29,6 +32,7 @@ export const PS_DISCIPULADO = 'ps-discipulado';
 export const PS_BAUTIZADO = 'ps-bautizado';
 export const PS_INTEGRADO = 'ps-integrado';
 export const PS_APARTADO = 'ps-apartado';
+export const PS_TRASLADO = 'ps-traslado';
 export const PS_FALLECIDO = 'ps-fallecido';
 
 /** Etiqueta legada → identidad. «Seguimiento» fue un nombre viejo del Discipulado. */
@@ -69,7 +73,8 @@ export const PASOS_MISION_DEFECTO: PasoSeguimiento[] = [
   semilla(PS_BAUTIZADO, 'Bautizado', '💧', 3, 'camino'),
   semilla(PS_INTEGRADO, 'Integrado', '🏘️', 4, 'gozne', true),
   semilla(PS_APARTADO, 'Apartado', '🚪', 5, 'salida', true),
-  semilla(PS_FALLECIDO, 'Fallecido', '✝️', 6, 'salida', true),
+  semilla(PS_TRASLADO, 'Trasladado', '🧳', 6, 'salida', true),
+  semilla(PS_FALLECIDO, 'Fallecido', '✝️', 7, 'salida', true),
 ];
 
 /** Orden del catálogo: por `orden`; desempate estable por creación e id (el mismo de pasosMiembro.ordenarPasos). */
@@ -122,7 +127,7 @@ export function rutaDe(pasos?: PasoSeguimiento[]): PasoSeguimiento[] {
   return pasosDeMision(pasos).filter((p) => p.rol === 'inicio' || p.rol === 'camino' || p.rol === 'gozne');
 }
 
-/** Las salidas del camino, en orden (Apartado, Fallecido en la semilla). */
+/** Las salidas del camino, en orden (Apartado, Trasladado, Fallecido en la semilla). */
 export function salidasDe(pasos?: PasoSeguimiento[]): PasoSeguimiento[] {
   return pasosDeMision(pasos).filter((p) => p.rol === 'salida');
 }
@@ -178,6 +183,9 @@ const BADGE_SEMILLA: Record<string, string> = {
   [PS_BAUTIZADO]: 'badge-green',
   [PS_INTEGRADO]: 'badge-purple',
   [PS_APARTADO]: 'badge-red',
+  // Trasladado: el mismo amarillo de su insignia en Miembros
+  // (miembros/constants.ts: EST_BADGE Trasladado = badge-yellow).
+  [PS_TRASLADO]: 'badge-yellow',
   [PS_FALLECIDO]: 'badge-gray',
 };
 const COLOR_SEMILLA: Record<string, string> = {
@@ -186,6 +194,7 @@ const COLOR_SEMILLA: Record<string, string> = {
   [PS_BAUTIZADO]: 'var(--green)',
   [PS_INTEGRADO]: 'var(--purple)',
   [PS_APARTADO]: 'var(--red)',
+  [PS_TRASLADO]: 'var(--yellow)',
   [PS_FALLECIDO]: 'var(--dim)',
 };
 const BADGE_CAMINO = ['badge-blue', 'badge-yellow', 'badge-green', 'badge-purple'];
@@ -209,4 +218,54 @@ export function colorDe(pasos: PasoSeguimiento[] | undefined, valor: string): st
   if (paso.rol === 'salida') return 'var(--red)';
   const i = indiceEnRuta(pasos, valor);
   return COLOR_CAMINO[(i >= 0 ? i : 0) % COLOR_CAMINO.length];
+}
+
+/**
+ * Cuántas conversiones están en un paso, contando por IDENTIDAD
+ * canónica: una ficha que aún guarda la etiqueta legada («Apartado»)
+ * cuenta como uso de su paso ('ps-apartado') igual que la que guarda
+ * el id. Es la guarda del editor al borrar pasos y salidas: nadie
+ * puede quedar en el aire.
+ */
+export function contarUsoPaso(estados: string[], pasoId: string): number {
+  return estados.filter((e) => idCanonico(e) === pasoId).length;
+}
+
+/** Un paso tal como lo pinta el pipeline del detalle de la conversión. */
+export interface PasoPipeline {
+  id: string;
+  etiqueta: string;
+  emoji: string;
+  cls: string;
+  /** Solo en la SALIDA ACTIVA: su color del catálogo, para pintar el punto. */
+  dotColor?: string;
+}
+
+/**
+ * Los pasos del pipeline (ruta + salidas) con su clase visual para el
+ * estado `actual` — que puede ser el guardado o la selección pendiente
+ * (tempEst): el cálculo es el mismo.
+ *
+ * En la RUTA, las clases son las de siempre: done (ya pasados), active
+ * (el actual) y reposo. Si el estado es una SALIDA, la ruta queda en
+ * reposo (no hay posición que marcar en ella), pero la salida SÍ se
+ * marca: clase `salida-activa` + su color del catálogo en el punto —
+ * antes todas quedaban planas y Apartado/Fallecido no se veían marcados
+ * aunque la persona estuviera en ellos.
+ */
+export function pasosPipeline(pasos: PasoSeguimiento[] | undefined, actual: string): PasoPipeline[] {
+  const idx = indiceEnRuta(pasos, actual);
+  const enRuta = idx >= 0 && !esSalida(pasos, actual);
+  const actualId = idCanonico(actual);
+  return pasosDeMision(pasos).map((p) => {
+    const i = indiceEnRuta(pasos, p.id);
+    if (enRuta && i >= 0) {
+      const cls = i < idx ? 'step done' : i === idx ? 'step active' : 'step';
+      return { id: p.id, etiqueta: p.nombre, emoji: p.emoji, cls };
+    }
+    if (p.id === actualId && esSalida(pasos, p.id)) {
+      return { id: p.id, etiqueta: p.nombre, emoji: p.emoji, cls: 'step salida-activa', dotColor: colorDe(pasos, p.id) };
+    }
+    return { id: p.id, etiqueta: p.nombre, emoji: p.emoji, cls: 'step' };
+  });
 }
