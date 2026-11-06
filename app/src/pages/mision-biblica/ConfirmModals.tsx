@@ -7,6 +7,10 @@ interface ConfirmModalsProps {
   selConv: Conversion | undefined;
   miembroVinculadoNombre?: string;
   grupoNombre: string | undefined;
+  /** F12/M7: conversiones que tienen el evangelismo a borrar como origen (quedarán desvinculadas). */
+  evangVinculadas?: number;
+  /** F12/M7: personas asignadas al grupo a borrar (quedarán sin grupo). */
+  grupoAsignadas?: number;
   onClose: () => void;
   delConv: () => void;
   delGrupo: () => void;
@@ -14,7 +18,7 @@ interface ConfirmModalsProps {
 }
 
 export function ConfirmModals(props: ConfirmModalsProps) {
-  const { modal, selConv, miembroVinculadoNombre, grupoNombre, onClose, delConv, delGrupo, delEvang } = props;
+  const { modal, selConv, miembroVinculadoNombre, grupoNombre, evangVinculadas, grupoAsignadas, onClose, delConv, delGrupo, delEvang } = props;
   return (
     <>
       <Modal open={modal === 'confirm'} onClose={onClose} title="⚠️ Confirmar" footer={<><button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-danger" onClick={delConv}>Sí, Eliminar</button></>}>
@@ -32,6 +36,9 @@ export function ConfirmModals(props: ConfirmModalsProps) {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 44, marginBottom: 10 }}>🗑️</div>
           <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>¿Eliminar el grupo <strong style={{ color: 'var(--txt)' }}>{grupoNombre}</strong>?<br />Esta acción no se puede deshacer.</p>
+          {!!grupoAsignadas && (
+            <p style={{ color: 'var(--red, #ef4444)', fontSize: 13, lineHeight: 1.6, marginTop: 10 }}>👥 {grupoAsignadas} persona(s) están asignadas a este grupo: quedarán <strong>sin grupo</strong>.</p>
+          )}
         </div>
       </Modal>
 
@@ -40,6 +47,9 @@ export function ConfirmModals(props: ConfirmModalsProps) {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 44, marginBottom: 10 }}>🗑️</div>
           <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>¿Eliminar esta actividad de evangelismo?<br />Esta acción no se puede deshacer.</p>
+          {!!evangVinculadas && (
+            <p style={{ color: 'var(--red, #ef4444)', fontSize: 13, lineHeight: 1.6, marginTop: 10 }}>✝️ {evangVinculadas} conversión(es) tienen esta actividad como origen: quedarán <strong>sin origen</strong>.</p>
+          )}
         </div>
       </Modal>
     </>

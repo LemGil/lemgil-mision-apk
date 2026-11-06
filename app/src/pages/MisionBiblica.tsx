@@ -11,7 +11,7 @@ import type { Conversion, Evangelismo } from '../lib/types';
 import { conversionConDatos, evangelismoConDatos, mapaPersonas, miembroConDatos, nombreDePersona } from '../lib/personaDatos';
 import { datosEvangelismoParaGuardar, resolverEquipoAlEditar } from './mision-biblica/evangelismoForm';
 import { conteoConversionesPorEvangelismo } from '../lib/evangelismoStats';
-import { MS, today, fechaDeEstado as getFechaEstado } from '../lib/utils';
+import { MS, today, fechaDeEstado as getFechaEstado, coincideBusquedaConversion, ordenarConversionesRecientes } from '../lib/utils';
 import { zonaCanonica } from '../lib/zonas';
 import { conteoGrupo } from '../lib/grupoStats';
 import { showToast } from '../lib/notification';
@@ -19,7 +19,7 @@ import { CsvImportButton } from '../components/CsvImportButton';
 import type { DataTab, ModalType } from './mision-biblica/constants';
 import {
   PS_APARTADO, PS_BAUTIZADO, PS_DISCIPULADO, PS_FALLECIDO, PS_INTEGRADO, PS_NUEVO,
-  emojiDe, estadoCoincideConFiltro, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
+  emojiDe, entradaCambioDeEstado, estadoCoincideConFiltro, etiquetaConRespaldo, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
 } from '../lib/pasosMision';
 import { PasosMisionEditorModal } from './mision-biblica/PasosMisionEditorModal';
 import { reflejoDeSalidaEnMiembro } from '../lib/propagacion';
@@ -153,9 +153,25 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     ])
   ).filter(Boolean).sort();
 
-  const filtered = convs.filter((c) => {
-    const s = `${c.nombre} ${c.apellido} ${c.zona} ${c.lider}`.toLowerCase();
-    const byLocal = (!search || s.includes(search.toLowerCase()))
+  // F11: conversiones con miembro DE VERDAD — el miembro las enlaza
+  // por `conversionId`, o su persona tiene proceso de miembro (el mismo
+  // contraste que hace honesta la tarjeta del detalle). La tabla pinta
+  // su «✓ Miembro» desde este conjunto, no desde el estado a secas.
+  const convsConMiembro = useMemo(() => {
+    const porConversion = new Set(miembrosCrudos.filter((m) => m.conversionId).map((m) => m.conversionId as string));
+    const personasConMiembro = new Set(miembrosCrudos.map((m) => m.personaId).filter(Boolean));
+    return new Set(
+      convsCrudas
+        .filter((c) => porConversion.has(c.id) || (c.personaId != null && personasConMiembro.has(c.personaId)))
+        .map((c) => c.id),
+    );
+  }, [miembrosCrudos, convsCrudas]);
+
+  // M2: el buscador compara contra la vista resuelta (nombre, zona,
+  // líder y ADEMÁS teléfono por dígitos y Nº de Identidad).
+  // M1: la lista se presenta por fecha de conversión descendente.
+  const filtered = ordenarConversionesRecientes(convs.filter((c) => {
+    const byLocal = coincideBusquedaConversion(c, search)
       && estadoCoincideConFiltro(c.estado, filterEstado)
       && (!filterZona || c.zona === filterZona) 
       && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) 
@@ -165,7 +181,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       && (!filterBautizado || (filterBautizado === 'si' ? c.bautizado : !c.bautizado));
     const byGlobal = (!globalAno || c.fecha?.startsWith(globalAno)) && (!globalMes || c.fecha?.slice(5, 7) === globalMes);
     return byLocal && byGlobal;
-  });
+  }));
 
   const gruposFiltrados = grupos.filter((g) => {
     const s = `${g.nombre} ${g.lider}`.toLowerCase();
@@ -243,9 +259,12 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     // el selector permite elegirla o crearla y el guardado la enlaza.
     setFPersonaId(c.personaId || '');
     setFFamilia(c.familia); setFFecha(c.fecha);
-    setFEstado(c.estado); setFNotas(c.notas);
+    // F9: el formulario abre CANONICALIZADO — una ficha que aún guarda
+    // la etiqueta legada abre con la identidad de su paso, para que el
+    // selector nunca nazca en blanco; igual cada entrada del historial.
+    setFEstado(idCanonico(c.estado)); setFNotas(c.notas);
     setFEvangelismoId(c.evangelismoId || '');
-    setFHistorial(c.historial ? [...c.historial] : []);
+    setFHistorial((c.historial ?? []).map((h) => ({ ...h, estado: idCanonico(h.estado ?? '') })));
     setModal('conv');
   };
   const saveConv = async () => {
@@ -259,9 +278,15 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     // decorador lo deriva del núcleo al pintar). Al no ir en `data`, la
     // edición conserva intacta la foto dormida de los registros viejos
     // (lectura tolerante) y las altas nuevas ya no la producen.
-    const data = { fecha: fFecha, familia: fFamilia, estado: fEstado, notas: fNotas.trim(), historial: fHistorial, personaId: fPersonaId, evangelismoId: fEvangelismoId || null, updatedAt: Date.now() };
+    const dataBase = { fecha: fFecha, familia: fFamilia, estado: fEstado, notas: fNotas.trim(), personaId: fPersonaId, evangelismoId: fEvangelismoId || null, updatedAt: Date.now() };
     if (editConvId) {
       const c = convsCrudas.find((x) => x.id === editConvId);
+      // F10: si el estado CAMBIÓ, el historial gana la entrada del
+      // cambio (hoy, con su nota «Estado: X → Y») — antes el cambio por
+      // formulario no dejaba entrada y las fechas de entrada al estado
+      // nacían de entradas de otro estado.
+      const entrada = c ? entradaCambioDeEstado(pasosSeguimiento, c.estado, fEstado, today()) : null;
+      const data = { ...dataBase, historial: entrada ? [...fHistorial, entrada] : fHistorial };
       await db.conversiones.update(editConvId, data);
       if (c) {
         const despues: Conversion = { ...c, ...data };
@@ -272,6 +297,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       showToast(`${nombrePersona} actualizado/a`);
     } else {
       const id = uuid();
+      const data = { ...dataBase, historial: fHistorial };
       // El proceso nace SIN datos personales (vacíos a propósito): la
       // identidad vive en la persona enlazada y se lee del núcleo.
       const nuevo: Conversion = {
@@ -391,8 +417,26 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     }
     resetGrupo(); setModal(null);
   };
+  // F12/M7: cuántas personas tienen asignado el grupo seleccionado
+  // (el grupo vive en el núcleo de la persona) — la confirmación lo
+  // NOMBRO antes de borrar, como ya hacía la de conversión con su
+  // miembro vinculado.
+  const grupoAsignadas = selectedId ? personas.filter((p) => p.grupoId === selectedId).length : 0;
   const delGrupo = async () => {
     if (!selectedId) return;
+    // F12: nadie queda apuntando a un grupo que ya no existe: las
+    // personas asignadas quedan SIN grupo (su `grupoId` del núcleo,
+    // que es el que leen todas las vistas) y se limpia también la foto
+    // dormida de miembros/conversiones sin persona enlazada.
+    for (const p of personas.filter((x) => x.grupoId === selectedId)) {
+      await db.personas.update(p.id, { grupoId: null });
+    }
+    for (const m of miembrosCrudos.filter((x) => x.grupoId === selectedId)) {
+      await db.miembros.update(m.id, { grupoId: null });
+    }
+    for (const c of convsCrudas.filter((x) => x.grupoId === selectedId)) {
+      await db.conversiones.update(c.id, { grupoId: '' });
+    }
     await db.grupos.delete(selectedId);
     showToast('Grupo eliminado'); setModal(null);
   };
@@ -435,8 +479,17 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     }
     resetEvang(); setModal(null);
   };
+  // F12/M7: cuántas conversiones tienen como origen el evangelismo
+  // seleccionado — la confirmación lo nombra antes de borrar.
+  const evangVinculadas = selectedId ? convsCrudas.filter((c) => c.evangelismoId === selectedId).length : 0;
   const delEvang = async () => {
     if (!selectedId) return;
+    // F12: las conversiones de este evangelismo quedan SIN origen
+    // (evangelismoId desvinculado), no con una referencia colgando a
+    // una actividad que ya no existe.
+    for (const c of convsCrudas.filter((x) => x.evangelismoId === selectedId)) {
+      await db.conversiones.update(c.id, { evangelismoId: null });
+    }
     await db.evangelismos.delete(selectedId);
     showToast('Actividad eliminada'); setModal(null);
   };
@@ -472,11 +525,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
 
       <div className="kpis">
         <KpiCard label={globalAno ? `Conversiones ${globalAno}` : 'Conversiones'} value={filtered.length} icon="✝️" accent="var(--mision-purple)" sub={globalMes ? `${MS[parseInt(globalMes) - 1]}: ${convs.filter((c) => c.fecha?.startsWith(globalAno || new Date().getFullYear().toString()) && c.fecha?.slice(5, 7) === globalMes).length}` : `este mes: ${mesCount}`} />
-        <KpiCard label={globalAno ? `${etiquetaDe(pasosSeguimiento, PS_DISCIPULADO)} ${globalAno}` : `En ${etiquetaDe(pasosSeguimiento, PS_DISCIPULADO)}`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_DISCIPULADO && (() => { const f = getFechaEstado(c, PS_DISCIPULADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : discCount} icon={emojiDe(pasosSeguimiento, PS_DISCIPULADO) || '📖'} accent="var(--oro-apostolico)" sub="seguimiento activo" />
-        <KpiCard label={globalAno ? `${etiquetaDe(pasosSeguimiento, PS_BAUTIZADO)}s ${globalAno}` : `${etiquetaDe(pasosSeguimiento, PS_BAUTIZADO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_BAUTIZADO && (() => { const f = getFechaEstado(c, PS_BAUTIZADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : bautCount} icon={emojiDe(pasosSeguimiento, PS_BAUTIZADO) || '💧'} accent="var(--mision-blue)" sub="confirmados" />
-        <KpiCard label={globalAno ? `${etiquetaDe(pasosSeguimiento, PS_INTEGRADO)}s ${globalAno}` : `${etiquetaDe(pasosSeguimiento, PS_INTEGRADO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_INTEGRADO && (() => { const f = getFechaEstado(c, PS_INTEGRADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : intCount} icon={emojiDe(pasosSeguimiento, PS_INTEGRADO) || '🏘️'} accent="var(--oro-luz)" sub="al ministerio" />
-        {apaCount > 0 && <KpiCard label={`${etiquetaDe(pasosSeguimiento, PS_APARTADO)}s`} value={apaCount} icon={emojiDe(pasosSeguimiento, PS_APARTADO) || '🚪'} accent="var(--red, #ef4444)" sub="se apartaron" />}
-        {falCount > 0 && <KpiCard label={`${etiquetaDe(pasosSeguimiento, PS_FALLECIDO)}s`} value={falCount} icon={emojiDe(pasosSeguimiento, PS_FALLECIDO) || '✝️'} accent="var(--dim)" sub="en memoria" />}
+        {/* F8: los títulos de la cabecera van con etiquetaConRespaldo —
+            si un paso de semilla se borró (Discipulado/Bautizado pueden),
+            el KPI titula su nombre histórico, nunca el id crudo. */}
+        <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_DISCIPULADO)} ${globalAno}` : `En ${etiquetaConRespaldo(pasosSeguimiento, PS_DISCIPULADO)}`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_DISCIPULADO && (() => { const f = getFechaEstado(c, PS_DISCIPULADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : discCount} icon={emojiDe(pasosSeguimiento, PS_DISCIPULADO) || '📖'} accent="var(--oro-apostolico)" sub="seguimiento activo" />
+        <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_BAUTIZADO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_BAUTIZADO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_BAUTIZADO && (() => { const f = getFechaEstado(c, PS_BAUTIZADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : bautCount} icon={emojiDe(pasosSeguimiento, PS_BAUTIZADO) || '💧'} accent="var(--mision-blue)" sub="confirmados" />
+        <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_INTEGRADO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_INTEGRADO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_INTEGRADO && (() => { const f = getFechaEstado(c, PS_INTEGRADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : intCount} icon={emojiDe(pasosSeguimiento, PS_INTEGRADO) || '🏘️'} accent="var(--oro-luz)" sub="al ministerio" />
+        {apaCount > 0 && <KpiCard label={`${etiquetaConRespaldo(pasosSeguimiento, PS_APARTADO)}s`} value={apaCount} icon={emojiDe(pasosSeguimiento, PS_APARTADO) || '🚪'} accent="var(--red, #ef4444)" sub="se apartaron" />}
+        {falCount > 0 && <KpiCard label={`${etiquetaConRespaldo(pasosSeguimiento, PS_FALLECIDO)}s`} value={falCount} icon={emojiDe(pasosSeguimiento, PS_FALLECIDO) || '✝️'} accent="var(--dim)" sub="en memoria" />}
       </div>
 
       <div className="tabs">
@@ -536,7 +592,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       {/* FILTROS POR TAB - Posición unificada después de Actions Row */}
       {dataTab === 'conv' && (
         <div className="search-bar">
-          <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="search-input" placeholder="🔍 Buscar nombre, zona, líder, teléfono, carné…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
             <option value="">Todos los estados</option>
             {pasosDeMision(pasosSeguimiento).map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.nombre}</option>)}
@@ -629,6 +685,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
           pasos={pasosSeguimiento}
           convs={convs}
           filtered={filtered}
+          convsConMiembro={convsConMiembro}
           grupos={grupos}
           filterEstado={filterEstado}
           filterZona={filterZona}
@@ -746,6 +803,8 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         selConv={selConv}
         miembroVinculadoNombre={miembroVinculado ? `${miembroVinculado.nombre} ${miembroVinculado.apellido}` : undefined}
         grupoNombre={grupos.find((g) => g.id === selectedId)?.nombre}
+        evangVinculadas={evangVinculadas}
+        grupoAsignadas={grupoAsignadas}
         onClose={() => setModal(null)}
         delConv={delConv}
         delGrupo={delGrupo}

@@ -294,8 +294,11 @@ describe('alertas del Panel', () => {
   });
 
   it('conversiones estancadas: >14 días sin movimiento cuentan; las recientes o con historial fresco, no', () => {
-    const vieja = convBase({ id: 'v', estado: 'ps-nuevo', creado: '2026-10-20T12:00:00', historial: [] });
-    const reciente = convBase({ id: 'r', estado: 'ps-nuevo', creado: '2026-11-12T12:00:00', historial: [] });
+    // F10: la cuenta nace de cuándo entró en su estado actual
+    // (fechaDeEstado: su fecha de conversión si el historial no dice
+    // otra cosa) — los fixtures fijan `fecha`, no solo `creado`.
+    const vieja = convBase({ id: 'v', estado: 'ps-nuevo', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] });
+    const reciente = convBase({ id: 'r', estado: 'ps-nuevo', fecha: '2026-11-12', creado: '2026-11-12T12:00:00', historial: [] });
     const conHistorial = convBase({
       id: 'h', estado: 'Nuevo', creado: '2026-10-01T12:00:00',
       historial: [{ fecha: '2026-11-13', estado: 'Nuevo', nota: 'Visita de seguimiento' }],
@@ -315,8 +318,8 @@ describe('alertas del Panel', () => {
     const luis = personaBase({ id: 'pl', nombre: 'Luis', apellido: 'Díaz' });
     const a = alertasDelPanel(entrada({
       conversiones: [
-        convBase({ id: 'v1', personaId: 'pa', nombre: '', apellido: '', estado: 'ps-nuevo', creado: '2026-10-20T12:00:00', historial: [] }),
-        convBase({ id: 'v2', personaId: 'pl', nombre: '', apellido: '', estado: 'Nuevo', creado: '2026-10-01T12:00:00', historial: [] }),
+        convBase({ id: 'v1', personaId: 'pa', nombre: '', apellido: '', estado: 'ps-nuevo', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] }),
+        convBase({ id: 'v2', personaId: 'pl', nombre: '', apellido: '', estado: 'Nuevo', fecha: '2026-10-01', creado: '2026-10-01T12:00:00', historial: [] }),
       ],
       personasMap: mapaPersonas([ana, luis]),
     }));
@@ -407,5 +410,34 @@ describe('las rutas que usa el Panel existen en App.tsx', () => {
       const destinos = [...src.matchAll(/(?:href:|to=)\s*['"`]\/([a-z-]+)/g)].map((m) => '/' + m[1]);
       for (const d of destinos) expect(rutas).toContain(d);
     }
+  });
+});
+
+describe('Pulido · F10: diasSinMovimiento cuenta desde que entró en su estado ACTUAL', () => {
+  it('una nota reciente en OTRO estado ya no «desestanca»: manda la entrada en su estado', () => {
+    // Entró en el paso de inicio el 1.º de septiembre; el historial trae
+    // una entrada fresca de OTRO estado (una nota de seguimiento vieja
+    // mal fechada o un estado ya dejado). Con el criterio anterior
+    // (último movimiento de cualquier clase) daría 1 día; con la
+    // semántica única de fechaDeEstado da los días en su estado: 75.
+    const c = convBase({
+      id: 'f10', estado: 'ps-nuevo', fecha: '2026-09-01', creado: '2026-09-01T12:00:00',
+      historial: [
+        { fecha: '2026-09-01', estado: 'Nuevo', nota: 'Registro inicial' },
+        { fecha: '2026-11-14', estado: 'Discipulado', nota: 'Entrada de otro estado' },
+      ],
+    });
+    expect(diasSinMovimiento(c, HOY)).toBe(75);
+  });
+
+  it('si volvió a entrar en su estado, cuenta desde la entrada MÁS RECIENTE en él', () => {
+    const c = convBase({
+      id: 'f10b', estado: 'ps-discipulado', fecha: '2026-09-01', creado: '2026-09-01T12:00:00',
+      historial: [
+        { fecha: '2026-09-10', estado: 'Discipulado', nota: 'Entró' },
+        { fecha: '2026-11-13', estado: 'ps-discipulado', nota: 'Retomó' },
+      ],
+    });
+    expect(diasSinMovimiento(c, HOY)).toBe(2);
   });
 });

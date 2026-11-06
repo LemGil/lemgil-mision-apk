@@ -9,6 +9,14 @@ interface ConversionesTableProps {
   pasos: PasoSeguimiento[];
   convs: Conversion[];
   filtered: Conversion[];
+  /**
+   * F11: ids de conversiones que tienen MIEMBRO de verdad (vinculado
+   * por `conversionId` o porque su persona tiene proceso de miembro).
+   * La insignia «✓ Miembro» sale de aquí, no solo del estado: antes la
+   * tabla la afirmaba para todo el que estuviera en el gozne, tuviera
+   * o no miembro — el detalle sí contrastaba y se contradecían.
+   */
+  convsConMiembro: Set<string>;
   grupos: Grupo[];
   filterEstado: string;
   filterZona: string;
@@ -20,7 +28,7 @@ interface ConversionesTableProps {
 }
 
 export function ConversionesTable(props: ConversionesTableProps) {
-  const { pasos, convs, filtered, grupos, filterEstado, filterZona, filterAnoConv, filterMesConv, openDetail, openEditConv, quickAdv } = props;
+  const { pasos, convs, filtered, convsConMiembro, grupos, filterEstado, filterZona, filterAnoConv, filterMesConv, openDetail, openEditConv, quickAdv } = props;
   return (
         <div className="card">
            <div className="card-header">
@@ -46,7 +54,7 @@ export function ConversionesTable(props: ConversionesTableProps) {
                      <td>{fmt(c.fecha)}</td>
                      <td>{c.lider || '—'}</td>
                      <td>{grupoAsignado ? <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: '11px', fontWeight: 700, border: '1px solid var(--gold)', whiteSpace: 'nowrap' }}>👥 {grupoAsignado.nombre}</span> : <span style={{ color: 'var(--dim)', fontSize: '11px' }}>—</span>}</td>
-                     <td><span className={`badge ${badgeDe(pasos, c.estado)}`}>{etiquetaDe(pasos, c.estado)}</span>{esGozne(pasos, c.estado) && <><br /><span style={{ padding: '1px 5px', borderRadius: 4, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 9, fontWeight: 700, border: '1px solid var(--gold)' }}>✓ Miembro</span></>}</td>
+                     <td><span className={`badge ${badgeDe(pasos, c.estado)}`}>{etiquetaDe(pasos, c.estado)}</span>{convsConMiembro.has(c.id) ? <><br /><span style={{ padding: '1px 5px', borderRadius: 4, background: 'var(--gold-glow)', color: 'var(--gold)', fontSize: 9, fontWeight: 700, border: '1px solid var(--gold)' }}>✓ Miembro</span></> : esGozne(pasos, c.estado) && <><br /><span style={{ padding: '1px 5px', borderRadius: 4, background: 'var(--surface-2)', color: 'var(--red, #ef4444)', fontSize: 9, fontWeight: 700, border: '1px solid var(--red, #ef4444)' }}>⚠ Sin miembro</span></>}</td>
                      <td>
                        <div style={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
                          <button className="btn btn-secondary btn-sm" onClick={() => openDetail(c.id)}>👁</button>

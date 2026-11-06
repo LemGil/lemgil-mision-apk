@@ -4,7 +4,7 @@ import { Modal } from '../../components/Modal';
 import { db } from '../../lib/database';
 import { createBaseRecord } from '../../lib/utils/recordHelpers';
 import { showToast } from '../../lib/notification';
-import { contarUsoPaso, pasosDeMision, rutaDe, salidasDe } from '../../lib/pasosMision';
+import { pasosDeMision, rutaDe, salidasDe, usoDelPaso } from '../../lib/pasosMision';
 import type { PasoSeguimiento } from '../../lib/types';
 
 interface PasosMisionEditorModalProps {
@@ -101,13 +101,23 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
 
   const borrar = async (p: PasoSeguimiento) => {
     if (p.protegido || (p.rol !== 'camino' && p.rol !== 'salida')) return;
-    // El uso se cuenta por IDENTIDAD canónica: una ficha que aún guarda
-    // la etiqueta legada de un paso cuenta como uso suyo igual.
+    // F7: el uso se cuenta COMPLETO, por IDENTIDAD canónica — no solo
+    // quién está en el paso hoy: también quién lo menciona en su
+    // HISTORIAL. Borrar un paso transitado dejaba esas entradas
+    // huérfanas y la línea de tiempo mostraba el id crudo.
     const convs = await db.conversiones.toArray();
-    const enUso = contarUsoPaso(convs.map((c) => c.estado), p.id);
+    const { enElPaso, enHistorial } = usoDelPaso(convs, p.id);
     const esSalidaPaso = p.rol === 'salida';
-    if (enUso > 0) {
-      showToast(`No se puede eliminar «${p.nombre}»: ${enUso} conversión(es) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'}. Muévelas primero a otro ${esSalidaPaso ? 'estado' : 'paso'}.`);
+    if (enElPaso > 0 && enHistorial > 0) {
+      showToast(`No se puede eliminar «${p.nombre}»: ${enElPaso} conversión(es) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'} · ${enHistorial} lo mencionan en su historial.`);
+      return;
+    }
+    if (enElPaso > 0) {
+      showToast(`No se puede eliminar «${p.nombre}»: ${enElPaso} conversión(es) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'}. Muévelas primero a otro ${esSalidaPaso ? 'estado' : 'paso'}.`);
+      return;
+    }
+    if (enHistorial > 0) {
+      showToast(`No se puede eliminar «${p.nombre}»: ninguna conversión está en ${esSalidaPaso ? 'esa salida' : 'ese paso'}, pero ${enHistorial} lo mencionan en su historial y perderían su nombre.`);
       return;
     }
     const pregunta = esSalidaPaso
@@ -162,7 +172,8 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
         <strong> identidad fija</strong>: puedes renombrarlo, cambiar su emoji, reordenar los
         pasos intermedios o agregar nuevos, y las fichas, los conteos y el historial no se
         rompen — las conversiones guardan la identidad del paso, no su nombre. Un paso
-        intermedio solo se puede eliminar si ninguna conversión está en él.
+        intermedio solo se puede eliminar si ninguna conversión está en él ni lo
+        menciona su historial.
       </div>
 
       <div className="form-section">🛤️ El camino</div>
@@ -184,7 +195,7 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
         otras salidas para las formas de salir que tu iglesia conozca: quien entra en una
         sale del proceso, su miembro pasa a Inactivo y en Personas se muestra con el
         nombre de la salida. Una salida creada solo se puede eliminar si ninguna
-        conversión está en ella.
+        conversión está en ella ni la menciona su historial.
       </div>
       <div style={{ marginTop: 10 }}>
         <button type="button" className="btn btn-secondary" onClick={() => void agregarSalida()}>➕ Nueva salida</button>

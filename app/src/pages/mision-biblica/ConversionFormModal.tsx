@@ -5,12 +5,23 @@ import { PersonaFormModal } from '../../components/PersonaFormModal';
 import { fmt, today } from '../../lib/utils';
 import { edadDesde } from '../../lib/personaVista';
 import type { Evangelismo, Grupo, PasoSeguimiento, Persona } from '../../lib/types';
-import { rutaDe, salidasDe } from '../../lib/pasosMision';
+import { etiquetaConRespaldo, pasosDeMision, rutaDe, salidasDe } from '../../lib/pasosMision';
 
-/** Las opciones de estado: la RUTA del catálogo y, aparte, las salidas (Fase 2). */
-function OpcionesEstado({ pasos }: { pasos: PasoSeguimiento[] }) {
+/**
+ * Las opciones de estado: la RUTA del catálogo y, aparte, las salidas
+ * (Fase 2). F9: si el VALOR ACTUAL no está entre las opciones (el paso
+ * fue borrado del catálogo), se pinta una opción extra con su etiqueta
+ * de respaldo — el valor se VE y se conserva si no se toca, en vez de
+ * un selector vacío que invite a «corregirlo» cambiando la ficha sin
+ * querer.
+ */
+function OpcionesEstado({ pasos, valorActual }: { pasos: PasoSeguimiento[]; valorActual?: string }) {
+  const fueraDeCatalogo = !!valorActual && !pasosDeMision(pasos).some((p) => p.id === valorActual);
   return (
     <>
+      {fueraDeCatalogo && (
+        <option value={valorActual}>{etiquetaConRespaldo(pasos, valorActual)} (ya no está en el catálogo)</option>
+      )}
       <optgroup label="Camino">
         {rutaDe(pasos).map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.nombre}</option>)}
       </optgroup>
@@ -91,7 +102,7 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
         <div className="form-section" style={{ marginTop: 16 }}>✝️ Datos de la conversión</div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">Fecha *</label><input className="form-input" type="date" value={fFecha} onChange={(e) => setFFecha(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Estado Inicial</label><select className="form-select" value={fEstado} onChange={(e) => setFEstado(e.target.value)}><OpcionesEstado pasos={pasos} /></select></div>
+          <div className="form-group"><label className="form-label">Estado Inicial</label><select className="form-select" value={fEstado} onChange={(e) => setFEstado(e.target.value)}><OpcionesEstado pasos={pasos} valorActual={fEstado} /></select></div>
         </div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">¿Familia en el ministerio?</label><select className="form-select" value={fFamilia} onChange={(e) => setFFamilia(e.target.value)}><option>No</option><option>Sí</option></select></div>
@@ -114,7 +125,7 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
           <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, background: 'var(--surface-2)', borderRadius: 8, padding: '8px 10px' }}>
             <input className="form-input" type="date" value={h.fecha} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], fecha: e.target.value }; setFHistorial(n); }} style={{ flex: '0 0 140px' }} />
             <select className="form-select" value={h.estado} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], estado: e.target.value }; setFHistorial(n); }} style={{ flex: 1 }}>
-              <OpcionesEstado pasos={pasos} />
+              <OpcionesEstado pasos={pasos} valorActual={h.estado} />
             </select>
             <input className="form-input" value={h.nota} onChange={(e) => { const n = [...fHistorial]; n[i] = { ...n[i], nota: e.target.value }; setFHistorial(n); }} placeholder="Nota (opcional)" style={{ flex: 1 }} />
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFHistorial(fHistorial.filter((_, j) => j !== i))} title="Eliminar">🗑️</button>

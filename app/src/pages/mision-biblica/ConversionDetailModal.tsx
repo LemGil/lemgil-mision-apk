@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
-import { accentStyle, fmt } from '../../lib/utils';
+import { accentStyle, fechaDeEstado, fmt } from '../../lib/utils';
 import type { Conversion, Grupo, Hito, Miembro, PasoSeguimiento } from '../../lib/types';
 import { EST_BADGE as MIEMBRO_EST_BADGE, HITO_BADGE } from '../miembros/constants';
 import {
@@ -42,8 +42,13 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
           const historial = selConv.historial ?? [];
           const fechaCreado = new Date(selConv.creado);
           const diasEnProceso = isNaN(fechaCreado.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - fechaCreado.getTime()) / 86400000));
-          const lastHistDate = historial.length > 0 ? new Date(historial[historial.length - 1].fecha) : fechaCreado;
-          const diasEnEstado = isNaN(lastHistDate.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - lastHistDate.getTime()) / 86400000));
+          // F10: «en el estado actual» se cuenta desde que ENTRÓ en él
+          // (fechaDeEstado: la entrada más reciente DE ESE estado), no
+          // desde la última entrada del historial sea del estado que
+          // sea — la misma semántica que usa el Panel para estancadas.
+          const fechaEstado = fechaDeEstado(selConv, selConv.estado);
+          const baseEstado = fechaEstado ? new Date(fechaEstado) : fechaCreado;
+          const diasEnEstado = isNaN(baseEstado.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - baseEstado.getTime()) / 86400000));
           const idxActual = indiceEnRuta(pasos, selConv.estado);
           const proxPaso = siguientePaso(pasos, selConv.estado);
           // F6: el progreso se mide DENTRO de la ruta (sin las salidas

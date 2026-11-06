@@ -4,7 +4,7 @@ import type {
 import { conversionConDatos, estudianteConDatos, evangelismoConDatos } from './personaDatos';
 import { conteoGrupo } from './grupoStats';
 import { esInicio, etiquetaDe } from './pasosMision';
-import { monthKey, MS, MS_FULL } from './utils';
+import { fechaDeEstado, monthKey, MS, MS_FULL } from './utils';
 
 /**
  * PLAN DEL PANEL (mejoras aprobadas por LemGil, 2026-11-02): la lógica
@@ -310,15 +310,19 @@ export interface EntradaAlertas {
   hoy: Date;
 }
 
-/** Días desde el último movimiento de una conversión: su alta o la última entrada del historial, lo que sea posterior. */
+/**
+ * Días que una conversión lleva EN SU ESTADO ACTUAL (F10): desde la
+ * fecha en que entró en él según `fechaDeEstado` — la MISMA semántica
+ * que pinta el detalle de la ficha, para que la alerta de «estancadas»
+ * y la ficha nunca se contradigan. Antes contaba desde el último
+ * movimiento de CUALQUIER clase (alta o cualquier entrada del
+ * historial, fuera del estado que fuera), y una nota reciente en otro
+ * estado «desestancaba» a quien seguía en el paso de inicio.
+ */
 export function diasSinMovimiento(c: Conversion, hoy: Date): number {
-  let ultimo = tsVal(c.creado);
-  for (const h of c.historial ?? []) {
-    const t = tsVal(h.fecha);
-    if (t > ultimo) ultimo = t;
-  }
-  if (ultimo === 0) return 0;
-  return Math.floor((hoy.getTime() - ultimo) / 86400000);
+  const t = tsVal(fechaDeEstado(c, c.estado));
+  if (t === 0) return 0;
+  return Math.max(0, Math.floor((hoy.getTime() - t) / 86400000));
 }
 
 const SEVERIDAD: Record<TipoAlerta, number> = { danger: 0, warn: 1, info: 2, ok: 3 };

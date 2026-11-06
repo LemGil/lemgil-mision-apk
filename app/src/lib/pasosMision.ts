@@ -1,4 +1,4 @@
-import type { Hito, PasoSeguimiento } from './types';
+import type { Conversion, Hito, HistorialEntry, PasoSeguimiento } from './types';
 
 /**
  * Pasos de Misión (Fase 2): la PRIMERA parte del seguimiento deja de ser
@@ -109,6 +109,25 @@ export function pasoPorId(pasos: PasoSeguimiento[] | undefined, valor: string): 
 /** La etiqueta VIVA de un estado: el nombre actual del catálogo; el propio valor si es desconocido. */
 export function etiquetaDe(pasos: PasoSeguimiento[] | undefined, valor: string): string {
   return pasoPorId(pasos, valor)?.nombre ?? valor;
+}
+
+/** Nombre histórico de cada semilla, por identidad (para cuando el paso ya no está en el catálogo). */
+const NOMBRE_SEMILLA: Record<string, string> = Object.fromEntries(
+  PASOS_MISION_DEFECTO.map((p) => [p.id, p.nombre]),
+);
+
+/**
+ * La etiqueta de un estado CON RESPALDO (F8): el nombre vivo si el
+ * paso existe en el catálogo; si ya no está (fue borrado), el nombre
+ * histórico de la semilla para los ids conocidos — para que un
+ * encabezado de KPI nunca titule `ps-discipulado` — y, en última
+ * instancia, el propio valor (un id creado por la iglesia sin respaldo
+ * posible, que no debería llegar a un titular).
+ */
+export function etiquetaConRespaldo(pasos: PasoSeguimiento[] | undefined, valor: string): string {
+  const paso = pasoPorId(pasos, valor);
+  if (paso) return paso.nombre;
+  return NOMBRE_SEMILLA[idCanonico(valor)] ?? valor;
 }
 
 /** El emoji vivo de un estado ('' si es desconocido). */
@@ -298,6 +317,59 @@ export function colorDe(pasos: PasoSeguimiento[] | undefined, valor: string): st
  */
 export function contarUsoPaso(estados: string[], pasoId: string): number {
   return estados.filter((e) => idCanonico(e) === pasoId).length;
+}
+
+/** El uso COMPLETO de un paso, para la guarda de borrado del editor (F7). */
+export interface UsoDelPaso {
+  /** Conversiones cuyo estado ACTUAL es este paso (por identidad canónica). */
+  enElPaso: number;
+  /**
+   * Conversiones que YA NO están en el paso pero cuyo HISTORIAL lo
+   * menciona (pasaron por él): si el paso se borrara, esas entradas
+   * perderían su nombre y la línea de tiempo mostraría el id crudo.
+   * No incluye a las que están en el paso (ya cuentan en `enElPaso`).
+   */
+  enHistorial: number;
+}
+
+/**
+ * La guarda vieja solo miraba el estado actual: un paso transitado y
+ * hoy vacío se podía borrar, y el historial de quienes pasaron por él
+ * quedaba huérfano. Aquí se cuentan AMBOS usos, comparando cada
+ * entrada del historial por identidad canónica (el historial puede
+ * guardar etiquetas legadas).
+ */
+export function usoDelPaso(convs: Conversion[], pasoId: string): UsoDelPaso {
+  let enElPaso = 0;
+  let enHistorial = 0;
+  for (const c of convs) {
+    if (idCanonico(c.estado) === pasoId) { enElPaso++; continue; }
+    if ((c.historial ?? []).some((h) => idCanonico(h.estado ?? '') === pasoId)) enHistorial++;
+  }
+  return { enElPaso, enHistorial };
+}
+
+/**
+ * La entrada de historial que deja un CAMBIO DE ESTADO guardado desde
+ * el formulario (F10): null si el estado no cambió (comparación por
+ * identidad canónica: renombrar o re-guardar lo mismo no es un cambio).
+ * Sin esta entrada, las fechas de «cuándo entró en este estado»
+ * nacían de entradas de OTRO estado y el detalle y el Panel se
+ * contradecían. La nota replica el formato del seguimiento
+ * («Estado: X → Y») y el estado se guarda canónico.
+ */
+export function entradaCambioDeEstado(
+  pasos: PasoSeguimiento[] | undefined,
+  anterior: string,
+  nuevo: string,
+  fecha: string,
+): HistorialEntry | null {
+  if (!anterior || idCanonico(anterior) === idCanonico(nuevo)) return null;
+  return {
+    fecha,
+    estado: idCanonico(nuevo),
+    nota: `Estado: ${etiquetaDe(pasos, anterior)} → ${etiquetaDe(pasos, nuevo)}`,
+  };
 }
 
 /** Un paso tal como lo pinta el pipeline del detalle de la conversión. */

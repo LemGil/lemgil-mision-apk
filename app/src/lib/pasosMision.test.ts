@@ -2,9 +2,9 @@ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   PASOS_MISION_DEFECTO, PS_APARTADO, PS_BAUTIZADO, PS_DISCIPULADO, PS_FALLECIDO,
   PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, colorDe,
-  contarUsoPaso, enCamino, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
-  etiquetaDe, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
-  progresoEnRuta, rutaDe, salidasDe, siguientePaso, tipoHitoDe,
+  contarUsoPaso, enCamino, entradaCambioDeEstado, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
+  etiquetaConRespaldo, etiquetaDe, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
+  progresoEnRuta, rutaDe, salidasDe, siguientePaso, tipoHitoDe, usoDelPaso,
 } from "./pasosMision";
 import { conteoGrupo } from "./grupoStats";
 import { situacionPersona, procesosVacios } from "./personaVista";
@@ -438,5 +438,72 @@ describe("Bordes de la Fase 2 · F6: el progreso se mide DENTRO de la ruta", () 
       .toEqual({ porcentaje: 60, rotulo: "paso 3 de 5" });
     expect(progresoEnRuta(conPasoNuevo, PS_INTEGRADO))
       .toEqual({ porcentaje: 100, rotulo: "paso 5 de 5" });
+  });
+});
+
+describe("Pulido · F7: usoDelPaso — la guarda de borrado también cuenta el historial", () => {
+  const conv = (over: Partial<Conversion>): Conversion =>
+    ({ id: "c", estado: PS_NUEVO, historial: [], ...over } as unknown as Conversion);
+
+  it("cuenta por separado: quién está en el paso y quién solo lo menciona en su historial", () => {
+    const convs = [
+      conv({ id: "c1", estado: PS_DISCIPULADO, historial: [{ fecha: "2026-01-02", estado: "ps-discipulado", nota: "" }] }),
+      conv({ id: "c2", estado: "Discipulado" }), // etiqueta legada: cuenta como EN el paso
+      conv({ id: "c3", estado: PS_BAUTIZADO, historial: [{ fecha: "2026-01-02", estado: "Discipulado", nota: "" }] }), // pasó por él (etiqueta legada)
+      conv({ id: "c4", estado: PS_INTEGRADO, historial: [{ fecha: "2026-01-02", estado: "ps-discipulado", nota: "" }, { fecha: "2026-02-02", estado: "ps-discipulado", nota: "" }] }), // dos menciones, UNA conversión
+      conv({ id: "c5", estado: PS_NUEVO, historial: [] }),
+    ];
+    expect(usoDelPaso(convs, PS_DISCIPULADO)).toEqual({ enElPaso: 2, enHistorial: 2 });
+  });
+
+  it("quien está en el paso no se duplica en el conteo del historial", () => {
+    const convs = [conv({ estado: PS_APARTADO, historial: [{ fecha: "2026-01-02", estado: "Apartado", nota: "" }] })];
+    expect(usoDelPaso(convs, PS_APARTADO)).toEqual({ enElPaso: 1, enHistorial: 0 });
+  });
+
+  it("sin uso de ninguna clase: ambos conteos en cero (el borrado procede)", () => {
+    const convs = [conv({ estado: PS_NUEVO, historial: [{ fecha: "2026-01-02", estado: "ps-nuevo", nota: "" }] })];
+    expect(usoDelPaso(convs, "ps-formacion-inicial")).toEqual({ enElPaso: 0, enHistorial: 0 });
+    expect(usoDelPaso([], PS_NUEVO)).toEqual({ enElPaso: 0, enHistorial: 0 });
+  });
+
+  it("tolera conversiones sin historial (las importadas antes de F1)", () => {
+    const sinHist = { id: "c9", estado: PS_NUEVO } as unknown as Conversion;
+    expect(usoDelPaso([sinHist], PS_DISCIPULADO)).toEqual({ enElPaso: 0, enHistorial: 0 });
+  });
+});
+
+describe("Pulido · F8: etiquetaConRespaldo — un KPI nunca titula un id crudo", () => {
+  const sinDiscipulado = PASOS_MISION_DEFECTO.filter((p) => p.id !== PS_DISCIPULADO);
+  const sinBautizado = PASOS_MISION_DEFECTO.filter((p) => p.id !== PS_BAUTIZADO);
+
+  it("con el paso en el catálogo, manda el nombre VIVO (renombrado incluido)", () => {
+    expect(etiquetaConRespaldo(renombrado, PS_DISCIPULADO)).toBe("Formación");
+    expect(etiquetaConRespaldo([], PS_DISCIPULADO)).toBe("Discipulado");
+  });
+
+  it("con el paso BORRADO, cae al nombre histórico de la semilla — nunca «ps-discipulado»", () => {
+    expect(etiquetaConRespaldo(sinDiscipulado, PS_DISCIPULADO)).toBe("Discipulado");
+    expect(etiquetaConRespaldo(sinBautizado, PS_BAUTIZADO)).toBe("Bautizado");
+    expect(etiquetaConRespaldo(sinDiscipulado, "Discipulado")).toBe("Discipulado"); // etiqueta legada también
+  });
+
+  it("un id desconocido sin respaldo posible devuelve el propio valor", () => {
+    expect(etiquetaConRespaldo([], "ps-inventado")).toBe("ps-inventado");
+  });
+});
+
+describe("Pulido · F10: entradaCambioDeEstado — el cambio por formulario deja entrada", () => {
+  it("si el estado cambió, la entrada lleva hoy, el estado canónico y la nota «Estado: X → Y»", () => {
+    expect(entradaCambioDeEstado([], PS_NUEVO, PS_DISCIPULADO, "2026-11-06"))
+      .toEqual({ fecha: "2026-11-06", estado: "ps-discipulado", nota: "Estado: Nuevo → Discipulado" });
+    expect(entradaCambioDeEstado(renombrado, "Discipulado", "ps-integrado", "2026-11-06"))
+      .toEqual({ fecha: "2026-11-06", estado: "ps-integrado", nota: "Estado: Formación → Incorporado" });
+  });
+
+  it("sin cambio real no hay entrada (ni por etiqueta legada equivalente, ni sin estado previo)", () => {
+    expect(entradaCambioDeEstado([], PS_DISCIPULADO, PS_DISCIPULADO, "2026-11-06")).toBeNull();
+    expect(entradaCambioDeEstado([], "Discipulado", PS_DISCIPULADO, "2026-11-06")).toBeNull();
+    expect(entradaCambioDeEstado([], "", PS_NUEVO, "2026-11-06")).toBeNull();
   });
 });
