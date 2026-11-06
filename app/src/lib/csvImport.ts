@@ -289,20 +289,90 @@ export function registrarPostImportHook(hook: PostImportHook): void {
   postImportHooks.push(hook);
 }
 
+/**
+ * Ajuste PREVIO a la inserción (bordes de la Fase 2, F2): trabajo que
+ * una tabla necesita sobre el lote entrante ANTES de deduplicar e
+ * insertar — p. ej. canonicalizar el estado de las conversiones contra
+ * el catálogo vivo de pasos. Mismo motivo de registro que los ganchos
+ * posteriores: quien lo necesita vive en módulos que ya importan de
+ * este, así que se registra aquí y `importRecords` lo invoca. Devuelve
+ * el lote (posiblemente transformado) y los AVISOS que el resumen de
+ * la importación debe mostrar: nada de éxito silencioso. Un fallo de
+ * un ajuste no tumba la importación: se anota en consola y el lote
+ * sigue tal cual llegó.
+ */
+export type AjusteImportacion = (
+  table: string,
+  registros: Record<string, any>[],
+) => Promise<{ registros: Record<string, any>[]; avisos: string[] }>;
+
+const ajustesImportacion: AjusteImportacion[] = [];
+
+export function registrarAjusteImportacion(ajuste: AjusteImportacion): void {
+  ajustesImportacion.push(ajuste);
+}
+
+/**
+ * Resolvedor de la VISTA para deduplicar (F2): la clave de duplicado de
+ * una tabla de proceso (conversiones) ya no puede leerse de los campos
+ * dormidos del registro — desde la ficha única esos campos nacen
+ * vacíos y la identidad vive en la persona. Quien conoce la vista
+ * resuelta registra aquí cómo obtenerla, e `importRecords` la aplica a
+ * los registros YA GUARDADOS antes de calcular sus claves. La clave de
+ * la fila entrante sigue saliendo de sus propios datos (el CSV sí los
+ * trae como columnas). Un fallo del resolvedor no tumba la importación:
+ * se deduplica contra el registro crudo, como antes.
+ */
+export type ResolvedorDedupe = (
+  table: string,
+  existentes: Record<string, any>[],
+) => Promise<Record<string, any>[]>;
+
+const resolvedoresDedupe: ResolvedorDedupe[] = [];
+
+export function registrarResolvedorDedupe(resolvedor: ResolvedorDedupe): void {
+  resolvedoresDedupe.push(resolvedor);
+}
+
 export async function importRecords<T extends Record<string, any>>(
   records: T[],
   table: string,
-): Promise<{ imported: number; duplicates: number }> {
+): Promise<{ imported: number; duplicates: number; avisos: string[] }> {
   const getTable = TABLE_DB_MAP[table];
   if (!getTable) throw new Error(`Tabla desconocida: ${table}`);
   const tbl = getTable();
 
+  // Ajustes previos registrados por la tabla (F2): transforman el lote
+  // y pueden dejar avisos para el resumen de la importación.
+  const avisos: string[] = [];
+  let lote = records as Record<string, any>[];
+  for (const ajuste of ajustesImportacion) {
+    try {
+      const r = await ajuste(table, lote);
+      lote = r.registros;
+      avisos.push(...r.avisos);
+    } catch (err) {
+      console.warn(`Ajuste previo a la importación falló para «${table}»:`, err);
+    }
+  }
+  records = lote as T[];
+
   // Fase 3: se filtra contra lo ya guardado Y contra el propio lote.
   let duplicates = 0;
   if (DEDUPE_KEYS[table]) {
-    const existing = (await tbl.toArray()) as Record<string, unknown>[];
+    let existing = (await tbl.toArray()) as Record<string, any>[];
+    // F2: las claves de lo ya guardado se calculan contra la VISTA
+    // resuelta que la tabla haya registrado (la identidad de un proceso
+    // vive en su persona, no en los campos dormidos del registro).
+    for (const resolvedor of resolvedoresDedupe) {
+      try {
+        existing = await resolvedor(table, existing);
+      } catch (err) {
+        console.warn(`Resolvedor de deduplicación falló para «${table}»:`, err);
+      }
+    }
     const seen = new Set(
-      existing.map((r) => dedupeKey(table, r)).filter((k): k is string => !!k),
+      existing.map((r) => dedupeKey(table, r as Record<string, unknown>)).filter((k): k is string => !!k),
     );
     const fresh: T[] = [];
     for (const r of records) {
@@ -329,5 +399,5 @@ export async function importRecords<T extends Record<string, any>>(
       }
     }
   }
-  return { imported: records.length, duplicates };
+  return { imported: records.length, duplicates, avisos };
 }

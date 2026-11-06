@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   PASOS_MISION_DEFECTO, PS_APARTADO, PS_BAUTIZADO, PS_DISCIPULADO, PS_FALLECIDO,
-  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, colorDe, contarUsoPaso, enCamino,
-  esGozne, esInicio, esSalida, etiquetaDe, idCanonico, indiceEnRuta, pasoGozne,
-  pasoInicio, pasosPipeline, rutaDe, salidasDe, siguientePaso, tipoHitoDe,
+  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, colorDe,
+  contarUsoPaso, enCamino, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
+  etiquetaDe, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
+  progresoEnRuta, rutaDe, salidasDe, siguientePaso, tipoHitoDe,
 } from "./pasosMision";
 import { conteoGrupo } from "./grupoStats";
 import { situacionPersona, procesosVacios } from "./personaVista";
@@ -349,5 +350,93 @@ describe("ensurePasosMision: Traslado entra sin romper el catálogo sembrado", (
     const pasos = await ensurePasosMision();
     expect(pasos.some((p) => p.id === PS_INTEGRADO)).toBe(true);
     expect(pasos.some((p) => p.id === PS_DISCIPULADO)).toBe(false);
+  });
+});
+
+describe("Bordes de la Fase 2 · F3: el filtro de estados compara por identidad canónica", () => {
+  it("sin filtro pasa todo", () => {
+    expect(estadoCoincideConFiltro(PS_APARTADO, "")).toBe(true);
+    expect(estadoCoincideConFiltro("Apartado", "")).toBe(true);
+  });
+
+  it("una ficha con etiqueta legada SÍ aparece en su filtro (antes sumaba en el KPI y desaparecía de la lista)", () => {
+    expect(estadoCoincideConFiltro("Apartado", PS_APARTADO)).toBe(true);
+    expect(estadoCoincideConFiltro("Discipulado", PS_DISCIPULADO)).toBe(true);
+    expect(estadoCoincideConFiltro("Seguimiento", PS_DISCIPULADO)).toBe(true);
+  });
+
+  it("ids contra ids, y lo distinto no pasa", () => {
+    expect(estadoCoincideConFiltro(PS_APARTADO, PS_APARTADO)).toBe(true);
+    expect(estadoCoincideConFiltro(PS_NUEVO, PS_APARTADO)).toBe(false);
+    expect(estadoCoincideConFiltro("Apartado", PS_FALLECIDO)).toBe(false);
+  });
+});
+
+describe("Bordes de la Fase 2 · F2: canonizar el estado que vuelve por CSV", () => {
+  it("un id válido pasa tal cual", () => {
+    expect(canonizarEstadoImportado(PASOS_MISION_DEFECTO, PS_BAUTIZADO))
+      .toEqual({ estado: PS_BAUTIZADO, reconocido: true });
+    expect(canonizarEstadoImportado([], PS_NUEVO))
+      .toEqual({ estado: PS_NUEVO, reconocido: true });
+  });
+
+  it("la etiqueta viva (lo que el export escribe) encuentra su paso por nombre", () => {
+    expect(canonizarEstadoImportado(PASOS_MISION_DEFECTO, "Discipulado"))
+      .toEqual({ estado: PS_DISCIPULADO, reconocido: true });
+    expect(canonizarEstadoImportado(PASOS_MISION_DEFECTO, "Trasladado"))
+      .toEqual({ estado: PS_TRASLADO, reconocido: true });
+  });
+
+  it("tras RENOMBRAR un paso, el export viejo (etiqueta anterior) llega por el alias legado", () => {
+    // El catálogo `renombrado` llama «Formación» a ps-discipulado: el CSV
+    // exportado ANTES del renombre dice «Discipulado» y debe aterrizar
+    // en el mismo paso; el export NUEVO dice «Formación» y llega por nombre.
+    expect(canonizarEstadoImportado(renombrado, "Discipulado"))
+      .toEqual({ estado: PS_DISCIPULADO, reconocido: true });
+    expect(canonizarEstadoImportado(renombrado, "Formación"))
+      .toEqual({ estado: PS_DISCIPULADO, reconocido: true });
+    expect(canonizarEstadoImportado(renombrado, "Incorporado"))
+      .toEqual({ estado: PS_INTEGRADO, reconocido: true });
+  });
+
+  it("un paso creado por la iglesia se encuentra por SU nombre", () => {
+    expect(canonizarEstadoImportado(conPasoNuevo, "Formación inicial"))
+      .toEqual({ estado: "ps-formacion-inicial", reconocido: true });
+  });
+
+  it("lo no reconocido nace en el inicio y se declara NO reconocido (nada de éxito silencioso)", () => {
+    expect(canonizarEstadoImportado(PASOS_MISION_DEFECTO, "Crecimiento"))
+      .toEqual({ estado: PS_NUEVO, reconocido: false });
+    expect(canonizarEstadoImportado(PASOS_MISION_DEFECTO, ""))
+      .toEqual({ estado: PS_NUEVO, reconocido: false });
+  });
+});
+
+describe("Bordes de la Fase 2 · F6: el progreso se mide DENTRO de la ruta", () => {
+  it("la ruta semilla tiene 4 pasos: Nuevo 25 %, Integrado 100 % (antes: 57 %, «paso 4 de 7»)", () => {
+    expect(progresoEnRuta([], PS_NUEVO)).toEqual({ porcentaje: 25, rotulo: "paso 1 de 4" });
+    expect(progresoEnRuta([], PS_DISCIPULADO)).toEqual({ porcentaje: 50, rotulo: "paso 2 de 4" });
+    expect(progresoEnRuta([], PS_INTEGRADO)).toEqual({ porcentaje: 100, rotulo: "paso 4 de 4" });
+  });
+
+  it("tolera la etiqueta legada", () => {
+    expect(progresoEnRuta([], "Integrado")).toEqual({ porcentaje: 100, rotulo: "paso 4 de 4" });
+  });
+
+  it("en una salida no hay porcentaje engañoso: 0 y el rótulo es la etiqueta del estado", () => {
+    expect(progresoEnRuta([], PS_APARTADO)).toEqual({ porcentaje: 0, rotulo: "Apartado" });
+    expect(progresoEnRuta([], PS_FALLECIDO)).toEqual({ porcentaje: 0, rotulo: "Fallecido" });
+    expect(progresoEnRuta(renombrado, PS_APARTADO)).toEqual({ porcentaje: 0, rotulo: "Apartado" });
+  });
+
+  it("un estado desconocido: 0 y el propio valor como rótulo", () => {
+    expect(progresoEnRuta([], "ps-que-ya-no-existe")).toEqual({ porcentaje: 0, rotulo: "ps-que-ya-no-existe" });
+  });
+
+  it("el denominador crece con los pasos propios del camino, no con las salidas", () => {
+    expect(progresoEnRuta(conPasoNuevo, "ps-formacion-inicial"))
+      .toEqual({ porcentaje: 60, rotulo: "paso 3 de 5" });
+    expect(progresoEnRuta(conPasoNuevo, PS_INTEGRADO))
+      .toEqual({ porcentaje: 100, rotulo: "paso 5 de 5" });
   });
 });

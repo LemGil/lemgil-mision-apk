@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import {
+  conversionesFiltradasPDF,
   exportResumenGeneralPDF,
   exportMetasPDF,
   exportCumplimientoPDF,
@@ -12,6 +13,7 @@ import {
   type CumplimientoBC,
   type ReporteDatos,
 } from "./pdfExport";
+import type { Conversion } from "./types";
 import { setGlobalNotificationFn } from "./notification";
 
 // jsPDF guarda con URL.createObjectURL + clic en un <a>: en jsdom hay que simularlo.
@@ -160,5 +162,34 @@ describe("parseReporteResumen: parseo blindado del snapshot guardado", () => {
     expect(parseReporteResumen(null)).toEqual(REPORTE_DATOS_VACIO);
     expect(parseReporteResumen(undefined)).toEqual(REPORTE_DATOS_VACIO);
     expect(parseReporteResumen("")).toEqual(REPORTE_DATOS_VACIO);
+  });
+});
+
+describe("F5 · el PDF de conversiones aplica de verdad los filtros que anuncia", () => {
+  const conv = (id: string, estado: string, zona: string, fecha: string): Conversion =>
+    ({ id, estado, zona, fecha } as Conversion);
+  const todas: Conversion[] = [
+    conv("c1", "ps-nuevo", "Norte", "2026-03-05"),
+    conv("c2", "ps-apartado", "Sur", "2026-03-20"),
+    conv("c3", "Apartado", "Sur", "2025-11-02"), // etiqueta legada: cuenta por identidad canónica
+    conv("c4", "ps-integrado", "Norte", "2025-03-15"),
+  ];
+
+  it("sin filtros (o sin objeto de filtros) devuelve todo", () => {
+    expect(conversionesFiltradasPDF(todas)).toHaveLength(4);
+    expect(conversionesFiltradasPDF(todas, {})).toHaveLength(4);
+  });
+
+  it("por estado: compara por identidad canónica — la legada también entra", () => {
+    const r = conversionesFiltradasPDF(todas, { estado: "ps-apartado" });
+    expect(r.map((c) => c.id)).toEqual(["c2", "c3"]);
+  });
+
+  it("por zona, año y mes — combinados, como los pasa la página", () => {
+    expect(conversionesFiltradasPDF(todas, { zona: "Norte" }).map((c) => c.id)).toEqual(["c1", "c4"]);
+    expect(conversionesFiltradasPDF(todas, { ano: "2026" }).map((c) => c.id)).toEqual(["c1", "c2"]);
+    expect(conversionesFiltradasPDF(todas, { mes: "03" }).map((c) => c.id)).toEqual(["c1", "c2", "c4"]);
+    expect(conversionesFiltradasPDF(todas, { estado: "ps-integrado", ano: "2026" })).toEqual([]);
+    expect(conversionesFiltradasPDF(todas, { zona: "Sur", ano: "2025", mes: "11" }).map((c) => c.id)).toEqual(["c3"]);
   });
 });

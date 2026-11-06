@@ -28,7 +28,7 @@ export function CsvImportButton<T extends Record<string, any>>({
   const fileRef = useRef<HTMLInputElement>(null);
   const [modal, setModal] = useState<'preview' | 'result' | null>(null);
   const [parsed, setParsed] = useState<{ headers: string[]; rows: string[][] }>({ headers: [], rows: [] });
-  const [result, setResult] = useState<{ imported: number; duplicates: number; errors: { row: number; message: string }[] } | null>(null);
+  const [result, setResult] = useState<{ imported: number; duplicates: number; avisos: string[]; errors: { row: number; message: string }[] } | null>(null);
   const [processing, setProcessing] = useState(false);
 
   const config: ImportConfig<T> = {
@@ -65,27 +65,29 @@ export function CsvImportButton<T extends Record<string, any>>({
       );
 
       if (records.length === 0 && mapErrors.length > 0) {
-        setResult({ imported: 0, duplicates: 0, errors: mapErrors });
+        setResult({ imported: 0, duplicates: 0, avisos: [], errors: mapErrors });
         setModal('result');
         return;
       }
 
       let imported = 0;
       let duplicates = 0;
+      let avisos: string[] = [];
       if (records.length > 0) {
         const res = await importRecords(records, table);
         imported = res.imported;
         duplicates = res.duplicates;
+        avisos = res.avisos;
       }
 
       const allErrors = mapErrors;
-      setResult({ imported, duplicates, errors: allErrors });
+      setResult({ imported, duplicates, avisos, errors: allErrors });
       setModal('result');
       if (imported > 0) onImport?.(imported);
     } catch (err: any) {
       const msg = err?.message || 'Error desconocido al importar';
       onError?.(msg);
-      setResult({ imported: 0, duplicates: 0, errors: [{ row: 0, message: msg }] });
+      setResult({ imported: 0, duplicates: 0, avisos: [], errors: [{ row: 0, message: msg }] });
       setModal('result');
     } finally {
       setProcessing(false);
@@ -189,6 +191,11 @@ export function CsvImportButton<T extends Record<string, any>>({
                 ⏭️ {result.duplicates} registro(s) omitido(s) por ya existir (duplicados)
               </div>
             )}
+            {result.avisos.map((aviso, i) => (
+              <div key={i} style={{ color: 'var(--yellow-dark, #9a7b1c)', marginBottom: 8 }}>
+                ⚠️ {aviso}
+              </div>
+            ))}
             {result.errors.length > 0 && (
               <div>
                 <div style={{ color: 'var(--red)', marginBottom: 8 }}>

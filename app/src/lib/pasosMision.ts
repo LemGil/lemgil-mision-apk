@@ -51,6 +51,18 @@ export function idCanonico(valor: string): string {
   return ALIAS_ESTADOS_LEGADO[valor] ?? valor;
 }
 
+/**
+ * ¿Una conversión pasa el filtro de estado de la lista? (F3). El
+ * `<select>` ofrece IDENTIDADES del catálogo, pero la ficha puede
+ * guardar aún la etiqueta legada («Apartado»): la comparación es por
+ * identidad canónica, la misma que usan los KPI — antes el filtro
+ * comparaba el texto crudo y una ficha legada sumaba en el KPI pero
+ * desaparecía de su propio filtro.
+ */
+export function estadoCoincideConFiltro(estado: string, filtro: string): boolean {
+  return !filtro || idCanonico(estado) === filtro;
+}
+
 const semilla = (
   id: string, nombre: string, emoji: string, orden: number,
   rol: PasoSeguimiento['rol'], protegido?: boolean,
@@ -135,6 +147,63 @@ export function salidasDe(pasos?: PasoSeguimiento[]): PasoSeguimiento[] {
 /** El paso de inicio (donde nacen las conversiones); el primero de la ruta como respaldo. */
 export function pasoInicio(pasos?: PasoSeguimiento[]): PasoSeguimiento {
   return pasosDeMision(pasos).find((p) => p.rol === 'inicio') ?? rutaDe(pasos)[0];
+}
+
+/**
+ * Canonicaliza un estado que llega DE FUERA (la importación CSV, F2):
+ * el export de la propia página escribe la ETIQUETA viva, así que la
+ * vuelta debe resolver contra el catálogo del momento. Orden:
+ * (1) ya es un id del catálogo → ese id; (2) es el NOMBRE actual de un
+ * paso → su id; (3) es una etiqueta legada de semilla → su id canónico
+ * (así un export anterior a un renombre sigue encontrando su paso).
+ * Si nada calza, NO se acepta en silencio: la fila nace en el paso de
+ * inicio y `reconocido: false` permite CONTARLA en el resumen de la
+ * importación — antes quedaba huérfana: ningún KPI la contaba, ningún
+ * filtro la encontraba y syncMember jamás la integraba.
+ */
+export function canonizarEstadoImportado(
+  pasos: PasoSeguimiento[] | undefined,
+  valor: string,
+): { estado: string; reconocido: boolean } {
+  const catalogo = pasosDeMision(pasos);
+  const v = (valor ?? '').trim();
+  if (v) {
+    if (catalogo.some((p) => p.id === v)) return { estado: v, reconocido: true };
+    const porNombre = catalogo.find((p) => p.nombre.trim().toLowerCase() === v.toLowerCase());
+    if (porNombre) return { estado: porNombre.id, reconocido: true };
+    const canonico = idCanonico(v);
+    if (canonico !== v && catalogo.some((p) => p.id === canonico)) {
+      return { estado: canonico, reconocido: true };
+    }
+  }
+  return { estado: pasoInicio(pasos).id, reconocido: false };
+}
+
+/** El progreso de una conversión DENTRO de la ruta (F6). */
+export interface ProgresoEnRuta {
+  /** 0–100 recorriendo solo la ruta; 0 fuera de ella (salida o desconocido). */
+  porcentaje: number;
+  /** «paso X de N» en la ruta; fuera de ella, la etiqueta viva del estado. */
+  rotulo: string;
+}
+
+/**
+ * El denominador es la RUTA (inicio + camino + gozne): las salidas no
+ * son «pasos que faltan». Antes el detalle dividía entre ruta + salidas
+ * y un Integrado — el final del camino — se veía al 57 % («paso 4 de
+ * 7»). En una salida no hay porcentaje que mostrar: 0 y el rótulo es
+ * la etiqueta del estado, sin «paso X de N» engañoso.
+ */
+export function progresoEnRuta(pasos: PasoSeguimiento[] | undefined, valor: string): ProgresoEnRuta {
+  const ruta = rutaDe(pasos);
+  const idx = indiceEnRuta(pasos, valor);
+  if (idx >= 0) {
+    return {
+      porcentaje: Math.round(((idx + 1) / ruta.length) * 100),
+      rotulo: `paso ${idx + 1} de ${ruta.length}`,
+    };
+  }
+  return { porcentaje: 0, rotulo: etiquetaDe(pasos, valor) };
 }
 
 /** El paso-gozne (el que crea al miembro); undefined si el catálogo no lo trae. */

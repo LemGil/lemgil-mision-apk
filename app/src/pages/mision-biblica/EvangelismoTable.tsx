@@ -47,11 +47,12 @@ export function EvangelismoTable(props: EvangelismoTableProps) {
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{evangelsFiltrados.length} de {evangels.length} actividades</div>
              </div>
              <div style={{ display: 'flex', gap: 5 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportEvangelismoPDF({ evangelismos: evangels.map(enriquecido) }))}>📄 Exportar PDF</button>
+               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportEvangelismoPDF({ evangelismos: evangelsFiltrados.map(enriquecido) }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
-                  if (!evangels.length) return showToast('No hay actividades para exportar');
+                  // F5/M3: se exporta la lista filtrada que se está viendo.
+                  if (!evangelsFiltrados.length) return showToast('No hay actividades para exportar');
                   const h = ['Fecha', 'Tipo', 'Zona', 'Líder', 'Contactos', 'Conversiones', 'Notas'];
-                  const r = evangels.map(enriquecido).map(e => [e.fecha, e.tipo, e.zona || '', e.liderNombre || '', e.contactos || 0, e.conversiones || 0, (e.notas || '').replace(/,/g, ';')]);
+                  const r = evangelsFiltrados.map(enriquecido).map(e => [e.fecha, e.tipo, e.zona || '', e.liderNombre || '', e.contactos || 0, e.conversiones || 0, (e.notas || '').replace(/,/g, ';')]);
                   exportCSV(h, r, 'lemgil-evangelismo.csv');
                   showToast('CSV exportado');
                 }}>📥 Exportar CSV</button>

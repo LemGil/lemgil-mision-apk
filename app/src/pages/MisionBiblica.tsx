@@ -19,7 +19,7 @@ import { CsvImportButton } from '../components/CsvImportButton';
 import type { DataTab, ModalType } from './mision-biblica/constants';
 import {
   PS_APARTADO, PS_BAUTIZADO, PS_DISCIPULADO, PS_FALLECIDO, PS_INTEGRADO, PS_NUEVO,
-  emojiDe, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
+  emojiDe, estadoCoincideConFiltro, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
 } from '../lib/pasosMision';
 import { PasosMisionEditorModal } from './mision-biblica/PasosMisionEditorModal';
 import { reflejoDeSalidaEnMiembro } from '../lib/propagacion';
@@ -155,8 +155,8 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
 
   const filtered = convs.filter((c) => {
     const s = `${c.nombre} ${c.apellido} ${c.zona} ${c.lider}`.toLowerCase();
-    const byLocal = (!search || s.includes(search.toLowerCase())) 
-      && (!filterEstado || c.estado === filterEstado) 
+    const byLocal = (!search || s.includes(search.toLowerCase()))
+      && estadoCoincideConFiltro(c.estado, filterEstado)
       && (!filterZona || c.zona === filterZona) 
       && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) 
       && (!filterMesConv || c.fecha?.slice(5, 7) === filterMesConv)
@@ -174,7 +174,9 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     if (filterGDia && g.dia !== filterGDia) return false;
     if (filterGEstado) {
       // B4: misma semántica que la tarjeta y el PDF (helper único).
-      const total = conteoGrupo(g.id, miembros, convs).totalAsignados;
+      // F4: CON el catálogo vivo, como el Panel — sin él, un paso de
+      // camino creado por la iglesia no ocupaba silla en esta pantalla.
+      const total = conteoGrupo(g.id, miembros, convs, pasosSeguimiento).totalAsignados;
       const capacidad = parseInt(g.capacidad) || 0;
       const pct = capacidad > 0 ? (total / capacidad) * 100 : 0;
       if (filterGEstado === 'disponible' && (pct >= 70 || capacidad === 0)) return false;
@@ -312,7 +314,10 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     // «avanzaba» a Apartado: era un artefacto, no una regla).
     const next = siguientePaso(pasosSeguimiento, c.estado);
     if (!next) return;
-    const despues: Conversion = { ...c, estado: next.id, historial: [...c.historial, { fecha: today(), estado: next.id, nota: 'Avance rápido' }] };
+    // F1: una ficha importada antes de este arreglo puede no traer
+    // `historial` (el tipo lo declara, el registro real no): tolerarlo
+    // como [] en vez de reventar el avance, como ya hacen utils/panel.
+    const despues: Conversion = { ...c, estado: next.id, historial: [...(c.historial ?? []), { fecha: today(), estado: next.id, nota: 'Avance rápido' }] };
     await db.conversiones.update(id, { estado: next.id, historial: despues.historial });
     const synced = await syncMemberFromConversion(despues);
     await reflejarEstadoEnMiembro(despues);
@@ -336,7 +341,8 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     if (!selConv) return;
     const cruda = convsCrudas.find((x) => x.id === selConv.id) ?? selConv;
     const ne = tempEst || selConv.estado;
-    const hist = [...cruda.historial];
+    // F1: mismo tolerar que en quickAdv — historial ausente = [].
+    const hist = [...(cruda.historial ?? [])];
     if (sNota.trim() || ne !== selConv.estado) hist.push({ fecha: today(), estado: ne, nota: sNota.trim() || `Estado: ${etiquetaDe(pasosSeguimiento, selConv.estado)} → ${etiquetaDe(pasosSeguimiento, ne)}` });
     const despues: Conversion = { ...cruda, estado: ne, historial: hist };
     await db.conversiones.update(selConv.id, { estado: despues.estado, historial: hist });
@@ -486,9 +492,11 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         {dataTab === 'evang' && <button className="btn btn-gold" onClick={openNewEvang}>📋 Registrar Evangelismo</button>}
         {dataTab === 'conv' && (
           <button className="btn btn-secondary" onClick={() => {
-            if (!convs.length) return showToast('No hay datos para exportar');
+            // F5/M3: se exporta la lista FILTRADA que se está viendo,
+            // no el registro completo — pantalla y archivo cuentan igual.
+            if (!filtered.length) return showToast('No hay datos para exportar');
             const h = ['Nombre','Apellido','Telefono','Edad','Zona','Mayor','Fecha','Estado','Notas'];
-            const r = convs.map(c => [c.nombre,c.apellido,c.telefono||'',c.edad||'',c.zona,c.lider||'',c.fecha,etiquetaDe(pasosSeguimiento, c.estado),(c.notas||'').replace(/,/g,';')]);
+            const r = filtered.map(c => [c.nombre,c.apellido,c.telefono||'',c.edad||'',c.zona,c.lider||'',c.fecha,etiquetaDe(pasosSeguimiento, c.estado),(c.notas||'').replace(/,/g,';')]);
             exportCSV(h, r, 'lemgil-conversiones.csv');
             showToast('CSV exportado');
           }}>📥 Exportar CSV</button>
@@ -516,7 +524,10 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
               'Hijos': 'hijos',
             }}
             requiredFields={['nombre', 'apellido', 'fecha']}
-            defaults={{ estado: PS_NUEVO, fecha: () => new Date().toISOString().split('T')[0] }}
+            // F1: toda conversión importada nace con su historial (vacío):
+            // sin él, abrir su detalle o avanzarla lanzaba un TypeError.
+            // Función: cada fila recibe SU propio arreglo.
+            defaults={{ estado: PS_NUEVO, fecha: () => new Date().toISOString().split('T')[0], historial: () => [] }}
             onImport={(n) => showToast(`${n} conversión(es) importada(s)`)}
           />
         )}
@@ -632,6 +643,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       {/* TAB: Grupos */}
       {dataTab === 'grupo' && (
         <GruposTab
+          pasos={pasosSeguimiento}
           grupos={grupos}
           gruposFiltrados={gruposFiltrados}
           convs={convs}

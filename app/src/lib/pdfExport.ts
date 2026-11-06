@@ -1,9 +1,9 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { showToast } from './notification';
-import { fmt } from './utils';
+import { MS, fmt } from './utils';
 import { conteoGrupo } from './grupoStats';
-import { esGozne, etiquetaDe } from './pasosMision';
+import { esGozne, etiquetaDe, idCanonico } from './pasosMision';
 import type { DiezmadorVista, EvangelismoVista } from './personaDatos';
 import type {
   AporteComun,
@@ -1054,26 +1054,65 @@ export function exportCertificadosPDF(opts: { certs: Certificado[]; estudiantes:
   doc.save(`academia-certificados-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtros?: { estado?: string; zona?: string; ano?: string; mes?: string }; pasos?: PasoSeguimiento[] }) {
+export interface FiltrosConversionesPDF {
+  /** Identidad del paso (el `<select>` de la página ofrece ids). */
+  estado?: string;
+  zona?: string;
+  ano?: string;
+  /** '01'…'12'. */
+  mes?: string;
+}
+
+/**
+ * F5: las conversiones que el PDF SÍ exporta — los filtros que la
+ * página anuncia se APLICAN (antes solo componían el subtítulo y el
+ * documento traía el registro completo con KPI globales). El estado
+ * compara por identidad canónica, como el filtro de la lista (F3).
+ * Función pura: el exportador la consume y las pruebas la verifican.
+ */
+export function conversionesFiltradasPDF(
+  conversiones: Conversion[],
+  filtros?: FiltrosConversionesPDF,
+): Conversion[] {
+  if (!filtros) return conversiones;
+  return conversiones.filter((c) =>
+    (!filtros.estado || idCanonico(c.estado) === filtros.estado)
+    && (!filtros.zona || c.zona === filtros.zona)
+    && (!filtros.ano || !!c.fecha?.startsWith(filtros.ano))
+    && (!filtros.mes || c.fecha?.slice(5, 7) === filtros.mes));
+}
+
+export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtros?: FiltrosConversionesPDF; pasos?: PasoSeguimiento[] }) {
   const { conversiones, filtros, pasos } = opts;
   const doc = new jsPDF();
   // Fase 2: el filtro y la tabla nombran el estado con la ETIQUETA viva
   // del catálogo (el dato guarda la identidad del paso).
   const nombreEstado = (valor?: string) => (valor ? etiquetaDe(pasos, valor) : valor);
-  const subtitulo = filtros 
-    ? `Filtros: ${[nombreEstado(filtros.estado), filtros.zona].filter(Boolean).join(' · ')}`
-    : `${conversiones.length} registros en total`;
+  // F5: filas y KPI salen de la lista FILTRADA, y el subtítulo nombra
+  // también año y mes cuando están activos.
+  const visibles = conversionesFiltradasPDF(conversiones, filtros);
+  const partesSubtitulo = filtros
+    ? [
+        nombreEstado(filtros.estado),
+        filtros.zona,
+        filtros.ano,
+        filtros.mes ? MS[parseInt(filtros.mes, 10) - 1] : undefined,
+      ].filter(Boolean)
+    : [];
+  const subtitulo = partesSubtitulo.length > 0
+    ? `Filtros: ${partesSubtitulo.join(' · ')}`
+    : `${visibles.length} registros en total`;
   header(doc, 'Registro de Conversiones', subtitulo, 'Misión Bíblica');
 
-  const total = conversiones.length;
-  const integrados = conversiones.filter(c => esGozne(pasos, c.estado)).length;
+  const total = visibles.length;
+  const integrados = visibles.filter(c => esGozne(pasos, c.estado)).length;
   const pctInt = total > 0 ? (integrados / total * 100).toFixed(1) : '0';
 
   kpiBox(doc, 14, 34, 58, 18, 'Total', total.toString(), COLORS.blue);
   kpiBox(doc, 76, 34, 58, 18, 'Integrados', integrados.toString(), COLORS.purple);
   kpiBox(doc, 138, 34, 58, 18, '% Integración', `${pctInt}%`, COLORS.gold);
 
-  const rows = conversiones.map((c, i) => [
+  const rows = visibles.map((c, i) => [
     (i + 1).toString(),
     `${c.nombre} ${c.apellido}`,
     etiquetaDe(pasos, c.estado),
@@ -1100,22 +1139,24 @@ export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtro
   doc.save(`mision-conversiones-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro[]; conversiones: Conversion[] }) {
-  const { grupos, miembros, conversiones } = opts;
+export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro[]; conversiones: Conversion[]; pasos?: PasoSeguimiento[] }) {
+  const { grupos, miembros, conversiones, pasos } = opts;
   const doc = new jsPDF();
   header(doc, 'Directorio de Grupos de Misión', `${grupos.length} grupos activos`, 'Misión Bíblica');
 
   // B4: conteo único — «Miembros» son los miembros activos y la ocupación se
   // mide sobre el total asignado (activos + conversiones en proceso), igual
   // que en la tarjeta de Grupos y en el filtro de Misión.
-  const totalMiembros = grupos.reduce((sum, g) => sum + conteoGrupo(g.id, miembros, conversiones).miembrosActivos, 0);
+  // F4: con el catálogo vivo, como el Panel — sin él, un paso de camino
+  // creado por la iglesia no ocupaba silla en este documento.
+  const totalMiembros = grupos.reduce((sum, g) => sum + conteoGrupo(g.id, miembros, conversiones, pasos).miembrosActivos, 0);
 
   kpiBox(doc, 14, 34, 58, 18, 'Total Grupos', grupos.length.toString(), COLORS.gold);
   kpiBox(doc, 76, 34, 58, 18, 'Miembros Totales', totalMiembros.toString(), COLORS.green);
   kpiBox(doc, 138, 34, 58, 18, 'Promedio/Grupo', grupos.length > 0 ? (totalMiembros / grupos.length).toFixed(1) : '0', COLORS.blue);
 
   const rows = grupos.map(g => {
-    const conteo = conteoGrupo(g.id, miembros, conversiones);
+    const conteo = conteoGrupo(g.id, miembros, conversiones, pasos);
     const mCount = conteo.miembrosActivos;
     const cap = parseInt(g.capacidad) || 0;
     const pct = cap > 0 ? (conteo.totalAsignados / cap * 100).toFixed(0) : '—';

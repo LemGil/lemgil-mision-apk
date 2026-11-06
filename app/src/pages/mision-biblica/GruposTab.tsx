@@ -4,9 +4,12 @@ import { exportCSV } from '../../lib/csvExport';
 import { exportGruposMisionPDF, safeExport } from '../../lib/pdfExport';
 import { conteoGrupo } from '../../lib/grupoStats';
 import { showToast } from '../../lib/notification';
-import type { Conversion, Grupo, Miembro } from '../../lib/types';
+import type { Conversion, Grupo, Miembro, PasoSeguimiento } from '../../lib/types';
 
 interface GruposTabProps {
+  /** F4: el catálogo vivo de pasos — el conteo lo necesita para que un
+   * paso de camino creado por la iglesia ocupe silla, como en el Panel. */
+  pasos: PasoSeguimiento[];
   grupos: Grupo[];
   gruposFiltrados: Grupo[];
   convs: Conversion[];
@@ -16,7 +19,7 @@ interface GruposTabProps {
 }
 
 export function GruposTab(props: GruposTabProps) {
-  const { grupos, gruposFiltrados, convs, miembros, openEditGrupo, onEliminar } = props;
+  const { pasos, grupos, gruposFiltrados, convs, miembros, openEditGrupo, onEliminar } = props;
   return (
         <div className="card">
            <div className="card-header">
@@ -25,7 +28,7 @@ export function GruposTab(props: GruposTabProps) {
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{gruposFiltrados.length} de {grupos.length} grupos</div>
              </div>
              <div style={{ display: 'flex', gap: 5 }}>
-               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportGruposMisionPDF({ grupos, miembros, conversiones: convs }))}>📄 Exportar PDF</button>
+               <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportGruposMisionPDF({ grupos, miembros, conversiones: convs, pasos }))}>📄 Exportar PDF</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => {
                   if (!grupos.length) return showToast('No hay grupos para exportar');
                   const h = ['Nombre', 'Zona', 'Líder', 'Día', 'Hora', 'Capacidad', 'Lugar'];
@@ -60,7 +63,8 @@ export function GruposTab(props: GruposTabProps) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
               {gruposFiltrados.map((g) => {
       // B4: conteo único (misma semántica que el filtro de Misión y el PDF).
-      const conteo = conteoGrupo(g.id, miembros, convs);
+      // F4: con el catálogo vivo, igual que el Panel.
+      const conteo = conteoGrupo(g.id, miembros, convs, pasos);
                 const cantNuevo = conteo.nuevo;
                 const cantDiscip = conteo.discipulado;
                 const cantBaut = conteo.bautizado;

@@ -6,7 +6,7 @@ import type { Conversion, Grupo, Hito, Miembro, PasoSeguimiento } from '../../li
 import { EST_BADGE as MIEMBRO_EST_BADGE, HITO_BADGE } from '../miembros/constants';
 import {
   PS_FALLECIDO, badgeDe, colorDe, emojiDe, esGozne, etiquetaDe,
-  idCanonico, indiceEnRuta, pasosDeMision, pasosPipeline, siguientePaso,
+  idCanonico, indiceEnRuta, pasosDeMision, pasosPipeline, progresoEnRuta, siguientePaso,
 } from '../../lib/pasosMision';
 
 interface ConversionDetailModalProps {
@@ -36,14 +36,19 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
       <Modal open={open} onClose={onClose} title={`📄 ${selConv?.nombre} ${selConv?.apellido}`} wide footer={<><button className="btn btn-danger btn-sm" onClick={onEliminar}>🗑️ Eliminar</button>{selConv?.personaId && <button className="btn btn-secondary" onClick={() => navigate(`/personas?ver=${selConv.personaId}`)}>👤 Ver ficha completa</button>}<button className="btn btn-secondary" onClick={onClose}>Cerrar</button><button className="btn btn-gold" onClick={saveSeg}>💾 Guardar Cambios</button></>}>
         {selConv && (() => {
           const iniciales = `${selConv.nombre[0] || ''}${selConv.apellido[0] || ''}`.toUpperCase();
+          // F1: una ficha importada antes del arreglo puede no traer
+          // `historial` (el tipo lo declara, el registro real no): se
+          // tolera como [] y la ficha se abre — antes lanzaba TypeError.
+          const historial = selConv.historial ?? [];
           const fechaCreado = new Date(selConv.creado);
           const diasEnProceso = isNaN(fechaCreado.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - fechaCreado.getTime()) / 86400000));
-          const lastHistDate = selConv.historial.length > 0 ? new Date(selConv.historial[selConv.historial.length - 1].fecha) : fechaCreado;
+          const lastHistDate = historial.length > 0 ? new Date(historial[historial.length - 1].fecha) : fechaCreado;
           const diasEnEstado = isNaN(lastHistDate.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - lastHistDate.getTime()) / 86400000));
-          const totalPasos = pasosDeMision(pasos).length;
           const idxActual = indiceEnRuta(pasos, selConv.estado);
           const proxPaso = siguientePaso(pasos, selConv.estado);
-          const progreso = Math.round(((idxActual + 1) / totalPasos) * 100);
+          // F6: el progreso se mide DENTRO de la ruta (sin las salidas
+          // en el denominador): Integrado = 100 %, no 57 %.
+          const prog = progresoEnRuta(pasos, selConv.estado);
           const grupoAsignado = selConv.grupoId ? grupos.find((g) => g.id === selConv.grupoId) : null;
           const telLimpio = (selConv.telefono || '').replace(/\D/g, '');
           return (<>
@@ -89,8 +94,8 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
               </div>
               <div className="kpi" style={accentStyle('var(--purple)')}>
                 <div className="kpi-label">📊 Progreso</div>
-                <div className="kpi-value" style={{ fontSize: 24 }}>{progreso}%</div>
-                <div className="kpi-sub">paso {idxActual + 1} de {totalPasos}</div>
+                <div className="kpi-value" style={{ fontSize: 24 }}>{prog.porcentaje}%</div>
+                <div className="kpi-sub">{prog.rotulo}</div>
               </div>
             </div>
 
@@ -197,10 +202,10 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
             </div>
 
             {/* TIMELINE */}
-            {selConv.historial.length > 0 && <>
+            {historial.length > 0 && <>
               <div className="form-section" style={{ marginTop: 20 }}>Historial de Seguimiento</div>
               <div className="timeline">
-                {selConv.historial.slice().reverse().map((h, i) => {
+                {historial.slice().reverse().map((h, i) => {
                   const idxH = indiceEnRuta(pasos, h.estado);
                   return (
                     <div key={i} className="timeline-item">

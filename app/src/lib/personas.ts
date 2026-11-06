@@ -1,5 +1,7 @@
 import { db } from './database';
-import { normalizeField, registrarPostImportHook } from './csvImport';
+import { normalizeField, registrarAjusteImportacion, registrarPostImportHook, registrarResolvedorDedupe } from './csvImport';
+import { conversionConDatos, mapaPersonas } from './personaDatos';
+import { canonizarEstadoImportado, etiquetaDe, pasoInicio } from './pasosMision';
 import { createBaseRecord } from './utils/recordHelpers';
 import { addTombstone, enqueueOutbox, removeOutboxFor } from './sync/queue';
 import type { Persona, Conversion, Miembro, Estudiante, Diezmador, Beneficiario, Grupo } from './types';
@@ -591,6 +593,54 @@ registrarPostImportHook(async (table, insertados) => {
   if (table !== 'dadores') return;
   for (const r of insertados) {
     await asegurarPersonaDeDiezmador(r as unknown as Diezmador);
+  }
+});
+
+// Bordes de la Fase 2 (F2) — la ida y vuelta del CSV de CONVERSIONES
+// vivía en la era anterior a la ficha única; tres registros cierran el
+// círculo, espejo de lo que P7 hizo con los diezmadores:
+//
+// (a) ANTES de insertar: el `estado` que trae el CSV es la ETIQUETA
+// viva que la propia página escribió al exportar; se canonicaliza
+// contra el catálogo del momento (id, nombre actual o alias legado).
+// Lo que no se reconoce NO se acepta en silencio: nace en el paso de
+// inicio y se cuenta en un aviso del resumen de la importación.
+registrarAjusteImportacion(async (table, registros) => {
+  if (table !== 'conversiones') return { registros, avisos: [] };
+  const pasos = await db.pasosSeguimiento.toArray();
+  let noReconocidos = 0;
+  const ajustados = registros.map((r) => {
+    const { estado, reconocido } = canonizarEstadoImportado(
+      pasos,
+      typeof r.estado === 'string' ? r.estado : '',
+    );
+    if (!reconocido) noReconocidos++;
+    return { ...r, estado };
+  });
+  const avisos = noReconocidos > 0
+    ? [`${noReconocidos} fila(s) con estado no reconocido quedaron en ${etiquetaDe(pasos, pasoInicio(pasos).id)}`]
+    : [];
+  return { registros: ajustados, avisos };
+});
+
+// (b) La deduplicación compara contra la vista RESUELTA: el registro
+// guardado trae sus personales vacíos a propósito (viven en la
+// persona), así que su clave sale de `conversionConDatos` — sin esto,
+// reimportar el export de la propia página duplicaba a todo el mundo.
+registrarResolvedorDedupe(async (table, existentes) => {
+  if (table !== 'conversiones') return existentes;
+  const mapa = mapaPersonas(await db.personas.toArray());
+  return existentes.map((r) => conversionConDatos(r as unknown as Conversion, mapa) as unknown as Record<string, any>);
+});
+
+// (c) DESPUÉS de insertar: cada conversión importada asegura su
+// persona con los datos de su fila y queda enlazada por `personaId`
+// desde el nacimiento — entra a la ficha única al importar, no recién
+// al integrar. Misma regla determinista de siempre.
+registrarPostImportHook(async (table, insertados) => {
+  if (table !== 'conversiones') return;
+  for (const r of insertados) {
+    await asegurarPersonaDeConversion(r as unknown as Conversion);
   }
 });
 
