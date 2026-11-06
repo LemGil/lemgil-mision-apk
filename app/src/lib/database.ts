@@ -315,4 +315,34 @@ database.version(24).stores({
   pasosSeguimiento: 'id, ambito, orden',
 });
 
+/** Interfaz mínima de la base para la vigilancia de versión (testeable con un doble). */
+export interface DbVigilable {
+  on: (eventName: 'versionchange', subscriber: (event: IDBVersionChangeEvent) => unknown) => void;
+  close: () => void;
+}
+
+/**
+ * Vigilancia de actualización de esquema — defensa ante el despliegue de
+ * una versión NUEVA de la base (p. ej. la v24 de Pasos): si otra ventana o
+ * la PWA actualizada abre la base en una versión mayor, IndexedDB dispara
+ * «versionchange» en ESTA conexión. Dexie lo reenvía a sus suscriptores
+ * pero NO cierra la conexión por su cuenta: la vieja queda zombi, marcada
+ * como cerrada, y la próxima sincronización revienta con
+ * DatabaseClosedError / «The transaction is not active» al leer (getAll).
+ * El remedio estándar de Dexie: cerrar nuestra conexión y recargar — la
+ * página recargada ya es la versión nueva y abre la base sin conflicto
+ * (la ventana nueva no vuelve a dispararnos: no hay bucle).
+ * Se instala SOLO desde main.tsx; importar database.ts no registra nada
+ * (los tests lo importan y no deben cerrar ni recargar nada).
+ */
+export function instalarVigilanciaDeVersion(
+  recargar: () => void = () => window.location.reload(),
+  base: DbVigilable = database,
+): void {
+  base.on('versionchange', () => {
+    base.close();
+    recargar();
+  });
+}
+
 export { database as db };

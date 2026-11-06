@@ -4,12 +4,20 @@ import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import App from './App';
 import { migrateFromLocalStorage, ensureMetas, backfillIntegrados, ensureZonas, desunificarBienComun, canonizarZonas, unificarPersonas, asegurarDiezmadores, ensurePasosMiembro, ensurePasosMision, migrarEstadosAPasos } from './lib/migrate';
+import { instalarVigilanciaDeVersion } from './lib/database';
 import { initSync } from './lib/sync';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotificationProvider } from './lib/notification';
 import { AuthProvider } from './lib/auth';
 
 registerSW({ immediate: true });
+
+// Vigilancia de versión de la base: si una versión nueva de la app abre la
+// base en un esquema mayor, esta ventana cierra su conexión y se recarga en
+// vez de seguir viva con una conexión zombi que rompe la sincronización
+// (DatabaseClosedError). Va antes de los pases: son los primeros que tocan
+// la base y la recarga debe poder ocurrir en cuanto se detecte el cambio.
+instalarVigilanciaDeVersion();
 
 // canonizarZonas va encadenado (no en el Promise.all): necesita el catálogo
 // de zonas ya asegurado por ensureZonas. unificarPersonas (ficha única, P0)
