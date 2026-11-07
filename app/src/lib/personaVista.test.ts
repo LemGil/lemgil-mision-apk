@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   agruparProcesos, tiposPresentes, totalProcesos, tarjetasDeProcesos,
   procesosHuerfanos, filtrarPersonas, edadDesde, procesosVacios, contarPersonasUnicas,
-  posiblesDuplicados, situacionPersona,
+  posiblesDuplicados, situacionPersona, conversionDePersona, posiblesRepetidas,
 } from './personaVista';
 import { PASOS_MISION_DEFECTO } from './pasosMision';
 import type { FichasDePersona } from './personas';
@@ -403,5 +403,107 @@ describe('situacionPersona: la situación actual que la ficha sí dice', () => {
 
   it('sin situación: sin procesos → null', () => {
     expect(situacionPersona(procesosVacios())).toBeNull();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════
+// Guardia «ya registrada» (2026-11-07) — caso real de LemGil: la misma
+// persona entró dos veces como nueva convertida y nacieron dos
+// registros sin ningún aviso. Dos helpers la sostienen: cuál es la
+// conversión que la persona YA tiene (para avisar en Misión) y qué
+// fichas comparten el nombre que se está tecleando (para avisar en el
+// formulario único de persona, donde el carné — la guardia dura — no
+// es obligatorio y puede no venir tecleado).
+// ════════════════════════════════════════════════════════════════════
+
+describe('conversionDePersona: la conversión que la persona ya tiene', () => {
+  const deP1 = (over: Partial<Conversion> = {}) => convBase({ personaId: 'p1', ...over });
+
+  it('sin persona o sin conversiones suyas → null', () => {
+    expect(conversionDePersona([], 'p1', PASOS_MISION_DEFECTO)).toBeNull();
+    expect(conversionDePersona([deP1()], '', PASOS_MISION_DEFECTO)).toBeNull();
+    expect(conversionDePersona([deP1()], null, PASOS_MISION_DEFECTO)).toBeNull();
+    expect(conversionDePersona([deP1()], undefined, PASOS_MISION_DEFECTO)).toBeNull();
+    expect(conversionDePersona([convBase({ personaId: 'p2' })], 'p1', PASOS_MISION_DEFECTO)).toBeNull();
+  });
+
+  it('devuelve la suya, ignorando las de otras personas', () => {
+    const suya = deP1({ id: 'c7' });
+    expect(conversionDePersona([convBase({ personaId: 'p2' }), suya], 'p1', PASOS_MISION_DEFECTO)?.id).toBe('c7');
+  });
+
+  it('con varias, prefiere la que NO está en una salida, aunque la salida sea más reciente', () => {
+    const enCamino = deP1({ id: 'c-viva', estado: 'ps-discipulado', creado: '2024-01-01T00:00:00.000Z' });
+    const apartada = deP1({ id: 'c-salida', estado: 'ps-apartado', creado: '2025-06-01T00:00:00.000Z' });
+    expect(conversionDePersona([apartada, enCamino], 'p1', PASOS_MISION_DEFECTO)?.id).toBe('c-viva');
+    expect(conversionDePersona([enCamino, apartada], 'p1', PASOS_MISION_DEFECTO)?.id).toBe('c-viva');
+  });
+
+  it('a igualdad de clase manda la más reciente por creación', () => {
+    const vieja = deP1({ id: 'c-vieja', estado: 'ps-nuevo', creado: '2024-01-01T00:00:00.000Z' });
+    const nueva = deP1({ id: 'c-nueva', estado: 'ps-integrado', creado: '2025-01-01T00:00:00.000Z' });
+    expect(conversionDePersona([vieja, nueva], 'p1', PASOS_MISION_DEFECTO)?.id).toBe('c-nueva');
+    // Y entre dos salidas, también la más reciente.
+    const salidaVieja = deP1({ id: 's-vieja', estado: 'ps-apartado', creado: '2024-01-01T00:00:00.000Z' });
+    const salidaNueva = deP1({ id: 's-nueva', estado: 'ps-fallecido', creado: '2025-01-01T00:00:00.000Z' });
+    expect(conversionDePersona([salidaVieja, salidaNueva], 'p1', PASOS_MISION_DEFECTO)?.id).toBe('s-nueva');
+  });
+});
+
+describe('posiblesRepetidas: aviso por nombre en el formulario único', () => {
+  const datos = { nombre: 'María', apellido: 'González' };
+
+  it('coincidencia exacta normalizada (acentos, mayúsculas y espacios no importan)', () => {
+    const a = personaBase({ id: 'p1', nombre: 'MARÍA', apellido: '  González ', telefono: '', fechaNacimiento: '' });
+    const r = posiblesRepetidas([a], { nombre: 'maria', apellido: 'GONZALEZ' });
+    expect(r).toHaveLength(1);
+    expect(r[0].persona.id).toBe('p1');
+    expect(r[0].coincideTelefono).toBe(false);
+    expect(r[0].coincideNacimiento).toBe(false);
+  });
+
+  it('un nombre PARCIAL no alcanza: otro apellido u otro nombre no avisan', () => {
+    const a = personaBase({ id: 'p1', nombre: 'María', apellido: 'González Ruiz' });
+    expect(posiblesRepetidas([a], datos)).toEqual([]);
+    const b = personaBase({ id: 'p2', nombre: 'María José', apellido: 'González' });
+    expect(posiblesRepetidas([b], datos)).toEqual([]);
+    const c = personaBase({ id: 'p3', nombre: 'María', apellido: 'Pérez' });
+    expect(posiblesRepetidas([c], datos)).toEqual([]);
+  });
+
+  it('sin nombre o sin apellido tecleados no hay aviso', () => {
+    const a = personaBase({ id: 'p1' });
+    expect(posiblesRepetidas([a], { nombre: '', apellido: 'González' })).toEqual([]);
+    expect(posiblesRepetidas([a], { nombre: 'María', apellido: '' })).toEqual([]);
+  });
+
+  it('la fuerza ordena: quien además coincide en teléfono o nacimiento va primero', () => {
+    const soloNombre = personaBase({ id: 'p-nombre', telefono: '5111', fechaNacimiento: '1980-01-01' });
+    const conTelefono = personaBase({ id: 'p-tel', telefono: '(555) 123-4', fechaNacimiento: '' });
+    const conAmbos = personaBase({ id: 'p-ambos', telefono: '5551234', fechaNacimiento: '1990-05-01' });
+    const r = posiblesRepetidas(
+      [soloNombre, conTelefono, conAmbos],
+      { ...datos, telefono: '555-1234', fechaNacimiento: '1990-05-01' },
+    );
+    expect(r.map((x) => x.persona.id)).toEqual(['p-ambos', 'p-tel', 'p-nombre']);
+    expect(r[0]).toMatchObject({ coincideTelefono: true, coincideNacimiento: true });
+    expect(r[1]).toMatchObject({ coincideTelefono: true, coincideNacimiento: false });
+    expect(r[2]).toMatchObject({ coincideTelefono: false, coincideNacimiento: false });
+  });
+
+  it('el teléfono se compara por dígitos y el nacimiento exacto', () => {
+    const a = personaBase({ id: 'p1', telefono: '555 12 34', fechaNacimiento: '1990-05-01' });
+    const r = posiblesRepetidas([a], { ...datos, telefono: '(555)1234', fechaNacimiento: '1990-05-01' });
+    expect(r[0].coincideTelefono).toBe(true);
+    expect(r[0].coincideNacimiento).toBe(true);
+    const r2 = posiblesRepetidas([a], { ...datos, telefono: '5551234', fechaNacimiento: '1990-05-02' });
+    expect(r2[0].coincideNacimiento).toBe(false);
+  });
+
+  it('al editar, excluirId aparta la propia ficha (pero no a una homónima)', () => {
+    const yo = personaBase({ id: 'p1' });
+    const otra = personaBase({ id: 'p2', telefono: '5999' });
+    expect(posiblesRepetidas([yo], datos, 'p1')).toEqual([]);
+    expect(posiblesRepetidas([yo, otra], datos, 'p1').map((x) => x.persona.id)).toEqual(['p2']);
   });
 });

@@ -46,6 +46,12 @@ describe('PersonaSelect — lista de registradas + puerta del registro inicial',
     expect(screen.queryByPlaceholderText('Juan')).not.toBeInTheDocument();
   });
 
+  it('con avisos, la opción marca a la persona; a quien no está en el mapa, no', async () => {
+    render(<PersonaSelect value="" onChange={vi.fn()} avisos={new Map([['p1', 'ya en Misión']])} />);
+    expect(await screen.findByRole('option', { name: /María González.*ya en Misión/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Lucía Mora · 222' })).toBeInTheDocument();
+  });
+
   it('seleccionar una existente emite su id', async () => {
     const onChange = vi.fn();
     render(<PersonaSelect value="" onChange={onChange} />);

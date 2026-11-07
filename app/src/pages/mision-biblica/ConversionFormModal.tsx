@@ -3,9 +3,9 @@ import { Modal } from '../../components/Modal';
 import { PersonaSelect } from '../../components/PersonaSelect';
 import { PersonaFormModal } from '../../components/PersonaFormModal';
 import { fmt, today } from '../../lib/utils';
-import { edadDesde } from '../../lib/personaVista';
-import type { Evangelismo, Grupo, PasoSeguimiento, Persona } from '../../lib/types';
-import { etiquetaConRespaldo, pasosDeMision, rutaDe, salidasDe } from '../../lib/pasosMision';
+import { conversionDePersona, edadDesde } from '../../lib/personaVista';
+import type { Conversion, Evangelismo, Grupo, PasoSeguimiento, Persona } from '../../lib/types';
+import { etiquetaConRespaldo, etiquetaDe, pasosDeMision, rutaDe, salidasDe } from '../../lib/pasosMision';
 
 /**
  * Las opciones de estado: la RUTA del catálogo y, aparte, las salidas
@@ -51,6 +51,16 @@ interface ConversionFormModalProps {
   fNotas: string; setFNotas: Dispatch<SetStateAction<string>>;
   fEvangelismoId: string; setFEvangelismoId: Dispatch<SetStateAction<string>>;
   fHistorial: HistorialItem[]; setFHistorial: Dispatch<SetStateAction<HistorialItem[]>>;
+  /**
+   * Guardia «ya en Misión» (2026-11-07): las conversiones existentes,
+   * para detectar si la persona elegida ya tiene una (al crear). Sin
+   * ellas no hay aviso: la guardia es un añadido, no un requisito.
+   */
+  conversiones?: Conversion[];
+  /** Abre el detalle de la conversión existente (botón «Ver esa ficha» del aviso). */
+  onVerConversion?: (id: string) => void;
+  /** Marcas del selector de personas («ya en Misión»), calculadas por la página. */
+  avisosPersonas?: Map<string, string>;
 }
 
 /**
@@ -62,22 +72,28 @@ interface ConversionFormModalProps {
  * notas de contacto e historial.
  */
 export function ConversionFormModal(props: ConversionFormModalProps) {
-  const { pasos, open, onClose, editConvId, saveConv, personas, grupos, evangelismos, fPersonaId, setFPersonaId, fFecha, setFFecha, fFamilia, setFFamilia, fEstado, setFEstado, fNotas, setFNotas, fEvangelismoId, setFEvangelismoId, fHistorial, setFHistorial } = props;
+  const { pasos, open, onClose, editConvId, saveConv, personas, grupos, evangelismos, fPersonaId, setFPersonaId, fFecha, setFFecha, fFamilia, setFFamilia, fEstado, setFEstado, fNotas, setFNotas, fEvangelismoId, setFEvangelismoId, fHistorial, setFHistorial, conversiones, onVerConversion, avisosPersonas } = props;
   const [editandoPersona, setEditandoPersona] = useState(false);
   const persona = personas.find((p) => p.id === fPersonaId);
   const grupo = persona?.grupoId ? grupos.find((g) => g.id === persona.grupoId) : undefined;
   const mentor = persona?.hermanoMayorId ? personas.find((p) => p.id === persona.hermanoMayorId) : undefined;
   const edad = persona ? edadDesde(persona.fechaNacimiento) : null;
+  // Guardia «ya en Misión» (2026-11-07): SOLO al crear — si la persona
+  // elegida ya tiene una conversión, se avisa ANTES de duplicar el
+  // proceso (al editar, la conversión existente es esta misma u otra
+  // historia que no se juzga aquí). No bloquea: rotula el guardado
+  // para que crear otra sea una decisión informada, nunca un descuido.
+  const convExistente = !editConvId ? conversionDePersona(conversiones ?? [], fPersonaId, pasos) : null;
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={editConvId ? '✏️ Editar Conversión' : '✝️ Nueva Conversión'} footer={<><button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-gold" onClick={saveConv}>💾 {editConvId ? 'Guardar Cambios' : 'Guardar'}</button></>} wide>
+      <Modal open={open} onClose={onClose} title={editConvId ? '✏️ Editar Conversión' : '✝️ Nueva Conversión'} footer={<><button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-gold" onClick={saveConv}>💾 {editConvId ? 'Guardar Cambios' : convExistente ? 'Crear otra de todos modos' : 'Guardar'}</button></>} wide>
 
         {/* ─── SECCIÓN: PERSONA ─── */}
         <div className="form-section">👤 Persona (se teclea una sola vez)</div>
         <div className="form-group">
           <label className="form-label">Persona de esta conversión *</label>
-          <PersonaSelect value={fPersonaId} onChange={setFPersonaId} emptyLabel="🔍 Buscar persona…" />
+          <PersonaSelect value={fPersonaId} onChange={setFPersonaId} emptyLabel="🔍 Buscar persona…" avisos={avisosPersonas} />
         </div>
         {persona && (
           <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginTop: 8 }}>
@@ -95,6 +111,18 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
               {persona.bautizado ? '💧 Bautizado' : 'Sin bautizar'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Estos datos viven en la ficha única de la persona: se corrigen una vez y se ven en todos sus procesos.</div>
+          </div>
+        )}
+        {convExistente && persona && (
+          <div style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)', borderRadius: 8, padding: '10px 12px', marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
+            ⚠️ {persona.nombre} {persona.apellido} ya tiene una conversión registrada — estado actual: <strong>{etiquetaDe(pasos, convExistente.estado)}</strong>.
+            Si sigues y guardas, crearás OTRA conversión para la misma persona.
+            {onVerConversion && (
+              <>
+                {' '}
+                <button type="button" className="btn btn-gold btn-sm" onClick={() => { onClose(); onVerConversion(convExistente.id); }}>Ver esa ficha</button>
+              </>
+            )}
           </div>
         )}
 

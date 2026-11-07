@@ -409,3 +409,77 @@ export function posiblesDuplicados(personas: Persona[]): GrupoDuplicado[] {
   grupos.sort((a, b) => claveOrden(a.personas[0]).localeCompare(claveOrden(b.personas[0])));
   return grupos;
 }
+
+/**
+ * GUARDIA «YA EN MISIÓN» (2026-11-07) — la conversión que una persona
+ * YA tiene, si la tiene. Caso real de LemGil: en Misión entró a la
+ * misma persona dos veces como nueva convertida y nacieron dos
+ * registros sin ningún aviso, porque en ninguna parte se comprobaba
+ * si la persona elegida ya tenía una conversión.
+ *
+ * Si hubiera varias (duplicados viejos), manda la más «viva»: primero
+ * una que NO esté en una salida del catálogo (camino o gozne — el
+ * proceso que sigue abierto), y a igualdad la más reciente por
+ * creación (`creado`). Determinista: mismos datos → misma elección.
+ */
+export function conversionDePersona(
+  conversiones: Conversion[],
+  personaId: string | null | undefined,
+  pasos?: PasoSeguimiento[],
+): Conversion | null {
+  if (!personaId) return null;
+  const suyas = conversiones.filter((c) => c.personaId === personaId);
+  if (suyas.length === 0) return null;
+  return [...suyas].sort((a, b) => {
+    const salidaA = esSalida(pasos, a.estado) ? 1 : 0;
+    const salidaB = esSalida(pasos, b.estado) ? 1 : 0;
+    if (salidaA !== salidaB) return salidaA - salidaB;
+    return (b.creado ?? '').localeCompare(a.creado ?? '');
+  })[0];
+}
+
+export interface RepetidaPorNombre {
+  persona: Persona;
+  /** Fuerza extra: también coincide el teléfono (comparado por dígitos). */
+  coincideTelefono: boolean;
+  /** Fuerza extra: también coincide la fecha de nacimiento. */
+  coincideNacimiento: boolean;
+}
+
+/**
+ * GUARDIA «YA REGISTRADA» POR NOMBRE (2026-11-07) — la otra puerta del
+ * mismo caso real: el formulario único de persona solo bloqueaba por
+ * Nº de Identidad, y el carné NO es obligatorio; con el nombre idéntico
+ * y sin carné, la misma persona se tecleaba dos veces sin un solo aviso.
+ *
+ * Coincidencia: nombre+apellido normalizados EXACTOS (la misma
+ * normalización de `posiblesDuplicados`: minúsculas, sin diacríticos,
+ * espacios colapsados) — un nombre parcial NO alcanza, para no llorar
+ * lobo con homónimos a medias. La fuerza ordena el resultado: primero
+ * quien además coincide en teléfono (por dígitos) o en fecha de
+ * nacimiento. Es un AVISO, no un bloqueo: los homónimos completos
+ * existen y la decisión final es de quien registra (la guardia dura
+ * sigue siendo la del carné). Al editar, `excluirId` aparta la propia
+ * ficha, como ya hace la guardia del carné.
+ */
+export function posiblesRepetidas(
+  personas: Persona[],
+  datos: { nombre: string; apellido: string; telefono?: string; fechaNacimiento?: string },
+  excluirId?: string,
+): RepetidaPorNombre[] {
+  if (!textoNormalizado(datos.nombre) || !textoNormalizado(datos.apellido)) return [];
+  const buscado = textoNormalizado(`${datos.nombre} ${datos.apellido}`);
+  const telBuscado = soloDigitos(datos.telefono);
+  const nacBuscado = (datos.fechaNacimiento ?? '').trim();
+  const fuerza = (r: RepetidaPorNombre) => (r.coincideTelefono ? 1 : 0) + (r.coincideNacimiento ? 1 : 0);
+  const claveOrden = (p: Persona) => `${textoNormalizado(`${p.apellido} ${p.nombre}`)}|${p.id}`;
+  return personas
+    .filter((p) => p.id !== excluirId)
+    .filter((p) => textoNormalizado(`${p.nombre} ${p.apellido}`) === buscado)
+    .map((p) => ({
+      persona: p,
+      coincideTelefono: !!telBuscado && soloDigitos(p.telefono) === telBuscado,
+      coincideNacimiento: !!nacBuscado && (p.fechaNacimiento ?? '').trim() === nacBuscado,
+    }))
+    .sort((a, b) => fuerza(b) - fuerza(a) || claveOrden(a.persona).localeCompare(claveOrden(b.persona)));
+}

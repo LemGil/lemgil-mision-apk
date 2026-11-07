@@ -167,6 +167,17 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     );
   }, [miembrosCrudos, convsCrudas]);
 
+  // Guardia «ya registrada» (2026-11-07): quién ya tiene conversión,
+  // para marcarlo en el selector del formulario («ya en Misión») y para
+  // que el formulario avise antes de crearle otra a la misma persona
+  // (caso real: la misma persona entró dos veces como nueva convertida
+  // y nacieron dos registros sin ningún aviso).
+  const personasEnMision = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of convsCrudas) if (c.personaId) m.set(c.personaId, 'ya en Misión');
+    return m;
+  }, [convsCrudas]);
+
   // M2: el buscador compara contra la vista resuelta (nombre, zona,
   // líder y ADEMÁS teléfono por dígitos y Nº de Identidad).
   // M1: la lista se presenta por fecha de conversión descendente.
@@ -739,6 +750,9 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         fNotas={fNotas} setFNotas={setFNotas}
         fEvangelismoId={fEvangelismoId} setFEvangelismoId={setFEvangelismoId}
         fHistorial={fHistorial} setFHistorial={setFHistorial}
+        conversiones={convsCrudas}
+        onVerConversion={openDetail}
+        avisosPersonas={personasEnMision}
       />
 
       <GrupoFormModal

@@ -10,6 +10,13 @@ interface PersonaSelectProps {
   className?: string;
   required?: boolean;
   emptyLabel?: string;
+  /**
+   * Guardia opcional «ya registrada» (2026-11-07): texto corto a
+   * mostrar junto al nombre de algunas personas (personaId → texto,
+   * p. ej. «ya en Misión» para quien ya tiene conversión). Quien no
+   * pasa el mapa no marca a nadie y su selector queda como siempre.
+   */
+  avisos?: Map<string, string>;
 }
 
 /**
@@ -29,7 +36,7 @@ interface PersonaSelectProps {
  * registradas: crear no es seleccionar, por eso la opción de crear no
  * vive dentro de la lista sino en su propio botón.
  */
-export function PersonaSelect({ value, onChange, className, required, emptyLabel = 'Seleccionar persona…' }: PersonaSelectProps) {
+export function PersonaSelect({ value, onChange, className, required, emptyLabel = 'Seleccionar persona…', avisos }: PersonaSelectProps) {
   const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
   const ordenadas = [...personas].sort((a, b) => `${a.nombre} ${a.apellido}`.localeCompare(`${b.nombre} ${b.apellido}`));
   const [creando, setCreando] = useState(false);
@@ -47,7 +54,7 @@ export function PersonaSelect({ value, onChange, className, required, emptyLabel
           <option value="">{emptyLabel}</option>
           {ordenadas.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.nombre} {p.apellido}{p.telefono ? ` · ${p.telefono}` : ''}
+              {p.nombre} {p.apellido}{p.telefono ? ` · ${p.telefono}` : ''}{avisos?.get(p.id) ? ` · ${avisos.get(p.id)}` : ''}
             </option>
           ))}
           {value && !ordenadas.some((p) => p.id === value) && <option value={value}>📌 Persona existente</option>}

@@ -6,6 +6,7 @@ import { Modal } from './Modal';
 import { ZonaSelect } from './ZonaSelect';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { buscarPorIdentidad } from '../lib/personas';
+import { posiblesRepetidas } from '../lib/personaVista';
 import type { Persona } from '../lib/types';
 
 interface PersonaFormModalProps {
@@ -107,6 +108,24 @@ export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFor
   // ofrece usar esa ficha (en el alta) o se avisa del choque (en edición).
   const duplicada = buscarPorIdentidad(personas, numeroIdentidad, persona?.id);
 
+  // Guardia «ya registrada» por NOMBRE (2026-11-07): el carné bloquea,
+  // pero el carné NO es obligatorio — con el nombre idéntico y sin
+  // carné, antes no saltaba nada y la misma persona se tecleaba dos
+  // veces. Ahora, si el nombre y el apellido ya existen, se avisa (y se
+  // dice si además coincide el teléfono o el nacimiento). NO bloquea:
+  // los homónimos existen; la decisión es de quien registra, pero
+  // informada. Si la mejor coincidencia es la misma ficha que ya señala
+  // el aviso del carné, aquel aviso basta (trae su propio botón).
+  const repetidas = posiblesRepetidas(personas, { nombre, apellido, telefono, fechaNacimiento }, persona?.id);
+  const repetida = repetidas.find((r) => r.persona.id !== duplicada?.id) ?? null;
+  const detalleRepetida = repetida
+    ? [
+        repetida.persona.numeroIdentidad ? `🪪 ${repetida.persona.numeroIdentidad}` : '',
+        repetida.persona.telefono ? `📱 ${repetida.persona.telefono}` : '',
+        repetida.persona.zona ? `📍 ${repetida.persona.zona}` : '',
+      ].filter(Boolean).join(' · ')
+    : '';
+
   return (
     <Modal open={open} onClose={onClose} title={persona ? '✏️ Editar persona' : '➕ Nueva persona'} wide footer={
       <>
@@ -123,6 +142,21 @@ export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFor
             <>
               {' '}
               <button type="button" className="btn btn-gold btn-sm" onClick={() => { onSaved?.(duplicada.id); onClose(); }}>Usar esta persona</button>
+            </>
+          )}
+        </div>
+      )}
+      {repetida && (
+        <div style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 13, lineHeight: 1.5 }}>
+          ⚠️ Ya existe alguien registrado con este nombre: <strong>{repetida.persona.nombre} {repetida.persona.apellido}</strong>
+          {detalleRepetida && <> — {detalleRepetida}</>}.
+          {repetida.coincideTelefono && ' Coincide también el teléfono.'}
+          {repetida.coincideNacimiento && ' Coincide también la fecha de nacimiento.'}
+          {' '}Si es la misma persona, no la teclees otra vez.
+          {!persona && (
+            <>
+              {' '}
+              <button type="button" className="btn btn-gold btn-sm" onClick={() => { onSaved?.(repetida.persona.id); onClose(); }}>Usar esta persona</button>
             </>
           )}
         </div>
