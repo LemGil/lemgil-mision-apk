@@ -42,7 +42,11 @@ const DEXIE_TO_SUPABASE: Record<SyncTableName, string> = {
   conversiones: "conversiones",
   grupos: "grupos",
   evangelismos: "evangelismos",
-  cursos: "cursos",
+  // La tabla remota `cursos` es la de la ACADEMIA (id numérico
+  // automático, otras columnas): los cursos de ESTA app viven en su
+  // propia tabla `cursos_mision` (decisión de LemGil, 2026-11-16;
+  // crearla con crear-cursos-mision.sql).
+  cursos: "cursos_mision",
   lecciones: "lecciones",
   estudiantes: "estudiantes",
   certificados: "certificados",
@@ -62,7 +66,7 @@ const DEXIE_TO_SUPABASE: Record<SyncTableName, string> = {
   colaboradores: "colaboradores",
 };
 
-function toSupabase(name: SyncTableName): string {
+export function toSupabase(name: SyncTableName): string {
   return DEXIE_TO_SUPABASE[name] || name;
 }
 
@@ -154,12 +158,37 @@ export const tableMap: Record<SyncTableName, Table<any, string>> = {
  * - aportesComun NO lleva version (la tabla remota rechaza esa columna; es el
  *   arreglo histórico de los commits «excluir campo version de aportesComun»).
  */
+/** Columnas de texto que la tabla remota `conversiones` exige NOT NULL. */
+const CAMPOS_TEXTO_CONVERSION = [
+  "nombre", "apellido", "telefono", "edad", "direccion", "familia",
+  "fecha", "zona", "lider", "grupoId", "email", "profesion",
+  "fechaBautismo", "conyuge", "hijos", "estado", "notas", "creado",
+] as const;
+
 export function cleanForPush(table: SyncTableName, record: Record<string, unknown>): Record<string, unknown> {
   const { _primKey: _p, ...rest } = { ...record };
   if (table === "dadores") delete rest.base;
   if (table === "colaboradores" && rest.planOfrendaMonto == null) rest.planOfrendaMonto = 0;
   delete rest.codigo;
   if (table === "aportesComun") delete rest.version;
+  // Rellenos que exige el servidor (mapa verificado por LemGil el
+  // 2026-11-16 contra information_schema): hay tablas remotas con
+  // columnas NOT NULL sin valor por defecto; un registro local con
+  // ese campo vacío o ausente rebota entero — el error real fue
+  // «null value in column "lider" of relation "conversiones"».
+  // conversiones las exige TODAS.
+  if (table === "conversiones") {
+    for (const campo of CAMPOS_TEXTO_CONVERSION) {
+      if (rest[campo] == null) rest[campo] = "";
+    }
+    if (rest.bautizado == null) rest.bautizado = false;
+    if (rest.historial == null) rest.historial = [];
+  }
+  // `version` NOT NULL en el servidor (conversiones, estudiantes,
+  // lecciones…): un registro sin versión — creado por una vía que no
+  // la puso — sube con la primera versión. aportesComun queda fuera:
+  // su version se borra arriba a propósito.
+  if (table !== "aportesComun" && rest.version == null) rest.version = 1;
   return rest;
 }
 
@@ -215,7 +244,11 @@ export function parseMissingColumn(message: string): string | null {
  * remoto cambia (una columna que hoy falta aparece), un paquete
  * futuro sube la versión y la app vuelve a sondear.
  */
-const DROPPED_COLUMNS_KEY = "lemgil_sync_dropped_columns_v1";
+// v2 (2026-11-16): `cursos` cambió de tabla remota (cursos_mision) y
+// los descartes se guardan por nombre LOCAL — los aprendidos contra la
+// tabla de la Academia habrían mutilado los envíos a la tabla nueva.
+// La escalera reaprende en una sesión y vuelve el silencio.
+const DROPPED_COLUMNS_KEY = "lemgil_sync_dropped_columns_v2";
 
 /** Serializa el mapa de descartes para guardarlo (pura, probada). */
 export function serializarColumnasDescartadas(mapa: Map<SyncTableName, Set<string>>): string {
