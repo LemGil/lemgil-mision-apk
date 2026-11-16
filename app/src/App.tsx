@@ -13,7 +13,6 @@ import BienComun from './pages/BienComun';
 import Reportes from './pages/Reportes';
 import Miembros from './pages/Miembros';
 import Personas from './pages/Personas';
-import Diezmadores from './pages/Diezmadores';
 
 function AppRoutes() {
   const { session, loading } = useAuth();
@@ -36,7 +35,9 @@ function AppRoutes() {
         {/* Ministerios vive como pestaña de Miembros (su gestión completa
             ya existe ahí): la ruta lleva directo a esa pestaña. */}
         <Route path="/ministerios" element={<Navigate to="/miembros?tab=ministerios" replace />} />
-        <Route path="/diezmadores" element={<Diezmadores />} />
+        {/* Diezmadores es la pestaña de Bien Común: el ítem de Iglesia
+            lleva directo a ella (corrección de LemGil, 2026-11-16). */}
+        <Route path="/diezmadores" element={<Navigate to="/bien-comun?tab=diezmadores" replace />} />
         <Route path="/personas" element={<Personas />} />
         <Route path="/reportes" element={<Reportes />} />
       </Routes>

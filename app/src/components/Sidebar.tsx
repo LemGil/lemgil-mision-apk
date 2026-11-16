@@ -34,11 +34,11 @@ const NAV_ITEMS: NavItem[] = [
   { section: 'Iglesia' },
   { to: '/miembros?tab=directorio', label: 'Miembros', icon: Users, tabKey: 'directorio' },
   { to: '/miembros?tab=ministerios', label: 'Ministerios', icon: HeartHandshake, tabKey: 'ministerios' },
-  { to: '/diezmadores', label: 'Diezmadores', icon: PiggyBank },
+  { to: '/bien-comun?tab=diezmadores', label: 'Diezmadores', icon: PiggyBank, tabKey: 'diezmadores' },
   { to: '/academia', label: 'Academia', icon: BookOpen },
   { section: 'Finanzas' },
   { to: '/dadores', label: 'Red de Colaboradores', icon: CircleDollarSign },
-  { to: '/bien-comun', label: 'Bien Común', icon: HandCoins },
+  { to: '/bien-comun?tab=registros', label: 'Bien Común', icon: HandCoins, tabKey: 'registros' },
   { to: '/negocios', label: 'Negocios Adonay', icon: Briefcase },
 ];
 
@@ -46,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
 const TAB_POR_OMISION: Record<string, string> = {
   '/mision': 'congregados',
   '/miembros': 'directorio',
+  '/bien-comun': 'registros',
 };
 
 export function Sidebar() {

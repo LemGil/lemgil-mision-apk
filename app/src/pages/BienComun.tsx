@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
@@ -44,6 +45,13 @@ export default function BienComun() {
   const planesColaborador = useLiveQuery(() => db.planesColaborador.toArray(), []) ?? [];
 
   const [tab, setTab] = useState<Tab>('registros');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Menú (2026-11-16): «Diezmadores» del grupo Iglesia entra directo a
+  // la pestaña Diezmadores de Bien Común (?tab=diezmadores).
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'registros' || t === 'diezmadores' || t === 'ofrendasGrupos' || t === 'resumen' || t === 'planes') setTab(t);
+  }, [searchParams]);
   const [modal, setModal] = useState<null | ModalType>(null);
   const [editDId, setEditDId] = useState<string | null>(null);
   const [editAId, setEditAId] = useState<string | null>(null);
@@ -289,7 +297,7 @@ export default function BienComun() {
         </div>
 
         <div className="tabs">
-            {['registros', 'diezmadores', 'ofrendasGrupos', 'resumen', 'planes'].map(t => <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t as Tab)}>{t === 'ofrendasGrupos' ? 'GRUPOS' : t.toUpperCase()}</button>)}
+            {['registros', 'diezmadores', 'ofrendasGrupos', 'resumen', 'planes'].map(t => <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => { setTab(t as Tab); setSearchParams({ tab: t }); }}>{t === 'ofrendasGrupos' ? 'GRUPOS' : t.toUpperCase()}</button>)}
         </div>
 
         {anosDatos.length > 1 && (
