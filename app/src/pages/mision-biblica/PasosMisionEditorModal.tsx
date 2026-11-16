@@ -53,6 +53,12 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
     const emoji = b.emoji.trim();
     if (!nombre) { showToast('El nombre del paso no puede quedar vacío'); return; }
     if (nombre === p.nombre && emoji === (p.emoji || '')) return;
+    // El nombre es la identidad visible del paso: dos pasos con el
+    // mismo nombre se ven duplicados en el pipeline de la ficha.
+    if (todos.some((x) => x.id !== p.id && x.nombre.trim().toLowerCase() === nombre.toLowerCase())) {
+      showToast(`Ya existe un paso llamado «${nombre}»`);
+      return;
+    }
     await db.pasosSeguimiento.update(p.id, { nombre, emoji });
     showToast(`Paso «${nombre}» actualizado`);
   };

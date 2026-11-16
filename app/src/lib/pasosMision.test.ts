@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   PASOS_MISION_DEFECTO, PS_APARTADO, PS_BAUTIZADO, PS_CONGREGADO, PS_DISCIPULADO, PS_FALLECIDO,
-  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConCongregado, colorDe,
+  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, colorDe,
   contarUsoPaso, enCamino, entradaCambioDeEstado, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
   etiquetaConRespaldo, etiquetaDe, fechaDeConversion, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
   progresoEnRuta, rutaDe, salidasDe, seConvirtio, siguientePaso, tipoHitoDe, usoDelPaso,
@@ -645,5 +645,51 @@ describe("migrarRutaCongregados: el pase sobre la base", () => {
     expect(porIdLocal(PS_NUEVO)).toMatchObject({ nombre: "Converso", rol: "camino", orden: 2 });
     expect(porIdLocal(PS_FALLECIDO).orden).toBe(8);
     expect(await migrarRutaCongregados()).toBe(0);
+  });
+});
+
+describe("fusionarDuplicadosPorNombre: el «Congregado» dos veces en la ficha", () => {
+  const paso = (over: Partial<PasoSeguimiento>): PasoSeguimiento => ({
+    id: "uuid-x", ambito: "mision", nombre: "Congregado", emoji: "🙏", orden: 9,
+    fuente: "manual", rol: "camino", creado: "2026-06-01T00:00:00.000Z", version: 1, ...over,
+  });
+
+  it("la semilla ps-congregado sobrevive y la fila repetida se reapunta a ella", () => {
+    const catalogo = [...PASOS_MISION_DEFECTO, paso({ id: "uuid-dup" })];
+    const { fusiones, catalogo: limpio } = fusionarDuplicadosPorNombre(catalogo);
+    expect(fusiones.get("uuid-dup")).toBe(PS_CONGREGADO);
+    expect(limpio.filter((p) => p.nombre === "Congregado")).toHaveLength(1);
+    expect(limpio).toHaveLength(catalogo.length - 1);
+    expect(reapuntarEstado("uuid-dup", fusiones)).toBe(PS_CONGREGADO);
+    expect(reapuntarEstado(PS_CONGREGADO, fusiones)).toBe(PS_CONGREGADO);
+    expect(reapuntarEstado("ps-discipulado", fusiones)).toBe("ps-discipulado");
+  });
+
+  it("el nombre se compara sin mayúsculas ni espacios de más", () => {
+    const { fusiones } = fusionarDuplicadosPorNombre([
+      ...PASOS_MISION_DEFECTO,
+      paso({ id: "uuid-dup", nombre: "  congregado " }),
+    ]);
+    expect(fusiones.get("uuid-dup")).toBe(PS_CONGREGADO);
+  });
+
+  it("sin semilla en el grupo gana el protegido; si no, el de menor orden", () => {
+    const a = paso({ id: "uuid-a", nombre: "Ayuno", orden: 3, protegido: false });
+    const b = paso({ id: "uuid-b", nombre: "Ayuno", orden: 5, protegido: true });
+    expect(fusionarDuplicadosPorNombre([a, b]).fusiones.get("uuid-a")).toBe("uuid-b");
+    const c = paso({ id: "uuid-c", nombre: "Vigilia", orden: 2 });
+    const d = paso({ id: "uuid-d", nombre: "Vigilia", orden: 4 });
+    expect(fusionarDuplicadosPorNombre([c, d]).fusiones.get("uuid-d")).toBe("uuid-c");
+  });
+
+  it("sin duplicados no toca nada, y el ámbito miembro queda fuera", () => {
+    const { fusiones, catalogo } = fusionarDuplicadosPorNombre(PASOS_MISION_DEFECTO);
+    expect(fusiones.size).toBe(0);
+    expect(catalogo).toHaveLength(PASOS_MISION_DEFECTO.length);
+    const miembrosDup = [
+      paso({ id: "pm-a", ambito: "miembro", nombre: "Grupo" }),
+      paso({ id: "pm-b", ambito: "miembro", nombre: "Grupo" }),
+    ];
+    expect(fusionarDuplicadosPorNombre(miembrosDup).fusiones.size).toBe(0);
   });
 });

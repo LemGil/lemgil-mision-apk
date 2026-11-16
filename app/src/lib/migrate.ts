@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
-import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_TRASLADO, catalogoConCongregado, idCanonico } from './pasosMision';
+import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_TRASLADO, catalogoConCongregado, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -254,6 +254,44 @@ export async function migrarRutaCongregados(): Promise<number> {
   localStorage.setItem(FLAG_KEY, '1');
   if (cambios > 0) console.log(`Ruta de Misión: ${cambios} paso(s) ajustados a Congregado → Converso`);
   return cambios;
+}
+
+/**
+ * Pasos duplicados por nombre (2026-11-16): a LemGil le apareció
+ * «Congregado» DOS veces en el pipeline de la ficha — dos filas del
+ * catálogo con el mismo nombre y distinta identidad. Este pase las
+ * fusiona (la decisión es pura: `fusionarDuplicadosPorNombre`), borra
+ * las filas sobrantes — el borrado viaja por la sincronización con su
+ * tumba, así los demás equipos se curan solos — y reapunta el estado
+ * y el historial de las conversiones que miraban a la fila borrada.
+ * Idempotente: sin duplicados no toca nada.
+ */
+export async function fusionarPasosDuplicados(): Promise<number> {
+  const FLAG_KEY = 'lemgil_pasos_duplicados_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  const existentes = await db.pasosSeguimiento.toArray();
+  const { fusiones } = fusionarDuplicadosPorNombre(existentes);
+  if (fusiones.size === 0) {
+    localStorage.setItem(FLAG_KEY, '1');
+    return 0;
+  }
+  for (const desde of fusiones.keys()) {
+    await db.pasosSeguimiento.delete(desde);
+  }
+  const convs = await db.conversiones.toArray();
+  let reapuntadas = 0;
+  for (const c of convs) {
+    const estado = reapuntarEstado(c.estado, fusiones);
+    const historial = (c.historial ?? []).map((h) => ({ ...h, estado: reapuntarEstado(h.estado ?? '', fusiones) }));
+    const cambio = estado !== c.estado || historial.some((h, i) => h.estado !== (c.historial ?? [])[i]?.estado);
+    if (cambio) {
+      await db.conversiones.update(c.id, { estado, historial });
+      reapuntadas++;
+    }
+  }
+  localStorage.setItem(FLAG_KEY, '1');
+  console.log(`Pasos duplicados: ${fusiones.size} fila(s) fusionadas, ${reapuntadas} conversión(es) reapuntadas`);
+  return fusiones.size;
 }
 
 export async function ensureMetas(): Promise<Metas> {

@@ -482,3 +482,58 @@ export function catalogoConCongregado(pasos: PasoSeguimiento[]): PasoSeguimiento
       : p));
   return [congregado, ...resto].map((p, i) => ({ ...p, orden: i + 1 }));
 }
+
+/* ── Pasos duplicados por nombre (2026-11-16) ─────────────────────── */
+
+/**
+ * En el catálogo, el NOMBRE es la identidad visible: dos pasos del
+ * mismo ámbito con el mismo nombre se ven dos veces en el pipeline
+ * (a LemGil le apareció «Congregado» duplicado en la ficha) y parten
+ * las cifras. Esta fusión pura decide, por cada nombre repetido del
+ * ámbito 'mision', qué fila SOBREVIVE y hacia dónde reapuntar las
+ * demás: gana la identidad de semilla (ps-…), luego la protegida,
+ * luego la de menor orden y la más antigua. Las referencias
+ * (conversiones) se reapuntan con `reapuntarEstado`.
+ */
+export interface FusionPasos {
+  /** id que desaparece → id que sobrevive. */
+  fusiones: Map<string, string>;
+  /** El catálogo ya fusionado, en el orden de entrada. */
+  catalogo: PasoSeguimiento[];
+}
+
+const IDS_SEMILLA_MISION = new Set(PASOS_MISION_DEFECTO.map((p) => p.id));
+
+export function fusionarDuplicadosPorNombre(pasos: PasoSeguimiento[]): FusionPasos {
+  const fusiones = new Map<string, string>();
+  const porNombre = new Map<string, PasoSeguimiento[]>();
+  for (const p of pasos) {
+    if (p.ambito !== 'mision') continue;
+    const clave = p.nombre.trim().toLowerCase();
+    const grupo = porNombre.get(clave) ?? [];
+    grupo.push(p);
+    porNombre.set(clave, grupo);
+  }
+  const eliminados = new Set<string>();
+  for (const grupo of porNombre.values()) {
+    if (grupo.length < 2) continue;
+    const [keeper] = [...grupo].sort((a, b) =>
+      Number(IDS_SEMILLA_MISION.has(b.id)) - Number(IDS_SEMILLA_MISION.has(a.id))
+      || Number(!!b.protegido) - Number(!!a.protegido)
+      || (a.orden - b.orden)
+      || a.creado.localeCompare(b.creado)
+      || a.id.localeCompare(b.id));
+    for (const p of grupo) {
+      if (p.id === keeper.id) continue;
+      fusiones.set(p.id, keeper.id);
+      eliminados.add(p.id);
+    }
+  }
+  return { fusiones, catalogo: pasos.filter((p) => !eliminados.has(p.id)) };
+}
+
+/** Un estado (id o etiqueta legada) tras la fusión: el id del paso que sobrevive. */
+export function reapuntarEstado(valor: string, fusiones: Map<string, string>): string {
+  if (fusiones.size === 0) return valor;
+  return fusiones.get(idCanonico(valor)) ?? valor;
+}
