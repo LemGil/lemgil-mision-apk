@@ -21,6 +21,10 @@ const lucia: Persona = { ...maria, id: 'p2', nombre: 'Lucía', apellido: 'Mora',
  * persona» abre PersonaFormModal, el único formulario que teclea datos
  * de personas nuevas. Al guardar, la recién registrada queda
  * seleccionada en el formulario de proceso (onChange con su id).
+ *
+ * La lista es un buscador propio desde 2026-11-16 (la ventana nativa
+ * del `<select>` se abría y se cerraba sola en el teléfono dentro de
+ * los modales): se abre al tocar el campo y filtra al teclear.
  */
 describe('PersonaSelect — lista de registradas + puerta del registro inicial', () => {
   beforeEach(async () => {
@@ -29,8 +33,15 @@ describe('PersonaSelect — lista de registradas + puerta del registro inicial',
   });
   afterEach(async () => { await db.personas.clear(); });
 
+  const abrirLista = async () => {
+    const campo = await screen.findByPlaceholderText('Seleccionar persona…');
+    fireEvent.click(campo);
+    return campo;
+  };
+
   it('la lista solo trae registradas: sin opción de crear dentro de la lista', async () => {
     render(<PersonaSelect value="" onChange={vi.fn()} />);
+    await abrirLista();
     // Las existentes cargan desde la base…
     expect(await screen.findByRole('option', { name: /María González/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Lucía Mora/ })).toBeInTheDocument();
@@ -40,7 +51,7 @@ describe('PersonaSelect — lista de registradas + puerta del registro inicial',
 
   it('junto al selector está el botón «➕ Nueva persona»', async () => {
     render(<PersonaSelect value="" onChange={vi.fn()} />);
-    await screen.findByRole('option', { name: /María González/ });
+    await screen.findByPlaceholderText('Seleccionar persona…');
     expect(screen.getByRole('button', { name: /Nueva persona/ })).toBeInTheDocument();
     // El formulario aún no está en el DOM: se monta solo al abrirlo.
     expect(screen.queryByPlaceholderText('Juan')).not.toBeInTheDocument();
@@ -48,30 +59,44 @@ describe('PersonaSelect — lista de registradas + puerta del registro inicial',
 
   it('con avisos, la opción marca a la persona; a quien no está en el mapa, no', async () => {
     render(<PersonaSelect value="" onChange={vi.fn()} avisos={new Map([['p1', 'ya en Misión']])} />);
+    await abrirLista();
     expect(await screen.findByRole('option', { name: /María González.*ya en Misión/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Lucía Mora · 222' })).toBeInTheDocument();
+    const luciaOpt = screen.getByRole('option', { name: /Lucía Mora/ });
+    expect(luciaOpt.textContent).toContain('222');
+    expect(luciaOpt.textContent).not.toContain('ya en Misión');
   });
 
-  it('seleccionar una existente emite su id', async () => {
+  it('seleccionar una existente emite su id y la lista se cierra', async () => {
     const onChange = vi.fn();
     render(<PersonaSelect value="" onChange={onChange} />);
-    const select = await screen.findByRole('combobox');
-    await screen.findByRole('option', { name: /María González/ });
-    fireEvent.change(select, { target: { value: 'p1' } });
+    await abrirLista();
+    fireEvent.click(await screen.findByRole('option', { name: /María González/ }));
     expect(onChange).toHaveBeenCalledWith('p1');
+    expect(screen.queryByRole('option', { name: /María González/ })).not.toBeInTheDocument();
   });
 
-  it('en edición sigue mostrando a la persona ya elegida', async () => {
-    render(<PersonaSelect value="p1" onChange={vi.fn()} />);
-    const select = await screen.findByRole('combobox');
+  it('al teclear filtra por nombre y por teléfono', async () => {
+    render(<PersonaSelect value="" onChange={vi.fn()} />);
+    const campo = await abrirLista();
     await screen.findByRole('option', { name: /María González/ });
-    expect(select).toHaveValue('p1');
+    fireEvent.change(campo, { target: { value: 'Luc' } });
+    expect(screen.getByRole('option', { name: /Lucía Mora/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /María González/ })).not.toBeInTheDocument();
+    fireEvent.change(campo, { target: { value: '555' } });
+    expect(screen.getByRole('option', { name: /María González/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Lucía Mora/ })).not.toBeInTheDocument();
+  });
+
+  it('en edición el campo muestra a la persona ya elegida', async () => {
+    render(<PersonaSelect value="p1" onChange={vi.fn()} />);
+    const campo = await screen.findByPlaceholderText('Seleccionar persona…');
+    await waitFor(() => { expect(campo).toHaveValue('María González'); });
   });
 
   it('el botón abre el formulario único vacío y al guardar la nueva queda seleccionada', async () => {
     const onChange = vi.fn();
     render(<PersonaSelect value="" onChange={onChange} />);
-    await screen.findByRole('option', { name: /María González/ });
+    await screen.findByPlaceholderText('Seleccionar persona…');
 
     fireEvent.click(screen.getByRole('button', { name: /Nueva persona/ }));
 
