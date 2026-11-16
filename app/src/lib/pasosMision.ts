@@ -525,6 +525,13 @@ export function fusionarDuplicadosPorNombre(pasos: PasoSeguimiento[]): FusionPas
       || a.id.localeCompare(b.id));
     for (const p of grupo) {
       if (p.id === keeper.id) continue;
+      // Dos identidades de SEMILLA nunca se fusionan entre sí: si
+      // ps-nuevo llegó a llamarse «Congregado» (un renombre viejo), no
+      // es un duplicado de ps-congregado — son dos pasos distintos con
+      // el mismo nombre, y lo cura `ajusteDeConverso` renombrando, no
+      // este pase borrando (borrarlo reapuntaba a los conversos a
+      // Congregado: pasó el 2026-11-16 y lo repara repararFusion…).
+      if (IDS_SEMILLA_MISION.has(p.id) && IDS_SEMILLA_MISION.has(keeper.id)) continue;
       fusiones.set(p.id, keeper.id);
       eliminados.add(p.id);
     }
@@ -536,4 +543,49 @@ export function fusionarDuplicadosPorNombre(pasos: PasoSeguimiento[]): FusionPas
 export function reapuntarEstado(valor: string, fusiones: Map<string, string>): string {
   if (fusiones.size === 0) return valor;
   return fusiones.get(idCanonico(valor)) ?? valor;
+}
+
+/**
+ * El ajuste del paso Converso (ps-nuevo) cuando su fila quedó con el
+ * nombre o el rol de OTRA época: «Nuevo» (la semilla vieja, que un
+ * equipo sin actualizar puede devolver por sincronización) o
+ * «Congregado» (el renombre que duplicaba el pipeline), o el rol de
+ * inicio que ya es de Congregado. Devuelve los campos a corregir, o
+ * null si la fila está sana — un renombre legítimo de la iglesia a
+ * otro nombre cualquiera se respeta.
+ */
+export function ajusteDeConverso(paso: PasoSeguimiento | undefined): Partial<PasoSeguimiento> | null {
+  if (!paso || paso.id !== PS_NUEVO) return null;
+  const cambios: Partial<PasoSeguimiento> = {};
+  const nombre = paso.nombre.trim().toLowerCase();
+  if (nombre === 'nuevo' || nombre === 'congregado') cambios.nombre = 'Converso';
+  if (paso.rol === 'inicio') cambios.rol = 'camino';
+  return Object.keys(cambios).length > 0 ? cambios : null;
+}
+
+/**
+ * Reparación de la fusión del 2026-11-16 (pura): en los equipos donde
+ * ps-nuevo se llamaba «Congregado», el primer pase de duplicados lo
+ * fusionó con ps-congregado y reapuntó a los conversos — su estado y
+ * sus entradas de historial en Converso pasaron a decir Congregado.
+ * La huella es inconfundible: una entrada «Registro inicial» o
+ * «Avance rápido» en Congregado es imposible de nacimiento (quien
+ * nace en el inicio no deja «Registro inicial», y al inicio no se
+ * «avanza»): esa entrada ERA de Converso. Se restaura la entrada, y
+ * si era la última (la persona seguía en Converso), también su
+ * estado. Lo demás no se toca: una vuelta legítima a Congregado con
+ * nota propia queda como está.
+ */
+export function repararFusionEnConversion(c: Conversion): { estado: string; historial: Conversion['historial'] } | null {
+  const esHuella = (h: { estado?: string; nota?: string }) =>
+    idCanonico(h.estado ?? '') === PS_CONGREGADO && (h.nota === 'Registro inicial' || h.nota === 'Avance rápido');
+  const historial = c.historial ?? [];
+  if (!historial.some(esHuella)) return null;
+  const restaurado = historial.map((h) => (esHuella(h) ? { ...h, estado: PS_NUEVO } : h));
+  let estado = c.estado;
+  const ultima = restaurado[restaurado.length - 1];
+  if (idCanonico(estado) === PS_CONGREGADO && ultima && idCanonico(ultima.estado) === PS_NUEVO && esHuella(historial[historial.length - 1])) {
+    estado = PS_NUEVO;
+  }
+  return { estado, historial: restaurado };
 }

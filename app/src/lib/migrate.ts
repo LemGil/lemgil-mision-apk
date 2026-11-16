@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
-import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_TRASLADO, catalogoConCongregado, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado } from './pasosMision';
+import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_NUEVO, PS_TRASLADO, ajusteDeConverso, catalogoConCongregado, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado, repararFusionEnConversion } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -292,6 +292,44 @@ export async function fusionarPasosDuplicados(): Promise<number> {
   localStorage.setItem(FLAG_KEY, '1');
   console.log(`Pasos duplicados: ${fusiones.size} fila(s) fusionadas, ${reapuntadas} conversión(es) reapuntadas`);
   return fusiones.size;
+}
+
+/**
+ * El paso Converso, sano (SIN bandera: corre en cada arranque y es
+ * convergente). Si la fila ps-nuevo quedó llamada «Nuevo» (la
+ * devolvió un equipo sin actualizar por sincronización) o
+ * «Congregado» (el renombre que duplicaba el pipeline), o con el rol
+ * de inicio, se corrige — y la corrección viaja por sync hasta que
+ * todos los equipos leen «Converso» en el camino.
+ */
+export async function normalizarPasoConverso(): Promise<void> {
+  const paso = await db.pasosSeguimiento.get(PS_NUEVO);
+  const ajuste = ajusteDeConverso(paso);
+  if (ajuste) await db.pasosSeguimiento.update(PS_NUEVO, ajuste);
+}
+
+/**
+ * Reparación de la fusión del 2026-11-16: en los equipos donde
+ * ps-nuevo se llamaba «Congregado», el primer pase de duplicados lo
+ * fusionó con ps-congregado y los conversos quedaron reapuntados a
+ * Congregado. La huella y la resta son puras
+ * (`repararFusionEnConversion`); este pase solo las aplica una vez.
+ */
+export async function repararFusionCongregado(): Promise<number> {
+  const FLAG_KEY = 'lemgil_reparar_fusion_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  const convs = await db.conversiones.toArray();
+  let reparadas = 0;
+  for (const c of convs) {
+    const r = repararFusionEnConversion(c);
+    if (r) {
+      await db.conversiones.update(c.id, r);
+      reparadas++;
+    }
+  }
+  localStorage.setItem(FLAG_KEY, '1');
+  if (reparadas > 0) console.log(`Reparación de la fusión: ${reparadas} conversión(es) devueltas a Converso`);
+  return reparadas;
 }
 
 export async function ensureMetas(): Promise<Metas> {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   PASOS_MISION_DEFECTO, PS_APARTADO, PS_BAUTIZADO, PS_CONGREGADO, PS_DISCIPULADO, PS_FALLECIDO,
-  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, colorDe,
+  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, ajusteDeConverso, repararFusionEnConversion, colorDe,
   contarUsoPaso, enCamino, entradaCambioDeEstado, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
   etiquetaConRespaldo, etiquetaDe, fechaDeConversion, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
   progresoEnRuta, rutaDe, salidasDe, seConvirtio, siguientePaso, tipoHitoDe, usoDelPaso,
@@ -691,5 +691,54 @@ describe("fusionarDuplicadosPorNombre: el «Congregado» dos veces en la ficha",
       paso({ id: "pm-b", ambito: "miembro", nombre: "Grupo" }),
     ];
     expect(fusionarDuplicadosPorNombre(miembrosDup).fusiones.size).toBe(0);
+  });
+});
+
+describe("la fusión NUNCA entre semillas, y la reparación de lo fusionado", () => {
+  it("ps-nuevo llamado «Congregado» NO se fusiona con ps-congregado: son dos pasos", () => {
+    const catalogo = PASOS_MISION_DEFECTO.map((p) => (p.id === PS_NUEVO ? { ...p, nombre: "Congregado" } : p));
+    const { fusiones, catalogo: limpio } = fusionarDuplicadosPorNombre(catalogo);
+    expect(fusiones.size).toBe(0);
+    expect(limpio).toHaveLength(catalogo.length);
+  });
+
+  it("ajusteDeConverso: «Nuevo» o «Congregado» pasan a «Converso»; el renombre legítimo se respeta", () => {
+    const base = PASOS_MISION_DEFECTO.find((p) => p.id === PS_NUEVO)!;
+    expect(ajusteDeConverso({ ...base, nombre: "Nuevo", rol: "inicio" })).toEqual({ nombre: "Converso", rol: "camino" });
+    expect(ajusteDeConverso({ ...base, nombre: "Congregado" })).toEqual({ nombre: "Converso" });
+    expect(ajusteDeConverso({ ...base, nombre: "Creyente nuevo" })).toBeNull();
+    expect(ajusteDeConverso(base)).toBeNull();
+    expect(ajusteDeConverso(undefined)).toBeNull();
+  });
+
+  it("repararFusionEnConversion: la huella «Registro inicial» en Congregado era Converso", () => {
+    const danada = {
+      estado: "ps-congregado",
+      historial: [{ fecha: "2026-11-16", estado: "ps-congregado", nota: "Registro inicial" }],
+    } as Conversion;
+    const r = repararFusionEnConversion(danada)!;
+    expect(r.estado).toBe(PS_NUEVO);
+    expect(r.historial[0].estado).toBe(PS_NUEVO);
+  });
+
+  it("repararFusionEnConversion: quien avanzó más allá solo recupera su entrada, no su estado", () => {
+    const danada = {
+      estado: "ps-discipulado",
+      historial: [
+        { fecha: "2026-11-10", estado: "ps-congregado", nota: "Avance rápido" },
+        { fecha: "2026-11-16", estado: "ps-discipulado", nota: "Avance rápido" },
+      ],
+    } as Conversion;
+    const r = repararFusionEnConversion(danada)!;
+    expect(r.estado).toBe("ps-discipulado");
+    expect(r.historial.map((h) => h.estado)).toEqual([PS_NUEVO, "ps-discipulado"]);
+  });
+
+  it("repararFusionEnConversion: una vuelta legítima a Congregado con nota propia no se toca", () => {
+    const sana = {
+      estado: "ps-congregado",
+      historial: [{ fecha: "2026-11-16", estado: "ps-congregado", nota: "Volvió a congregarse" }],
+    } as Conversion;
+    expect(repararFusionEnConversion(sana)).toBeNull();
   });
 });
