@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanForPush, idsAReconciliar, leerColumnasDescartadas, leerRemotos, serializarColumnasDescartadas, serializarRemotos, toSupabase } from "./api";
+import { cleanForPush, dedupirPorId, idsAReconciliar, leerColumnasDescartadas, leerRemotos, serializarColumnasDescartadas, serializarRemotos, toSupabase } from "./api";
 import { leerAbsorbidas, serializarAbsorbidas } from "./queue";
 import type { SyncTableName } from "./types";
 
@@ -98,5 +98,31 @@ describe("foto remota y registro de absorbidas: ida y vuelta", () => {
     expect(leerAbsorbidas(serializarAbsorbidas(ids))).toEqual(ids);
     expect(leerAbsorbidas("{roto")).toEqual(new Set());
     expect(leerAbsorbidas(null)).toEqual(new Set());
+  });
+});
+
+describe("dedupirPorId — un solo renglón por llave en el lote", () => {
+  it("un id repetido queda una vez, con la versión mayor", () => {
+    const out = dedupirPorId([
+      { id: "a", version: 1, nombre: "viejo" },
+      { id: "b", version: 1 },
+      { id: "a", version: 3, nombre: "nuevo" },
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out.find((r) => r.id === "a")?.nombre).toBe("nuevo");
+  });
+
+  it("el id numérico 1 y el de texto «1» cuentan como la misma llave", () => {
+    const out = dedupirPorId([
+      { id: 1, version: 1 },
+      { id: "1", version: 2 },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].version).toBe(2);
+  });
+
+  it("las filas sin id pasan tal cual y el resto no se toca", () => {
+    const out = dedupirPorId([{ nombre: "suelto" }, { id: "x", version: 1 }]);
+    expect(out).toHaveLength(2);
   });
 });

@@ -377,6 +377,28 @@ export async function pushAllLocal(): Promise<SyncError[]> {
 }
 
 /** Sube TODAS las tablas completas (lo que promete el botón «Forzar Sync Total»). */
+/**
+ * Deja un lote listo para UN solo upsert: Postgres rechaza la orden
+ * entera («ON CONFLICT DO UPDATE command cannot affect row a second
+ * time») si dos filas llevan la misma llave. La llave se compara como
+ * texto — un id numérico 1 y uno de texto "1" (restos de bajadas
+ * viejas de tablas compartidas) chocan igual. Gana la versión mayor;
+ * en empate, la última. Las filas sin id pasan tal cual. (Pura.)
+ */
+export function dedupirPorId(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const porId = new Map<string, Record<string, unknown>>();
+  const sinId: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    if (row.id == null) { sinId.push(row); continue; }
+    const clave = String(row.id);
+    const previa = porId.get(clave);
+    if (!previa || ((row.version as number) || 0) >= ((previa.version as number) || 0)) {
+      porId.set(clave, row);
+    }
+  }
+  return [...sinId, ...porId.values()];
+}
+
 export async function forceFullPush(): Promise<SyncError[]> {
   const errors: SyncError[] = [...(await pushTombstones())];
   for (const table of SYNC_TABLES) {
@@ -384,7 +406,7 @@ export async function forceFullPush(): Promise<SyncError[]> {
       const localData = await tableMap[table].toArray();
       if (localData.length === 0) continue;
       const cleaned = localData.map((r) => cleanForPush(table, r));
-      const lowerData = toLowerCaseKeys(cleaned) as Record<string, unknown>[];
+      const lowerData = dedupirPorId(toLowerCaseKeys(cleaned) as Record<string, unknown>[]);
       // Se parte de los descartes ya conocidos de la tabla y se aplica la
       // misma escalera que en upsertOne, a nivel de lote: ante un error de
       // columna faltante se quita de todas las filas y se reintenta.
