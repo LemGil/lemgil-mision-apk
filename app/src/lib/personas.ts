@@ -3,7 +3,7 @@ import { normalizeField, registrarAjusteImportacion, registrarPostImportHook, re
 import { conversionConDatos, mapaPersonas } from './personaDatos';
 import { canonizarEstadoImportado, etiquetaDe, pasoInicio } from './pasosMision';
 import { createBaseRecord } from './utils/recordHelpers';
-import { addTombstone, enqueueOutbox, removeOutboxFor } from './sync/queue';
+import { addTombstone, enqueueOutbox, registrarPersonaAbsorbida, removeOutboxFor } from './sync/queue';
 import type { Persona, Conversion, Miembro, Estudiante, Diezmador, Beneficiario, Grupo } from './types';
 
 /**
@@ -691,5 +691,8 @@ export async function unirPersonas(absorbidaId: string, supervivienteId: string)
   // de borrado haría en tiempo de ejecución; aquí no dependemos de él).
   await removeOutboxFor('personas', absorbidaId);
   await addTombstone('personas', absorbidaId);
+  // Registro permanente en este equipo: la absorbida no vuelve a bajar
+  // aunque otro equipo la resucite subiendo su copia vieja.
+  registrarPersonaAbsorbida(absorbidaId);
   return { procesosMovidos };
 }

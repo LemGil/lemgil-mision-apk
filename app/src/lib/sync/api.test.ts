@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { cleanForPush, leerColumnasDescartadas, serializarColumnasDescartadas, toSupabase } from "./api";
+import { cleanForPush, idsAReconciliar, leerColumnasDescartadas, leerRemotos, serializarColumnasDescartadas, serializarRemotos, toSupabase } from "./api";
+import { leerAbsorbidas, serializarAbsorbidas } from "./queue";
 import type { SyncTableName } from "./types";
 
 describe("columnas descartadas persistidas: ida y vuelta", () => {
@@ -56,5 +57,46 @@ describe("toSupabase — tabla remota de cada tabla local", () => {
     expect(toSupabase("estudiantes")).toBe("estudiantes");
     expect(toSupabase("aportesComun")).toBe("aportescomun");
     expect(toSupabase("pasosSeguimiento")).toBe("pasosseguimiento");
+  });
+});
+
+describe("idsAReconciliar — borrados que llegan de otro equipo", () => {
+  it("retira lo que estaba en la foto, ya no está en el servidor y no espera para subir", () => {
+    expect(
+      idsAReconciliar(["a", "b", "c"], ["a", "b"], new Set(["b"]), new Set()),
+    ).toEqual(["a"]);
+  });
+
+  it("sin foto anterior no se retira nada (un local nunca subido está a salvo)", () => {
+    expect(idsAReconciliar(["a"], [], new Set(), new Set())).toEqual([]);
+  });
+
+  it("lo que espera en la bandeja de salida no se toca", () => {
+    expect(
+      idsAReconciliar(["a"], ["a"], new Set(), new Set(["a"])),
+    ).toEqual([]);
+  });
+
+  it("lo que sigue en el servidor no se toca", () => {
+    expect(
+      idsAReconciliar(["a"], ["a"], new Set(["a"]), new Set()),
+    ).toEqual([]);
+  });
+});
+
+describe("foto remota y registro de absorbidas: ida y vuelta", () => {
+  it("la foto serializa y se lee igual; lo dañado se lee vacío", () => {
+    const mapa = { personas: ["p1", "p2"], cursos: ["c1"] };
+    expect(leerRemotos(serializarRemotos(mapa))).toEqual(mapa);
+    expect(leerRemotos("{roto")).toEqual({});
+    expect(leerRemotos("[]")).toEqual({});
+    expect(leerRemotos(null)).toEqual({});
+  });
+
+  it("las absorbidas serializan y se leen igual; lo dañado se lee vacío", () => {
+    const ids = new Set(["p1", "p2"]);
+    expect(leerAbsorbidas(serializarAbsorbidas(ids))).toEqual(ids);
+    expect(leerAbsorbidas("{roto")).toEqual(new Set());
+    expect(leerAbsorbidas(null)).toEqual(new Set());
   });
 });

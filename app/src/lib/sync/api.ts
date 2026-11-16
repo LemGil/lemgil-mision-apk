@@ -2,7 +2,7 @@ import { supabase } from "../supabase";
 import { db } from "../database";
 import { emitStatus, saveLastSync } from "./status";
 import {
-  getOutbox, clearOutbox, getPendingCount, getTombstones, removeTombstone,
+  getOutbox, clearOutbox, getPendingCount, getPersonasAbsorbidas, getTombstones, removeTombstone,
   enqueueAllRecords, setApplyingRemote,
 } from "./queue";
 import type { SyncTableName, SyncError } from "./types";
@@ -216,6 +216,17 @@ async function pushTombstones(): Promise<SyncError[]> {
       await removeTombstone(t.table, t.recordId);
     }
   }
+  // Las personas absorbidas por «Unir personas» se vuelven a borrar en
+  // el servidor en CADA ciclo: si un equipo con la copia vieja la
+  // resucitó al subir todo, este borrado la retira otra vez, y la
+  // reconciliación de la bajada termina de quitarla de aquel equipo.
+  for (const id of getPersonasAbsorbidas()) {
+    if (tombs.some((t) => t.table === "personas" && t.recordId === id)) continue;
+    const { error } = await supabase.from("personas").delete().eq("id", id);
+    if (error) {
+      errors.push({ table: "personas", message: `borrado de ${id}: ${error.message}` });
+    }
+  }
   return errors;
 }
 
@@ -408,9 +419,76 @@ export async function forceFullPush(): Promise<SyncError[]> {
   return errors;
 }
 
+/**
+ * Foto de los ids que el servidor tenía por tabla en la última bajada
+ * buena (localStorage). Es la base SEGURA de la reconciliación: solo
+ * puede desaparecer de este equipo lo que la foto prueba que estuvo
+ * en el servidor y ya no está — un registro creado aquí y nunca
+ * subido jamás estuvo en la foto, así que nunca se reconcilia.
+ */
+const REMOTOS_KEY = "lemgil_sync_remotos_v1";
+
+export function leerRemotos(raw: string | null): Partial<Record<SyncTableName, string[]>> {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Partial<Record<SyncTableName, string[]>> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (Array.isArray(v)) {
+        out[k as SyncTableName] = v.filter((x): x is string => typeof x === "string");
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function serializarRemotos(mapa: Partial<Record<SyncTableName, readonly string[]>>): string {
+  return JSON.stringify(mapa);
+}
+
+function cargarRemotos(): Partial<Record<SyncTableName, string[]>> {
+  try {
+    return leerRemotos(localStorage.getItem(REMOTOS_KEY));
+  } catch {
+    return {};
+  }
+}
+
+function guardarRemotos(mapa: Partial<Record<SyncTableName, string[]>>): void {
+  try {
+    localStorage.setItem(REMOTOS_KEY, serializarRemotos(mapa));
+  } catch { /* sin consecuencias: sin foto no se reconcilia nada */ }
+}
+
+/**
+ * Ids locales que la reconciliación debe retirar: estaban en la foto
+ * remota anterior, ya no están en la remota actual y no esperan para
+ * subir. Todo lo demás se queda. (Función pura, probada.)
+ */
+export function idsAReconciliar(
+  locales: readonly string[],
+  remotosAntes: readonly string[],
+  remotosAhora: ReadonlySet<string>,
+  pendientes: ReadonlySet<string>,
+): string[] {
+  const antes = new Set(remotosAntes);
+  return locales.filter((id) => antes.has(id) && !remotosAhora.has(id) && !pendientes.has(id));
+}
+
 export async function pullFromSupabase(): Promise<SyncError[]> {
   const errors: SyncError[] = [];
   const tombs = new Set((await getTombstones()).map((t) => `${t.table}:${t.recordId}`));
+  const absorbidas = getPersonasAbsorbidas();
+  const pendientesPorTabla = new Map<SyncTableName, Set<string>>();
+  for (const e of await getOutbox()) {
+    let s = pendientesPorTabla.get(e.table);
+    if (!s) { s = new Set(); pendientesPorTabla.set(e.table, s); }
+    s.add(e.recordId);
+  }
+  const remotos = cargarRemotos();
   setApplyingRemote(true);
   try {
     for (const table of SYNC_TABLES) {
@@ -427,6 +505,9 @@ export async function pullFromSupabase(): Promise<SyncError[]> {
         errors.push({ table, message: `descarga: ${error.message}` });
         continue;
       }
+      // Sin filas no hay información: no se reconcilia ni se toca la
+      // foto guardada (una tabla vacía por un fallo no puede vaciar
+      // este equipo).
       if (!data || data.length === 0) continue;
 
       const normalized = toCamelCaseKeys(data) as Array<Record<string, unknown>>;
@@ -439,6 +520,9 @@ export async function pullFromSupabase(): Promise<SyncError[]> {
         if (typeof record.id !== "string") continue;
         // Un registro borrado localmente con la tumba pendiente NO resucita.
         if (tombs.has(`${table}:${record.id}`)) continue;
+        // Una persona absorbida por «Unir personas» en este equipo no
+        // vuelve a bajar, aunque otro equipo la haya resucitado.
+        if (table === "personas" && absorbidas.has(record.id)) continue;
         const local = byId.get(record.id);
         if (!local) {
           toAdd.push(record);
@@ -457,7 +541,37 @@ export async function pullFromSupabase(): Promise<SyncError[]> {
           errors.push({ table, message: err instanceof Error ? err.message : String(err) });
         }
       }
+
+      // Reconciliación de borrados: lo que estaba en el servidor en la
+      // bajada anterior, ya no está y no espera para subir, fue
+      // borrado o unido en otro equipo — se retira también de este.
+      // (La bajada corre bajo setApplyingRemote: retirar no encola
+      // nada, porque en el servidor ya no existe.)
+      const remotosAhora = new Set(
+        normalized.map((r) => r.id).filter((id): id is string => typeof id === "string"),
+      );
+      const aBorrar = idsAReconciliar(
+        existingRecords.map((r) => r.id as string),
+        remotos[table] ?? [],
+        remotosAhora,
+        pendientesPorTabla.get(table) ?? new Set<string>(),
+      );
+      if (table === "personas") {
+        for (const r of existingRecords) {
+          const id = r.id as string;
+          if (absorbidas.has(id) && !aBorrar.includes(id)) aBorrar.push(id);
+        }
+      }
+      if (aBorrar.length > 0) {
+        try {
+          await tableInstance.bulkDelete(aBorrar);
+        } catch (err: unknown) {
+          errors.push({ table, message: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      remotos[table] = [...remotosAhora];
     }
+    guardarRemotos(remotos);
   } finally {
     setApplyingRemote(false);
   }
@@ -475,12 +589,20 @@ export async function enqueueAllLocalRecords(): Promise<void> {
 }
 
 /**
- * Sincronización total forzada (botón «Forzar Sync Total»): sube todas las
- * tablas completas y luego baja lo que haya en la nube. Lanza un Error con el
- * resumen si algo falló — el éxito que anuncia la interfaz es real.
+ * Sincronización total forzada (botón «Forzar Sync Total»): baja primero
+ * (retira lo que otro equipo ya borró o unió), sube todas las tablas
+ * completas y baja de nuevo. Lanza un Error con el resumen si algo
+ * falló — el éxito que anuncia la interfaz es real.
  */
 export async function forcePushAllLocal(): Promise<void> {
-  const errors = [...(await forceFullPush()), ...(await pullFromSupabase())];
+  // La bajada va PRIMERO: sin ella, la subida total resucitaba en el
+  // servidor las fichas que otro equipo ya había unido o borrado, y
+  // volvían a bajar a todos («volvía a estar dividido», 2026-11-16).
+  const errors = [
+    ...(await pullFromSupabase()),
+    ...(await forceFullPush()),
+    ...(await pullFromSupabase()),
+  ];
   if (errors.length > 0) {
     // El error también va al ESTADO del indicador (2026-11-16): antes
     // solo salía el toast y la pastilla se quedaba en verde «Synced»

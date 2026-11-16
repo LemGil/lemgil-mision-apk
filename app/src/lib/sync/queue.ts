@@ -87,6 +87,52 @@ export async function getTombstones(): Promise<SyncTombstone[]> {
   }
 }
 
+/**
+ * Personas absorbidas por «Unir personas» EN ESTE EQUIPO (localStorage).
+ *
+ * La tumba normal se retira cuando el borrado llega al servidor, y ahí
+ * la absorbida quedaba desprotegida: si otro equipo la volvía a subir
+ * (su copia vieja seguía viva), bajaba de nuevo a este y la ficha
+ * «volvía a estar dividida» (reporte de LemGil, 2026-11-16: unió en un
+ * equipo, se dividió en otro, y al resucitar también en el mismo).
+ * Este registro NO se retira: la bajada nunca re-agrega una absorbida
+ * y cada ciclo repite su borrado en el servidor, hasta que ningún
+ * equipo la conserve. Crece un id por unión — despreciable.
+ */
+const ABSORBIDAS_KEY = "lemgil_personas_absorbidas_v1";
+
+export function leerAbsorbidas(raw: string | null): Set<string> {
+  if (!raw) return new Set();
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+export function serializarAbsorbidas(ids: ReadonlySet<string>): string {
+  return JSON.stringify([...ids]);
+}
+
+export function getPersonasAbsorbidas(): Set<string> {
+  try {
+    return leerAbsorbidas(localStorage.getItem(ABSORBIDAS_KEY));
+  } catch {
+    return new Set();
+  }
+}
+
+export function registrarPersonaAbsorbida(recordId: string): void {
+  try {
+    const ids = getPersonasAbsorbidas();
+    if (ids.has(recordId)) return;
+    ids.add(recordId);
+    localStorage.setItem(ABSORBIDAS_KEY, serializarAbsorbidas(ids));
+  } catch { /* sin consecuencias: la tumba normal sigue haciendo su parte */ }
+}
+
 export async function getPendingCount(): Promise<number> {
   try {
     const [outbox, tombs] = await Promise.all([db.syncQueue.count(), db.syncTombstones.count()]);
