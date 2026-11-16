@@ -33,13 +33,13 @@ export function ConversionesTable(props: ConversionesTableProps) {
         <div className="card">
            <div className="card-header">
              <div style={{ display: 'flex', flexDirection: 'column' }}>
-               <div className="card-title">📋 Registro de Conversiones</div>
+               <div className="card-title">📋 Registro de Congregados</div>
                <div style={{ fontSize: 12, color: 'var(--dim)' }}>{convs.length} registros</div>
              </div>
              <button className="btn btn-secondary btn-sm" onClick={() => safeExport(() => exportConversionesPDF({ conversiones: convs, filtros: { estado: filterEstado, zona: filterZona, ano: filterAnoConv, mes: filterMesConv }, pasos }))}>📄 Exportar PDF</button>
            </div>
            {filtered.length === 0 ? (
-             <EmptyState icon="🌱" title="Sin registros aún" sub='Presiona "➕ Nueva Conversión" para comenzar' />
+             <EmptyState icon="🙏" title="Sin registros aún" sub='Presiona "➕ Nuevo Congregado" para comenzar' />
            ) : (
              <table className="data-table">
                 <thead><tr><th>#</th><th>Nombre</th><th>Zona</th><th>Fecha</th><th>Mayor</th><th>Grupo</th><th>Estado</th><th>Acciones</th></tr></thead>

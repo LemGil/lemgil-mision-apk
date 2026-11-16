@@ -1102,7 +1102,7 @@ export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtro
   const subtitulo = partesSubtitulo.length > 0
     ? `Filtros: ${partesSubtitulo.join(' · ')}`
     : `${visibles.length} registros en total`;
-  header(doc, 'Registro de Conversiones', subtitulo, 'Misión Bíblica');
+  header(doc, 'Registro de Congregados', subtitulo, 'Misión');
 
   const total = visibles.length;
   const integrados = visibles.filter(c => esGozne(pasos, c.estado)).length;
@@ -1142,7 +1142,7 @@ export function exportConversionesPDF(opts: { conversiones: Conversion[]; filtro
 export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro[]; conversiones: Conversion[]; pasos?: PasoSeguimiento[] }) {
   const { grupos, miembros, conversiones, pasos } = opts;
   const doc = new jsPDF();
-  header(doc, 'Directorio de Grupos de Misión', `${grupos.length} grupos activos`, 'Misión Bíblica');
+  header(doc, 'Directorio de Grupos de Misión', `${grupos.length} grupos activos`, 'Misión');
 
   // B4: conteo único — «Miembros» son los miembros activos y la ocupación se
   // mide sobre el total asignado (activos + conversiones en proceso), igual
@@ -1195,7 +1195,7 @@ export function exportGruposMisionPDF(opts: { grupos: Grupo[]; miembros: Miembro
 export function exportEvangelismoPDF(opts: { evangelismos: EvangelismoVista[] }) {
   const { evangelismos } = opts;
   const doc = new jsPDF();
-  header(doc, 'Actividades de Evangelismo', `${evangelismos.length} actividades`, 'Misión Bíblica');
+  header(doc, 'Actividades de Evangelismo', `${evangelismos.length} actividades`, 'Misión');
 
   const totalContacts = evangelismos.reduce((s, e) => s + (e.contactos || 0), 0);
   const totalConvs = evangelismos.reduce((s, e) => s + (e.conversiones || 0), 0);
@@ -1270,7 +1270,7 @@ export function exportReporteGeneralPDF(opts: { datos: ReporteDatos; periodo: st
     y = (doc as any).lastAutoTable.finalY + 8;
   };
 
-  section('Misión Bíblica', [
+  section('Misión', [
     ['Conversiones (período)', datos.conv.total.toString()],
     ['Conversiones del período', datos.conv.mesActual.toString()],
     ['Integrados', datos.conv.integrados.toString()],

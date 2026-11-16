@@ -9,7 +9,8 @@ import type { Conversion, Hito, HistorialEntry, PasoSeguimiento } from './types'
  * pintar: renombrar un paso no toca ninguna ficha ni ningún conteo.
  *
  * Cada paso tiene un ROL que la lógica usa en vez del nombre:
- * - `inicio` (protegido): donde nacen las conversiones.
+ * - `inicio` (protegido): donde nace el registro en Misión (el paso
+ *   «Congregado»: la persona asiste, aún no se ha convertido).
  * - `camino`: pasos intermedios libres.
  * - `gozne` (protegido): el que crea al miembro (syncMember).
  * - `salida`: salen del camino; no avanzan por la ruta. Las de la casa
@@ -27,6 +28,7 @@ import type { Conversion, Hito, HistorialEntry, PasoSeguimiento } from './types'
  */
 
 /** Identidades fijas de las semillas (nunca cambian; la etiqueta sí). */
+export const PS_CONGREGADO = 'ps-congregado';
 export const PS_NUEVO = 'ps-nuevo';
 export const PS_DISCIPULADO = 'ps-discipulado';
 export const PS_BAUTIZADO = 'ps-bautizado';
@@ -37,7 +39,9 @@ export const PS_FALLECIDO = 'ps-fallecido';
 
 /** Etiqueta legada → identidad. «Seguimiento» fue un nombre viejo del Discipulado. */
 export const ALIAS_ESTADOS_LEGADO: Record<string, string> = {
+  Congregado: PS_CONGREGADO,
   Nuevo: PS_NUEVO,
+  Converso: PS_NUEVO,
   Discipulado: PS_DISCIPULADO,
   Bautizado: PS_BAUTIZADO,
   Integrado: PS_INTEGRADO,
@@ -80,13 +84,18 @@ const semilla = (
  * sin camino que pintar.
  */
 export const PASOS_MISION_DEFECTO: PasoSeguimiento[] = [
-  semilla(PS_NUEVO, 'Nuevo', '🌱', 1, 'inicio', true),
-  semilla(PS_DISCIPULADO, 'Discipulado', '📖', 2, 'camino'),
-  semilla(PS_BAUTIZADO, 'Bautizado', '💧', 3, 'camino'),
-  semilla(PS_INTEGRADO, 'Integrado', '🏘️', 4, 'gozne', true),
-  semilla(PS_APARTADO, 'Apartado', '🚪', 5, 'salida', true),
-  semilla(PS_TRASLADO, 'Trasladado', '🧳', 6, 'salida', true),
-  semilla(PS_FALLECIDO, 'Fallecido', '✝️', 7, 'salida', true),
+  // La ruta que pidió LemGil (2026-11-15): el registro en Misión nace
+  // en «Congregado» (asiste a las reuniones; se registra tras la 3ª
+  // visita) y la CONVERSIÓN es el avance a «Converso» — la semilla que
+  // antes se llamaba «Nuevo» (su identidad no cambia: ps-nuevo).
+  semilla(PS_CONGREGADO, 'Congregado', '🙏', 1, 'inicio', true),
+  semilla(PS_NUEVO, 'Converso', '🌱', 2, 'camino', true),
+  semilla(PS_DISCIPULADO, 'Discipulado', '📖', 3, 'camino'),
+  semilla(PS_BAUTIZADO, 'Bautizado', '💧', 4, 'camino'),
+  semilla(PS_INTEGRADO, 'Integrado', '🏘️', 5, 'gozne', true),
+  semilla(PS_APARTADO, 'Apartado', '🚪', 6, 'salida', true),
+  semilla(PS_TRASLADO, 'Trasladado', '🧳', 7, 'salida', true),
+  semilla(PS_FALLECIDO, 'Fallecido', '✝️', 8, 'salida', true),
 ];
 
 /** Orden del catálogo: por `orden`; desempate estable por creación e id (el mismo de pasosMiembro.ordenarPasos). */
@@ -163,7 +172,7 @@ export function salidasDe(pasos?: PasoSeguimiento[]): PasoSeguimiento[] {
   return pasosDeMision(pasos).filter((p) => p.rol === 'salida');
 }
 
-/** El paso de inicio (donde nacen las conversiones); el primero de la ruta como respaldo. */
+/** El paso de inicio (donde nace el registro en Misión); el primero de la ruta como respaldo. */
 export function pasoInicio(pasos?: PasoSeguimiento[]): PasoSeguimiento {
   return pasosDeMision(pasos).find((p) => p.rol === 'inicio') ?? rutaDe(pasos)[0];
 }
@@ -409,4 +418,67 @@ export function pasosPipeline(pasos: PasoSeguimiento[] | undefined, actual: stri
     }
     return { id: p.id, etiqueta: p.nombre, emoji: p.emoji, cls: 'step' };
   });
+}
+
+/* ── Congregado → Converso: la conversión como AVANCE (2026-11-15) ── */
+
+/**
+ * ¿Esta persona YA se convirtió? Desde que la ruta nace en
+ * «Congregado», estar en la lista de Misión ya no equivale a haberse
+ * convertido: la conversión es el AVANCE al paso «Converso» (la semilla
+ * ps-nuevo). Se sabe por el historial (una entrada en Converso) o por
+ * la posición actual en la ruta (en Converso o más allá). Quien sigue
+ * en Congregado — o salió del camino sin pasar por Converso — NO
+ * cuenta como conversión en ninguna cifra.
+ */
+export function seConvirtio(c: Conversion): boolean {
+  if ((c.historial ?? []).some((h) => idCanonico(h.estado ?? '') === PS_NUEVO)) return true;
+  const idxConverso = indiceEnRuta(undefined, PS_NUEVO);
+  const idx = indiceEnRuta(undefined, c.estado);
+  return idx >= 0 && idxConverso >= 0 && idx >= idxConverso;
+}
+
+/**
+ * La fecha en que la persona se convirtió: la entrada MÁS RECIENTE del
+ * historial en el paso Converso (la misma semántica de `fechaDeEstado`);
+ * si llegó sin dejar entrada (nació en Converso antes de que existiera
+ * Congregado, con el historial vacío de nacimiento), la fecha del
+ * registro. '' si aún no se ha convertido.
+ */
+export function fechaDeConversion(c: Conversion): string {
+  if (!seConvirtio(c)) return '';
+  let fecha = '';
+  for (const h of c.historial ?? []) {
+    if (idCanonico(h.estado ?? '') === PS_NUEVO && h.fecha) fecha = h.fecha;
+  }
+  return fecha || c.fecha || '';
+}
+
+/**
+ * La transformación del catálogo VIVO a la ruta Congregado → Converso
+ * (pura; la aplica el pase `migrarRutaCongregados` de lib/migrate.ts):
+ * - «Congregado» entra como paso de INICIO, al frente de la ruta (si
+ *   falta; si un equipo ya lo sembró, se respeta su fila y solo se
+ *   asegura su rol).
+ * - La semilla ps-nuevo cede el rol de inicio y pasa a «camino»; su
+ *   nombre pasa a «Converso» SOLO si aún es el de la semilla vieja
+ *   («Nuevo»): un renombre hecho por la iglesia se respeta.
+ * - El orden se renumera siguiendo el orden visible actual, con
+ *   Congregado primero: cualquier reorden de la iglesia se conserva.
+ * Devuelve el catálogo completo del ámbito (solo filas 'mision').
+ */
+export function catalogoConCongregado(pasos: PasoSeguimiento[]): PasoSeguimiento[] {
+  const propios = ordenar(pasos.filter((p) => p.ambito === 'mision'));
+  if (propios.length === 0) return [];
+  const semillaCongregado = PASOS_MISION_DEFECTO.find((p) => p.id === PS_CONGREGADO)!;
+  const existente = propios.find((p) => p.id === PS_CONGREGADO);
+  const congregado: PasoSeguimiento = existente
+    ? { ...existente, rol: 'inicio', protegido: true }
+    : { ...semillaCongregado };
+  const resto = propios
+    .filter((p) => p.id !== PS_CONGREGADO)
+    .map((p) => (p.id === PS_NUEVO
+      ? { ...p, rol: 'camino' as const, nombre: p.nombre === 'Nuevo' ? 'Converso' : p.nombre }
+      : p));
+  return [congregado, ...resto].map((p, i) => ({ ...p, orden: i + 1 }));
 }

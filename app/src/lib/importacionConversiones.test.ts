@@ -6,7 +6,7 @@ import { parseCSV, mapRowsToRecords, importRecords, type ImportConfig } from "./
 // igual que en la app real, donde las páginas lo cargan.
 import "./personas";
 import { conversionConDatos, mapaPersonas } from "./personaDatos";
-import { PASOS_MISION_DEFECTO, PS_DISCIPULADO, PS_NUEVO, etiquetaDe } from "./pasosMision";
+import { PASOS_MISION_DEFECTO, PS_CONGREGADO, PS_DISCIPULADO, PS_NUEVO, etiquetaDe } from "./pasosMision";
 import type { Conversion, Persona } from "./types";
 
 // ════════════════════════════════════════════════════════════════════
@@ -150,10 +150,10 @@ describe("Importación de conversiones (F1 + F2)", () => {
     expect(res.imported).toBe(2);
     expect(res.avisos).toHaveLength(1);
     expect(res.avisos[0]).toContain("1 fila(s) con estado no reconocido");
-    expect(res.avisos[0]).toContain("Nuevo"); // la etiqueta viva del paso de inicio
+    expect(res.avisos[0]).toContain("Congregado"); // la etiqueta viva del paso de inicio
 
     const porNombre = new Map((await db.conversiones.toArray()).map((c) => [c.nombre, c]));
-    expect(porNombre.get("Leo")!.estado).toBe(PS_NUEVO);
+    expect(porNombre.get("Leo")!.estado).toBe(PS_CONGREGADO);
     expect(porNombre.get("Ada")!.estado).toBe("ps-bautizado");
   });
 });

@@ -9,7 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { MS_FULL, fmt, monthKey, inRange, money } from '../lib/utils';
-import { esGozne } from '../lib/pasosMision';
+import { esGozne, fechaDeConversion, seConvirtio } from '../lib/pasosMision';
 import { showToast } from '../lib/notification';
 
 const num = (n: number) => n.toLocaleString('en-US');
@@ -102,7 +102,11 @@ export default function Reportes() {
     const enRango = <T extends { fecha?: string; fechaInicio?: string; creado?: string; emitido?: string }>(arr: T[], key: 'fecha' | 'fechaInicio' | 'creado' | 'emitido' = 'fecha') =>
       arr.filter((x) => inRange(x[key] || '', desde, hasta));
 
-    const conv = enRango(convs);
+    // Ruta Congregado → Converso (2026-11-15): «conv» son las CONVERSIONES
+    // del período — avances al paso Converso por su fecha de conversión.
+    // Los registros nuevos de la lista (congregados) van en `convMes`,
+    // que las pantallas rotulan «Registrados en Misión».
+    const conv = convs.filter((c) => seConvirtio(c) && inRange(fechaDeConversion(c), desde, hasta));
     // Conversiones cuyo mes (monthKey) cae dentro del período seleccionado:
     // antes se contaban solo las del mes en curso, diera el período que diera.
     const mkDesde = monthKey(desde);
@@ -119,7 +123,7 @@ export default function Reportes() {
     // conversiones enlazadas a los evangelismos del período. La cifra
     // manual vieja (e.conversiones) quedó dormida y ya no se suma.
     const idsEvangEnRango = new Set(evang.map((e) => e.id));
-    const evangConvs = convs.filter((c) => c.evangelismoId && idsEvangEnRango.has(c.evangelismoId)).length;
+    const evangConvs = convs.filter((c) => c.evangelismoId && idsEvangEnRango.has(c.evangelismoId) && seConvirtio(c)).length;
 
     // Matrícula total de estudiantes activos (antes solo contaba los creados
     // dentro del rango, y la etiqueta «Estudiantes matriculados» no cuadraba).
@@ -193,8 +197,8 @@ export default function Reportes() {
     lines.push(`Período: ${fmt(dde)} → ${fmt(hta)}`);
     lines.push(`Generado: ${generadoLabel}`);
     lines.push('');
-    lines.push('MISION BIBLICA');
-    lines.push(`Conversiones: ${d.conv.total} (del período: ${d.conv.mesActual})`);
+    lines.push('MISIÓN');
+    lines.push(`Conversiones: ${d.conv.total} (registrados en Misión: ${d.conv.mesActual})`);
     lines.push(`Integrados: ${d.conv.integrados}`);
     lines.push(`Grupos: ${d.conv.grupos}`);
     lines.push(`Personas únicas: ${d.conv.personasUnicas}`);
@@ -256,13 +260,13 @@ export default function Reportes() {
   };
 
   const buildCsvRows = (d: ReporteDatos): (string | number)[][] => [
-    ['Misión Bíblica', 'Conversiones', d.conv.total],
-    ['Misión Bíblica', 'Conversiones del Período', d.conv.mesActual],
-    ['Misión Bíblica', 'Integrados', d.conv.integrados],
-    ['Misión Bíblica', 'Grupos', d.conv.grupos],
-    ['Misión Bíblica', 'Personas únicas', d.conv.personasUnicas],
-    ['Misión Bíblica', 'Evangelismos', d.evang.total],
-    ['Misión Bíblica', 'Contactos', d.evang.contactos],
+    ['Misión', 'Conversiones', d.conv.total],
+    ['Misión', 'Registrados en Misión', d.conv.mesActual],
+    ['Misión', 'Integrados', d.conv.integrados],
+    ['Misión', 'Grupos', d.conv.grupos],
+    ['Misión', 'Personas únicas', d.conv.personasUnicas],
+    ['Misión', 'Evangelismos', d.evang.total],
+    ['Misión', 'Contactos', d.evang.contactos],
     ['Academia', 'Cursos', d.academia.cursos],
     ['Academia', 'Estudiantes', d.academia.estudiantes],
     ['Academia', 'Certificados', d.academia.certificados],
@@ -345,7 +349,7 @@ export default function Reportes() {
   };
 
   return (
-    <Layout title="Sistema de Reportes">
+    <Layout title="Informe">
       <div className="page-reportes">
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--green)', letterSpacing: 1 }}>
@@ -397,9 +401,9 @@ export default function Reportes() {
             </div>
 
             <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-              <ModuleCard color="var(--mision-purple)" emoji="✝️" title="Misión Bíblica" rows={[
+              <ModuleCard color="var(--mision-purple)" emoji="🙏" title="Misión" rows={[
                 ['Conversiones (período)', datos.conv.total],
-                ['Conversiones del período', datos.conv.mesActual],
+                ['Registrados en Misión (período)', datos.conv.mesActual],
                 ['Integrados', datos.conv.integrados],
                 ['Grupos activos', datos.conv.grupos],
                 ['Personas únicas', datos.conv.personasUnicas],
@@ -572,8 +576,8 @@ export default function Reportes() {
               <div className="detail-row"><span className="detail-label">Generado</span><span className="detail-value">{selReporte.generado.slice(0, 19).replace('T', ' ')}</span></div>
               <div className="detail-row"><span className="detail-label">Por</span><span className="detail-value">{selReporte.generadoPor}</span></div>
 
-              <div className="form-section" style={{ marginTop: 14 }}>✝️ Misión Bíblica</div>
-              <div className="detail-row"><span className="detail-label">Conversiones</span><span className="detail-value">{selResumen.conv.total} (del período: {selResumen.conv.mesActual})</span></div>
+              <div className="form-section" style={{ marginTop: 14 }}>🙏 Misión</div>
+              <div className="detail-row"><span className="detail-label">Conversiones</span><span className="detail-value">{selResumen.conv.total} (registrados en Misión: {selResumen.conv.mesActual})</span></div>
               <div className="detail-row"><span className="detail-label">Integrados</span><span className="detail-value">{selResumen.conv.integrados}</span></div>
               <div className="detail-row"><span className="detail-label">Grupos</span><span className="detail-value">{selResumen.conv.grupos}</span></div>
               <div className="detail-row"><span className="detail-label">Personas únicas</span><span className="detail-value">{selResumen.conv.personasUnicas}</span></div>

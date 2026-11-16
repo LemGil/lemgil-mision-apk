@@ -170,6 +170,15 @@ export default function Miembros() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, miembros]);
 
+  // Menú agrupado (2026-11-16): el menú entra directo a la pestaña
+  // (?tab=ministerios / ?tab=directorio / ?tab=hitos).
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'ministerios') setTab('ministerios');
+    else if (t === 'directorio') setTab('directorio');
+    else if (t === 'hitos') setTab('hitos');
+  }, [searchParams]);
+
   const openNewM = () => { resetM(); setModal('miembro'); };
   const openEditM = (id: string) => {
     const m = miembrosCrudos.find((x) => x.id === id); if (!m) return;
@@ -439,9 +448,9 @@ export default function Miembros() {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <div className="tabs" style={{ flex: 1 }}>
-          <button className={`tab ${tab === 'directorio' ? 'active' : ''}`} onClick={() => setTab('directorio')}>📖 Directorio · {miembros.length}</button>
-          <button className={`tab ${tab === 'ministerios' ? 'active' : ''}`} onClick={() => setTab('ministerios')}>⛪ Ministerios · {ministerios.length}</button>
-          <button className={`tab ${tab === 'hitos' ? 'active' : ''}`} onClick={() => setTab('hitos')}>📍 Hitos · {hitos.length}</button>
+          <button className={`tab ${tab === 'directorio' ? 'active' : ''}`} onClick={() => { setTab('directorio'); setSearchParams({ tab: 'directorio' }); }}>📖 Directorio · {miembros.length}</button>
+          <button className={`tab ${tab === 'ministerios' ? 'active' : ''}`} onClick={() => { setTab('ministerios'); setSearchParams({ tab: 'ministerios' }); }}>⛪ Ministerios · {ministerios.length}</button>
+          <button className={`tab ${tab === 'hitos' ? 'active' : ''}`} onClick={() => { setTab('hitos'); setSearchParams({ tab: 'hitos' }); }}>📍 Hitos · {hitos.length}</button>
         </div>
         <button className="btn btn-secondary btn-sm" style={{ marginTop: 4 }} onClick={() => setPasosEditorOpen(true)}>⚙️ Pasos</button>
       </div>

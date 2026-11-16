@@ -3,7 +3,7 @@ import type {
 } from './types';
 import { conversionConDatos, estudianteConDatos, evangelismoConDatos } from './personaDatos';
 import { conteoGrupo } from './grupoStats';
-import { esInicio, etiquetaDe } from './pasosMision';
+import { esInicio, etiquetaConRespaldo, etiquetaDe, fechaDeConversion, pasoInicio, seConvirtio } from './pasosMision';
 import { fechaDeEstado, monthKey, MS, MS_FULL } from './utils';
 
 /**
@@ -149,16 +149,24 @@ export interface KpiConversiones {
  * en curso DE ESE año) y la etiqueta del KPI nombra el año; sin filtro,
  * 0 conversiones en el mes se dice tal cual y en negativo — antes era
  * siempre «▲ +N este mes» en verde, también con 0.
+ *
+ * Ruta Congregado → Converso (2026-11-15): la cifra cuenta
+ * CONVERSIONES de verdad — personas que avanzaron al paso Converso —
+ * por su FECHA DE CONVERSIÓN (la entrada al paso), no registros de la
+ * lista: un congregado que aún no se ha convertido no infla la cifra,
+ * y quien se convirtió en el período cuenta en el período aunque su
+ * registro sea más viejo.
  */
 export function kpiConversiones(conversiones: Conversion[], filterAno: string, hoy: Date): KpiConversiones {
   const mes = hoy.getMonth();
   const claveMes = filterAno
     ? `${filterAno}-${pad2(mes + 1)}`
     : `${hoy.getFullYear()}-${pad2(mes + 1)}`;
+  const convertidas = conversiones.filter(seConvirtio);
   const delPeriodo = filterAno
-    ? conversiones.filter((c) => c.fecha?.startsWith(filterAno))
-    : conversiones;
-  const mesCount = delPeriodo.filter((c) => monthKey(c.fecha) === claveMes).length;
+    ? convertidas.filter((c) => fechaDeConversion(c).startsWith(filterAno))
+    : convertidas;
+  const mesCount = delPeriodo.filter((c) => monthKey(fechaDeConversion(c)) === claveMes).length;
   let change: string;
   if (filterAno) {
     change = mesCount > 0
@@ -193,12 +201,15 @@ export interface BarraCrecimiento {
  * ese año y no se resaltaba nada con sentido).
  */
 export function barrasCrecimiento(conversiones: Conversion[], filterAno: string, hoy: Date): BarraCrecimiento[] {
+  // Crecimiento = conversiones (avances a Converso), por su mes de
+  // conversión — la misma base del KPI (2026-11-15).
+  const convertidas = conversiones.filter(seConvirtio);
   const fuente = filterAno
-    ? conversiones.filter((c) => c.fecha?.startsWith(filterAno))
-    : conversiones;
+    ? convertidas.filter((c) => fechaDeConversion(c).startsWith(filterAno))
+    : convertidas;
   const counts: Record<string, number> = {};
   fuente.forEach((c) => {
-    const k = monthKey(c.fecha);
+    const k = monthKey(fechaDeConversion(c));
     if (k) counts[k] = (counts[k] || 0) + 1;
   });
   const meses: { key: string; label: string; highlight: boolean }[] = [];
@@ -347,8 +358,9 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
   }
 
   // Fase 2: «nuevas» = en el paso de INICIO del catálogo (antes el
-  // literal 'Nuevo'). La población de la alerta no cambia: el editor de
-  // pasos no permite crear otro paso de inicio.
+  // literal 'Nuevo'). Desde la ruta nueva (2026-11-15) el inicio es
+  // «Congregado»: la alerta vigila a los congregados que no avanzan,
+  // y su texto nombra el paso por su etiqueta viva.
   const estancadas = e.conversiones
     .filter((c) => esInicio(e.pasosMision, c.estado) && diasSinMovimiento(c, e.hoy) > 14)
     .map((c) => ({ c, dias: diasSinMovimiento(c, e.hoy) }))
@@ -356,13 +368,13 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
   if (estancadas.length > 0) {
     out.push({
       tipo: 'warn',
-      texto: `${estancadas.length} conversión(es) nueva(s) sin movimiento hace más de 14 días`,
+      texto: `${estancadas.length} en «${etiquetaConRespaldo(e.pasosMision, pasoInicio(e.pasosMision).id)}» sin movimiento hace más de 14 días`,
       href: '/mision',
       items: itemsNombrados(
         estancadas,
         ({ c, dias }) => {
           const v = conversionConDatos(c, e.personasMap);
-          const nombre = `${v.nombre} ${v.apellido}`.trim() || 'Conversión sin nombre';
+          const nombre = `${v.nombre} ${v.apellido}`.trim() || 'Registro sin nombre';
           return `${nombre} · ${dias} días`;
         },
         ({ c }) => `/mision?ver=${c.id}`,

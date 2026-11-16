@@ -18,7 +18,7 @@ import { showToast } from '../lib/notification';
 import { CsvImportButton } from '../components/CsvImportButton';
 import type { DataTab, ModalType } from './mision-biblica/constants';
 import {
-  PS_APARTADO, PS_BAUTIZADO, PS_DISCIPULADO, PS_FALLECIDO, PS_INTEGRADO, PS_NUEVO,
+  PS_APARTADO, PS_BAUTIZADO, PS_CONGREGADO, PS_DISCIPULADO, PS_FALLECIDO, PS_INTEGRADO, PS_NUEVO,
   emojiDe, entradaCambioDeEstado, estadoCoincideConFiltro, etiquetaConRespaldo, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
 } from '../lib/pasosMision';
 import { PasosMisionEditorModal } from './mision-biblica/PasosMisionEditorModal';
@@ -132,6 +132,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
 
   // Fase 2: los conteos se anclan a la IDENTIDAD de las semillas; las
   // etiquetas de los KPI se resuelven vivas en el render.
+  const conversoCount = convs.filter((c) => idCanonico(c.estado) === PS_NUEVO).length;
   const discCount = convs.filter((c) => idCanonico(c.estado) === PS_DISCIPULADO).length;
   const bautCount = convs.filter((c) => idCanonico(c.estado) === PS_BAUTIZADO).length;
   const intCount = convs.filter((c) => idCanonico(c.estado) === PS_INTEGRADO).length;
@@ -374,6 +375,14 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
     setSearchParams(limpios, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, convs]);
+  // Menú agrupado (2026-11-16): el menú entra directo a la pestaña
+  // (?tab=grupos / ?tab=evangelismo / ?tab=congregados).
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'grupos') setDataTab('grupo');
+    else if (t === 'evangelismo') setDataTab('evang');
+    else if (t === 'congregados') setDataTab('conv');
+  }, [searchParams]);
   const saveSeg = async () => {
     if (!selConv) return;
     const cruda = convsCrudas.find((x) => x.id === selConv.id) ?? selConv;
@@ -506,13 +515,13 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   };
 
   const tabLabel = (tab: DataTab) => {
-    if (tab === 'conv') return `✝️ Conversiones (${filtered.length})`;
+    if (tab === 'conv') return `🙏 Congregados (${filtered.length})`;
     if (tab === 'grupo') return `👥 Grupos (${gruposFiltrados.length})`;
     return `📋 Evangelismo (${evangelsFiltrados.length})`;
   };
 
   return (
-    <Layout title="Misión Bíblica">
+    <Layout title="Misión">
       <div className="page-mision">
 
       {anos.length > 0 && (
@@ -535,7 +544,8 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       )}
 
       <div className="kpis">
-        <KpiCard label={globalAno ? `Conversiones ${globalAno}` : 'Conversiones'} value={filtered.length} icon="✝️" accent="var(--mision-purple)" sub={globalMes ? `${MS[parseInt(globalMes) - 1]}: ${convs.filter((c) => c.fecha?.startsWith(globalAno || new Date().getFullYear().toString()) && c.fecha?.slice(5, 7) === globalMes).length}` : `este mes: ${mesCount}`} />
+        <KpiCard label={globalAno ? `Congregados ${globalAno}` : 'Congregados'} value={filtered.length} icon="🙏" accent="var(--mision-purple)" sub={globalMes ? `${MS[parseInt(globalMes) - 1]}: ${convs.filter((c) => c.fecha?.startsWith(globalAno || new Date().getFullYear().toString()) && c.fecha?.slice(5, 7) === globalMes).length}` : `este mes: ${mesCount}`} />
+        <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_NUEVO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_NUEVO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_NUEVO && (() => { const f = getFechaEstado(c, PS_NUEVO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : conversoCount} icon={emojiDe(pasosSeguimiento, PS_NUEVO) || '🌱'} accent="var(--blue)" sub="ya aceptaron la fe" />
         {/* F8: los títulos de la cabecera van con etiquetaConRespaldo —
             si un paso de semilla se borró (Discipulado/Bautizado pueden),
             el KPI titula su nombre histórico, nunca el id crudo. */}
@@ -547,13 +557,13 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       </div>
 
       <div className="tabs">
-        <button className={`tab ${dataTab === 'conv' ? 'active' : ''}`} onClick={() => setDataTab('conv')}>{tabLabel('conv')}</button>
-        <button className={`tab ${dataTab === 'grupo' ? 'active' : ''}`} onClick={() => setDataTab('grupo')}>{tabLabel('grupo')}</button>
-        <button className={`tab ${dataTab === 'evang' ? 'active' : ''}`} onClick={() => setDataTab('evang')}>{tabLabel('evang')}</button>
+        <button className={`tab ${dataTab === 'conv' ? 'active' : ''}`} onClick={() => { setDataTab('conv'); setSearchParams({ tab: 'congregados' }); }}>{tabLabel('conv')}</button>
+        <button className={`tab ${dataTab === 'grupo' ? 'active' : ''}`} onClick={() => { setDataTab('grupo'); setSearchParams({ tab: 'grupos' }); }}>{tabLabel('grupo')}</button>
+        <button className={`tab ${dataTab === 'evang' ? 'active' : ''}`} onClick={() => { setDataTab('evang'); setSearchParams({ tab: 'evangelismo' }); }}>{tabLabel('evang')}</button>
       </div>
 
       <div className="actions-row">
-        {dataTab === 'conv' && <button className="btn btn-gold" onClick={openNewConv}>➕ Nueva Conversión</button>}
+        {dataTab === 'conv' && <button className="btn btn-gold" onClick={openNewConv}>➕ Nuevo Congregado</button>}
         {dataTab === 'conv' && <button className="btn btn-secondary" onClick={() => setPasosEditorOpen(true)}>⚙️ Pasos</button>}
         {dataTab === 'grupo' && <button className="btn btn-gold" onClick={openNewGrupo}>👥 Nuevo Grupo</button>}
         {dataTab === 'evang' && <button className="btn btn-gold" onClick={openNewEvang}>📋 Registrar Evangelismo</button>}
@@ -594,8 +604,8 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
             // F1: toda conversión importada nace con su historial (vacío):
             // sin él, abrir su detalle o avanzarla lanzaba un TypeError.
             // Función: cada fila recibe SU propio arreglo.
-            defaults={{ estado: PS_NUEVO, fecha: () => new Date().toISOString().split('T')[0], historial: () => [] }}
-            onImport={(n) => showToast(`${n} conversión(es) importada(s)`)}
+            defaults={{ estado: PS_CONGREGADO, fecha: () => new Date().toISOString().split('T')[0], historial: () => [] }}
+            onImport={(n) => showToast(`${n} registro(s) importado(s)`)}
           />
         )}
       </div>

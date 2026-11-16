@@ -7,6 +7,9 @@ import { ZonaSelect } from './ZonaSelect';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { buscarPorIdentidad } from '../lib/personas';
 import { posiblesRepetidas } from '../lib/personaVista';
+import { beneficiarioDeAlta, conversionDeAlta, miembroDeAlta } from '../lib/altasDirectas';
+import { syncMemberFromConversion } from '../pages/mision-biblica/syncMember';
+import { today } from '../lib/utils';
 import type { Persona } from '../lib/types';
 
 interface PersonaFormModalProps {
@@ -16,6 +19,14 @@ interface PersonaFormModalProps {
   persona?: Persona | null;
   /** Se llama con el id guardado (para que un PersonaSelect la seleccione). */
   onSaved?: (id: string) => void;
+  /**
+   * Altas directas (2026-11-15): solo desde Personas, la oficina de
+   * registro — al guardar una persona NUEVA pueden nacer también sus
+   * procesos (Congregado en Misión, Integrado en Miembros, Beneficiario
+   * en Manos Abiertas). Desde los módulos no se ofrece: ahí el proceso
+   * ya lo está creando el propio módulo.
+   */
+  altasDirectas?: boolean;
 }
 
 /**
@@ -23,9 +34,10 @@ interface PersonaFormModalProps {
  * donde se teclean sus datos. Nace en P0 sin uso en páginas; los paquetes
  * siguientes (P2–P5) lo conectan a cada alta de proceso.
  */
-export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFormModalProps) {
+export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirectas }: PersonaFormModalProps) {
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray(), []) ?? [];
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -44,6 +56,11 @@ export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFor
   const [hijos, setHijos] = useState('');
   const [grupoId, setGrupoId] = useState('');
   const [hermanoMayorId, setHermanoMayorId] = useState('');
+  // Altas directas: qué procesos nacen con la persona (solo en el alta).
+  const [altaMision, setAltaMision] = useState(false);
+  const [altaEntrada, setAltaEntrada] = useState<'congregado' | 'converso'>('congregado');
+  const [altaIntegrado, setAltaIntegrado] = useState(false);
+  const [altaBeneficiario, setAltaBeneficiario] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -64,6 +81,10 @@ export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFor
     setHijos(persona?.hijos ?? '');
     setGrupoId(persona?.grupoId ?? '');
     setHermanoMayorId(persona?.hermanoMayorId ?? '');
+    setAltaMision(false);
+    setAltaEntrada('congregado');
+    setAltaIntegrado(false);
+    setAltaBeneficiario(false);
   }, [open, persona]);
 
   const guardar = async () => {
@@ -96,6 +117,25 @@ export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFor
       await db.personas.update(id, cambios);
     } else {
       await db.personas.add(createBaseRecord(datos));
+      if (altasDirectas) {
+        // Altas directas (2026-11-15): los procesos marcados nacen en
+        // el mismo acto que la persona, sobre su misma ficha.
+        const opciones = { mision: altaMision, entrada: altaEntrada, integrado: altaIntegrado, beneficiario: altaBeneficiario };
+        const conversion = conversionDeAlta(datos.id, opciones, pasosSeguimiento, today());
+        if (conversion) await db.conversiones.add(createBaseRecord(conversion));
+        if (altaIntegrado) {
+          if (conversion) {
+            // Congregado + Integrado: el registro nació en el gozne y
+            // el miembro nace enlazado a él, como en Misión.
+            await syncMemberFromConversion(conversion);
+          } else {
+            await db.miembros.add(createBaseRecord(miembroDeAlta(datos.id, today())));
+          }
+        }
+        if (altaBeneficiario) {
+          await db.beneficiarios.add(createBaseRecord(beneficiarioDeAlta(datos.id)));
+        }
+      }
     }
     onSaved?.(datos.id);
     onClose();
@@ -218,6 +258,40 @@ export function PersonaFormModal({ open, onClose, persona, onSaved }: PersonaFor
         </div>
         <div className="form-group"><label className="form-label">Fecha de bautismo</label><input className="form-input" type="date" value={fechaBautismo} onChange={(e) => setFechaBautismo(e.target.value)} disabled={!bautizado} /></div>
       </div>
+      {altasDirectas && !persona && (
+        <>
+          <div className="form-section">🏁 Al guardar, dar de alta también como</div>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '4px 0', cursor: 'pointer' }}>
+            <input type="checkbox" checked={altaMision} onChange={(e) => setAltaMision(e.target.checked)} />
+            <span><strong>Congregado</strong> — entra a la lista de Misión</span>
+          </label>
+          {altaMision && (
+            <div style={{ marginLeft: 26, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 4 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                <input type="radio" name="alta-entrada" checked={altaEntrada === 'congregado'} onChange={() => setAltaEntrada('congregado')} />
+                <span>Como <strong>Congregado</strong> — asiste, aún no se ha convertido</span>
+              </label>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                <input type="radio" name="alta-entrada" checked={altaEntrada === 'converso'} onChange={() => setAltaEntrada('converso')} />
+                <span>Como <strong>Converso</strong> — ya aceptó la fe</span>
+              </label>
+            </div>
+          )}
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '4px 0', cursor: 'pointer' }}>
+            <input type="checkbox" checked={altaIntegrado} onChange={(e) => setAltaIntegrado(e.target.checked)} />
+            <span><strong>Integrado</strong> — pasa directo a Miembros</span>
+          </label>
+          {altaMision && altaIntegrado && (
+            <div style={{ marginLeft: 26, fontSize: 12, color: 'var(--dim)', paddingBottom: 4 }}>
+              Con Congregado + Integrado, su registro en Misión nace ya en Integrado y el miembro queda enlazado a él.
+            </div>
+          )}
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '4px 0', cursor: 'pointer' }}>
+            <input type="checkbox" checked={altaBeneficiario} onChange={(e) => setAltaBeneficiario(e.target.checked)} />
+            <span><strong>Beneficiario</strong> — entra a la lista de Manos Abiertas</span>
+          </label>
+        </>
+      )}
     </Modal>
   );
 }

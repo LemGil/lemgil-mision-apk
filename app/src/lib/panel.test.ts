@@ -91,7 +91,7 @@ describe('actividad reciente del Panel', () => {
       conversiones: [cruda], evangelismos: [], estudiantes: [], certificados: [],
       cursos: [], personasMap: mapa,
     });
-    expect(a.title).toBe('Ana Díaz — Nuevo');
+    expect(a.title).toBe('Ana Díaz — Converso');
     expect(a.meta).toContain('Sur');
     expect(a.meta).toContain('Pedro Ruiz');
     expect(a.href).toBe('/mision?ver=c9');
@@ -297,17 +297,17 @@ describe('alertas del Panel', () => {
     // F10: la cuenta nace de cuándo entró en su estado actual
     // (fechaDeEstado: su fecha de conversión si el historial no dice
     // otra cosa) — los fixtures fijan `fecha`, no solo `creado`.
-    const vieja = convBase({ id: 'v', estado: 'ps-nuevo', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] });
-    const reciente = convBase({ id: 'r', estado: 'ps-nuevo', fecha: '2026-11-12', creado: '2026-11-12T12:00:00', historial: [] });
+    const vieja = convBase({ id: 'v', estado: 'ps-congregado', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] });
+    const reciente = convBase({ id: 'r', estado: 'ps-congregado', fecha: '2026-11-12', creado: '2026-11-12T12:00:00', historial: [] });
     const conHistorial = convBase({
-      id: 'h', estado: 'Nuevo', creado: '2026-10-01T12:00:00',
-      historial: [{ fecha: '2026-11-13', estado: 'Nuevo', nota: 'Visita de seguimiento' }],
+      id: 'h', estado: 'Congregado', creado: '2026-10-01T12:00:00',
+      historial: [{ fecha: '2026-11-13', estado: 'Congregado', nota: 'Visita de seguimiento' }],
     });
     const enProceso = convBase({ id: 'd', estado: 'Discipulado', creado: '2026-09-01T12:00:00', historial: [] });
     const a = alertasDelPanel(entrada({ conversiones: [vieja, reciente, conHistorial, enProceso] }));
     const est = a.find((x) => x.texto.includes('sin movimiento'));
     expect(est).toBeDefined();
-    expect(est!.texto).toContain('1 conversión');
+    expect(est!.texto).toContain('1 en «Congregado»');
     expect(est!.href).toBe('/mision');
     expect(diasSinMovimiento(vieja, HOY)).toBeGreaterThan(14);
     expect(diasSinMovimiento(conHistorial, HOY)).toBeLessThanOrEqual(14);
@@ -318,8 +318,8 @@ describe('alertas del Panel', () => {
     const luis = personaBase({ id: 'pl', nombre: 'Luis', apellido: 'Díaz' });
     const a = alertasDelPanel(entrada({
       conversiones: [
-        convBase({ id: 'v1', personaId: 'pa', nombre: '', apellido: '', estado: 'ps-nuevo', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] }),
-        convBase({ id: 'v2', personaId: 'pl', nombre: '', apellido: '', estado: 'Nuevo', fecha: '2026-10-01', creado: '2026-10-01T12:00:00', historial: [] }),
+        convBase({ id: 'v1', personaId: 'pa', nombre: '', apellido: '', estado: 'ps-congregado', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] }),
+        convBase({ id: 'v2', personaId: 'pl', nombre: '', apellido: '', estado: 'Congregado', fecha: '2026-10-01', creado: '2026-10-01T12:00:00', historial: [] }),
       ],
       personasMap: mapaPersonas([ana, luis]),
     }));
@@ -336,7 +336,7 @@ describe('alertas del Panel', () => {
 
   it('los casos nombrados se cortan a 8 y el resto se resume', () => {
     const muchas = Array.from({ length: 10 }, (_, i) =>
-      convBase({ id: `x${i}`, estado: 'Nuevo', creado: '2026-10-01T12:00:00', historial: [] }));
+      convBase({ id: `x${i}`, estado: 'Congregado', creado: '2026-10-01T12:00:00', historial: [] }));
     const a = alertasDelPanel(entrada({ conversiones: muchas }));
     const est = a.find((x) => x.texto.includes('sin movimiento'));
     expect(est?.items).toHaveLength(9);

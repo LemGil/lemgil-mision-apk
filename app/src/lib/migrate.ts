@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
-import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_TRASLADO, idCanonico } from './pasosMision';
+import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_TRASLADO, catalogoConCongregado, idCanonico } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -216,6 +216,43 @@ export async function migrarEstadosAPasos(): Promise<number> {
   }
   localStorage.setItem(FLAG_KEY, '1');
   if (cambios > 0) console.log(`Pasos de Misión (Fase 2): ${cambios} conversión(es) traducidas a identidad de paso`);
+  return cambios;
+}
+
+/**
+ * Ruta Congregado → Converso (2026-11-15): pase único que lleva el
+ * catálogo VIVO de Misión a la ruta nueva — «Congregado» como paso de
+ * inicio y la semilla ps-nuevo como «Converso» en el camino — con la
+ * transformación pura `catalogoConCongregado` (lib/pasosMision.ts).
+ * Solo escribe las filas que cambian; es idempotente y convergente:
+ * dos equipos que lo corren por su cuenta llegan al mismo catálogo
+ * (ids fijos, orden determinista) y la sincronización no duplica nada.
+ * Va encadenado tras ensurePasosMision + migrarEstadosAPasos.
+ */
+export async function migrarRutaCongregados(): Promise<number> {
+  const FLAG_KEY = 'lemgil_ruta_congregados_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  const existentes = await db.pasosSeguimiento.where('ambito').equals('mision').toArray();
+  if (existentes.length === 0) {
+    localStorage.setItem(FLAG_KEY, '1');
+    return 0;
+  }
+  const destino = catalogoConCongregado(existentes);
+  const porId = new Map(existentes.map((p) => [p.id, p]));
+  const now = new Date().toISOString();
+  let cambios = 0;
+  for (const p of destino) {
+    const actual = porId.get(p.id);
+    if (!actual) {
+      await db.pasosSeguimiento.add(createBaseRecord({ ...p, creado: p.creado || now, version: 1 }));
+      cambios++;
+    } else if (actual.nombre !== p.nombre || actual.rol !== p.rol || actual.orden !== p.orden || actual.protegido !== p.protegido) {
+      await db.pasosSeguimiento.update(p.id, { nombre: p.nombre, rol: p.rol, orden: p.orden, protegido: p.protegido });
+      cambios++;
+    }
+  }
+  localStorage.setItem(FLAG_KEY, '1');
+  if (cambios > 0) console.log(`Ruta de Misión: ${cambios} paso(s) ajustados a Congregado → Converso`);
   return cambios;
 }
 

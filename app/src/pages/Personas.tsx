@@ -216,6 +216,7 @@ export default function Personas() {
       {creando && (
         <PersonaFormModal
           open
+          altasDirectas
           onClose={() => setCreando(false)}
           onSaved={(id) => { setCreando(false); setSelectedId(id); }}
         />

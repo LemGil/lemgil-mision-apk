@@ -124,7 +124,7 @@ function renderCrear(over: {
 describe("ConversionFormModal — guardia «ya en Misión»", () => {
   it("persona CON conversión: aviso con el estado vivo y guardado rotulado «Crear otra de todos modos»", () => {
     renderCrear({ conversiones: [convDe()] });
-    const aviso = screen.getByText(/ya tiene una conversión registrada/);
+    const aviso = screen.getByText(/ya está en Misión/);
     expect(aviso).toBeInTheDocument();
     expect(aviso.textContent).toContain("Discipulado");
     expect(screen.getByRole("button", { name: /Crear otra de todos modos/ })).toBeInTheDocument();
@@ -144,13 +144,13 @@ describe("ConversionFormModal — guardia «ya en Misión»", () => {
 
   it("persona SIN conversión: ni aviso ni rótulo especial", () => {
     renderCrear({ conversiones: [] });
-    expect(screen.queryByText(/ya tiene una conversión registrada/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ya está en Misión/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Crear otra de todos modos/)).not.toBeInTheDocument();
   });
 
   it("al EDITAR no hay aviso aunque la persona tenga otra conversión", () => {
     renderCrear({ conversiones: [convDe()], editConvId: "c9" });
-    expect(screen.queryByText(/ya tiene una conversión registrada/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ya está en Misión/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Crear otra de todos modos/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Guardar Cambios/ })).toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Globe, BookOpen, Heart, Briefcase, Radio, CircleDollarSign, FileBarChart, Menu, X, HandCoins, Users, ContactRound } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Church, BookOpen, Heart, Briefcase, Radio, CircleDollarSign, FileBarChart, Menu, X, HandCoins, Users, ContactRound, UsersRound, Megaphone, HeartHandshake, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
 
@@ -8,28 +8,57 @@ interface NavItem {
   to?: string;
   label?: string;
   icon?: ComponentType<{ size?: number }>;
-  badge?: number;
+  /**
+   * Pestaña de la página a la que este ítem entra (?tab=…). Dos ítems
+   * pueden compartir ruta (Congregados/Grupos/Evangelismos viven en
+   * /mision; Miembros/Ministerios en /miembros): el resaltado activo se
+   * calcula por ruta + pestaña, porque NavLink solo mira la ruta.
+   */
+  tabKey?: string;
 }
 
+// Menú agrupado de LemGil (2026-11-15, construido 2026-11-16):
+// Secretaría · Misión · Iglesia · Finanzas. Cada módulo conserva su
+// página; el menú solo agrupa y entra directo a la pestaña pedida.
 const NAV_ITEMS: NavItem[] = [
-  { section: 'Principal' },
+  { section: 'Secretaría' },
   { to: '/', label: 'Panel', icon: LayoutDashboard },
   { to: '/personas', label: 'Personas', icon: ContactRound },
-  { section: 'Ministerio' },
-  { to: '/mision', label: 'Misión Bíblica', icon: Globe, badge: 3 },
-  { to: '/academia', label: 'Academia', icon: BookOpen },
-  { to: '/manos-abiertas', label: 'Manos Abiertas', icon: Heart },
-  { to: '/negocios', label: 'Negocios Adonay', icon: Briefcase },
-  { section: 'Operaciones' },
+  { to: '/reportes', label: 'Informe', icon: FileBarChart },
   { to: '/comunicacion', label: 'Comunicación', icon: Radio },
+  { section: 'Misión' },
+  { to: '/mision?tab=congregados', label: 'Congregados', icon: Church, tabKey: 'congregados' },
+  { to: '/mision?tab=grupos', label: 'Grupos', icon: UsersRound, tabKey: 'grupos' },
+  { to: '/mision?tab=evangelismo', label: 'Evangelismos', icon: Megaphone, tabKey: 'evangelismo' },
+  { to: '/manos-abiertas', label: 'Manos Abiertas', icon: Heart },
+  { section: 'Iglesia' },
+  { to: '/miembros?tab=directorio', label: 'Miembros', icon: Users, tabKey: 'directorio' },
+  { to: '/miembros?tab=ministerios', label: 'Ministerios', icon: HeartHandshake, tabKey: 'ministerios' },
+  { to: '/diezmadores', label: 'Diezmadores', icon: PiggyBank },
+  { to: '/academia', label: 'Academia', icon: BookOpen },
+  { section: 'Finanzas' },
   { to: '/dadores', label: 'Red de Colaboradores', icon: CircleDollarSign },
   { to: '/bien-comun', label: 'Bien Común', icon: HandCoins },
-  { to: '/miembros', label: 'Miembros', icon: Users },
-  { to: '/reportes', label: 'Reportes', icon: FileBarChart, badge: 2 },
+  { to: '/negocios', label: 'Negocios Adonay', icon: Briefcase },
 ];
+
+/** Pestaña por omisión de cada página con pestañas (sin ?tab= en la URL). */
+const TAB_POR_OMISION: Record<string, string> = {
+  '/mision': 'congregados',
+  '/miembros': 'directorio',
+};
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
+  const { pathname, search } = useLocation();
+  const tabEnUrl = new URLSearchParams(search).get('tab');
+  const tabEfectiva = tabEnUrl ?? TAB_POR_OMISION[pathname] ?? null;
+
+  const claseItem = (item: NavItem) => {
+    if (!item.tabKey) return undefined; // NavLink decide por la ruta
+    const rutaItem = item.to!.split('?')[0];
+    return `nav-item ${pathname === rutaItem && tabEfectiva === item.tabKey ? 'active' : ''}`;
+  };
 
   return (
     <>
@@ -50,12 +79,11 @@ export function Sidebar() {
               <NavLink
                 key={item.to}
                 to={item.to!}
-                className={({ isActive }: { isActive: boolean }) => `nav-item ${isActive ? 'active' : ''}`}
+                className={claseItem(item) ?? (({ isActive }: { isActive: boolean }) => `nav-item ${isActive ? 'active' : ''}`)}
                 onClick={() => setOpen(false)}
               >
                 {item.icon && <item.icon size={16} />}
                 {item.label}
-                {item.badge && <span className="nav-badge">{item.badge}</span>}
               </NavLink>
             ),
           )}

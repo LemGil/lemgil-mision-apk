@@ -12,7 +12,7 @@ import type { Conversion } from '../../lib/types';
 // abrirla lanzaba TypeError y quedaba intocable. El modal lo tolera
 // como [] y la ficha se abre.
 // (F6) el «Progreso» se mide dentro de la RUTA: un Integrado es
-// 100 % / «paso 4 de 4» (antes 57 % / «paso 4 de 7», porque el
+// 100 % / «paso 5 de 5» en la ruta Congregado → Integrado (antes
 // denominador sumaba las salidas), y en una salida no hay porcentaje
 // engañoso: 0 % con la etiqueta del estado como rótulo.
 // ════════════════════════════════════════════════════════════════════
@@ -75,10 +75,10 @@ describe("ConversionDetailModal (F1 + F6)", () => {
     expect(screen.getByText('Registro inicial')).toBeTruthy();
   });
 
-  it("F6 · Integrado: 100 % y «paso 4 de 4» (antes: 57 %, «paso 4 de 7»)", () => {
+  it("F6 · Integrado: 100 % y «paso 5 de 5» (ruta Congregado → Integrado)", () => {
     renderDetalle(sinHistorial({ estado: 'ps-integrado' }));
     expect(within(kpiProgreso()).getByText('100%')).toBeTruthy();
-    expect(within(kpiProgreso()).getByText('paso 4 de 4')).toBeTruthy();
+    expect(within(kpiProgreso()).getByText('paso 5 de 5')).toBeTruthy();
   });
 
   it("F6 · en una salida: 0 % y el rótulo es la etiqueta del estado, sin «paso X de N»", () => {
@@ -88,9 +88,9 @@ describe("ConversionDetailModal (F1 + F6)", () => {
     expect(screen.queryByText(/paso \d+ de \d+/)).toBeNull();
   });
 
-  it("F6 · a mitad de camino: Discipulado es «paso 2 de 4», 50 %", () => {
+  it("F6 · en el camino: Discipulado es «paso 3 de 5», 60 %", () => {
     renderDetalle(convBase({ estado: 'ps-discipulado' }));
-    expect(within(kpiProgreso()).getByText('50%')).toBeTruthy();
-    expect(within(kpiProgreso()).getByText('paso 2 de 4')).toBeTruthy();
+    expect(within(kpiProgreso()).getByText('60%')).toBeTruthy();
+    expect(within(kpiProgreso()).getByText('paso 3 de 5')).toBeTruthy();
   });
 });

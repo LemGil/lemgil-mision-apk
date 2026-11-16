@@ -87,7 +87,7 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={editConvId ? '✏️ Editar Conversión' : '✝️ Nueva Conversión'} footer={<><button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-gold" onClick={saveConv}>💾 {editConvId ? 'Guardar Cambios' : convExistente ? 'Crear otra de todos modos' : 'Guardar'}</button></>} wide>
+      <Modal open={open} onClose={onClose} title={editConvId ? '✏️ Editar registro' : '🙏 Nuevo Congregado'} footer={<><button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-gold" onClick={saveConv}>💾 {editConvId ? 'Guardar Cambios' : convExistente ? 'Crear otra de todos modos' : 'Guardar'}</button></>} wide>
 
         {/* ─── SECCIÓN: PERSONA ─── */}
         <div className="form-section">👤 Persona (se teclea una sola vez)</div>
@@ -115,8 +115,8 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
         )}
         {convExistente && persona && (
           <div style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)', borderRadius: 8, padding: '10px 12px', marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
-            ⚠️ {persona.nombre} {persona.apellido} ya tiene una conversión registrada — estado actual: <strong>{etiquetaDe(pasos, convExistente.estado)}</strong>.
-            Si sigues y guardas, crearás OTRA conversión para la misma persona.
+            ⚠️ {persona.nombre} {persona.apellido} ya está en Misión — estado actual: <strong>{etiquetaDe(pasos, convExistente.estado)}</strong>.
+            Si sigues y guardas, crearás OTRO registro para la misma persona.
             {onVerConversion && (
               <>
                 {' '}
@@ -127,7 +127,7 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
         )}
 
         {/* ─── SECCIÓN: PROCESO ─── */}
-        <div className="form-section" style={{ marginTop: 16 }}>✝️ Datos de la conversión</div>
+        <div className="form-section" style={{ marginTop: 16 }}>🙏 Datos del registro</div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">Fecha *</label><input className="form-input" type="date" value={fFecha} onChange={(e) => setFFecha(e.target.value)} /></div>
           <div className="form-group"><label className="form-label">Estado Inicial</label><select className="form-select" value={fEstado} onChange={(e) => setFEstado(e.target.value)}><OpcionesEstado pasos={pasos} valorActual={fEstado} /></select></div>

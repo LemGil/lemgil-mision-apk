@@ -79,7 +79,7 @@ export function GruposTab(props: GruposTabProps) {
                 if (totalAsignados === 0) alertas.push({ color: 'var(--blue)', icon: '🆕', text: 'Nuevo' });
                 else if (capacidad > 0 && pctCap < 30) alertas.push({ color: 'var(--gold)', icon: '🌱', text: 'En desarrollo' });
                 const etapas = [
-                  { key: 'nuevo', icon: '🌱', label: 'Nuevos', cant: cantNuevo, color: 'var(--green)' },
+                  { key: 'nuevo', icon: '🌱', label: 'Conversos', cant: cantNuevo, color: 'var(--green)' },
                   { key: 'discip', icon: '📖', label: 'Discip.', cant: cantDiscip, color: 'var(--blue)' },
                   { key: 'baut', icon: '💧', label: 'Bautiz.', cant: cantBaut, color: 'var(--purple)' },
                   { key: 'miemb', icon: '👥', label: 'Integr.', cant: cantMiembros, color: 'var(--gold)' },

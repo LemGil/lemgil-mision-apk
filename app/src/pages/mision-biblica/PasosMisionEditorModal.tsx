@@ -109,15 +109,15 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
     const { enElPaso, enHistorial } = usoDelPaso(convs, p.id);
     const esSalidaPaso = p.rol === 'salida';
     if (enElPaso > 0 && enHistorial > 0) {
-      showToast(`No se puede eliminar «${p.nombre}»: ${enElPaso} conversión(es) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'} · ${enHistorial} lo mencionan en su historial.`);
+      showToast(`No se puede eliminar «${p.nombre}»: ${enElPaso} registro(s) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'} · ${enHistorial} lo mencionan en su historial.`);
       return;
     }
     if (enElPaso > 0) {
-      showToast(`No se puede eliminar «${p.nombre}»: ${enElPaso} conversión(es) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'}. Muévelas primero a otro ${esSalidaPaso ? 'estado' : 'paso'}.`);
+      showToast(`No se puede eliminar «${p.nombre}»: ${enElPaso} registro(s) están en ${esSalidaPaso ? 'esa salida' : 'ese paso'}. Muévelas primero a otro ${esSalidaPaso ? 'estado' : 'paso'}.`);
       return;
     }
     if (enHistorial > 0) {
-      showToast(`No se puede eliminar «${p.nombre}»: ninguna conversión está en ${esSalidaPaso ? 'esa salida' : 'ese paso'}, pero ${enHistorial} lo mencionan en su historial y perderían su nombre.`);
+      showToast(`No se puede eliminar «${p.nombre}»: ningún registro está en ${esSalidaPaso ? 'esa salida' : 'ese paso'}, pero ${enHistorial} lo mencionan en su historial y perderían su nombre.`);
       return;
     }
     const pregunta = esSalidaPaso
@@ -172,7 +172,7 @@ export function PasosMisionEditorModal({ open, onClose, pasos }: PasosMisionEdit
         <strong> identidad fija</strong>: puedes renombrarlo, cambiar su emoji, reordenar los
         pasos intermedios o agregar nuevos, y las fichas, los conteos y el historial no se
         rompen — las conversiones guardan la identidad del paso, no su nombre. Un paso
-        intermedio solo se puede eliminar si ninguna conversión está en él ni lo
+        intermedio solo se puede eliminar si ningún registro está en él ni lo
         menciona su historial.
       </div>
 

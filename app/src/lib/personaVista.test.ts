@@ -373,7 +373,7 @@ describe('situacionPersona: la situación actual que la ficha sí dice', () => {
     expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-discipulado' })] })))
       .toEqual({ texto: 'Discipulado', tono: 'info' });
     expect(situacionPersona(grupo({ conversiones: [convBase({ estado: 'ps-nuevo' })] })))
-      .toEqual({ texto: 'Nuevo', tono: 'info' });
+      .toEqual({ texto: 'Converso', tono: 'info' });
   });
 
   it('regla 7: entre varias en proceso gana la más avanzada (Bautizado > Discipulado > Nuevo)', () => {

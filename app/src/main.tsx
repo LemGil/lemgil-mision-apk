@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import App from './App';
-import { migrateFromLocalStorage, ensureMetas, backfillIntegrados, ensureZonas, desunificarBienComun, canonizarZonas, unificarPersonas, asegurarDiezmadores, ensurePasosMiembro, ensurePasosMision, migrarEstadosAPasos } from './lib/migrate';
+import { migrateFromLocalStorage, ensureMetas, backfillIntegrados, ensureZonas, desunificarBienComun, canonizarZonas, unificarPersonas, asegurarDiezmadores, ensurePasosMiembro, ensurePasosMision, migrarEstadosAPasos, migrarRutaCongregados } from './lib/migrate';
 import { instalarVigilanciaDeVersion } from './lib/database';
 import { initSync } from './lib/sync';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -26,7 +26,9 @@ instalarVigilanciaDeVersion();
 // que la migración no enlazó y les asegura su persona antes de pintar.
 // migrarEstadosAPasos (Fase 2) va encadenado tras la semilla de Misión:
 // traduce los estados-etiqueta de las conversiones a identidad de paso.
-Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ensureZonas(), desunificarBienComun(), ensurePasosMiembro(), ensurePasosMision()]).then(() => migrarEstadosAPasos()).then(() => canonizarZonas()).then(() => unificarPersonas()).then(() => asegurarDiezmadores()).then(() => {
+// migrarRutaCongregados (2026-11-15) va tras él: lleva el catálogo vivo
+// a la ruta Congregado → Converso.
+Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ensureZonas(), desunificarBienComun(), ensurePasosMiembro(), ensurePasosMision()]).then(() => migrarEstadosAPasos()).then(() => migrarRutaCongregados()).then(() => canonizarZonas()).then(() => unificarPersonas()).then(() => asegurarDiezmadores()).then(() => {
   console.log('[Main] Migraciones completadas, renderizando...');
   // El render no debe esperar a la red: si el sync se cuelga (p.ej. una tabla que
   // nunca responde), la app igualmente abre. El sync corre en paralelo.

@@ -135,7 +135,7 @@ export function PasosMiembroEditorModal({ open, onClose, pasos }: PasosMiembroEd
               </div>
               {p.protegido && (
                 <div style={{ fontSize: 11, color: 'var(--oro-sombra)', marginTop: 6 }}>
-                  🔒 Paso protegido: es el gozne con Misión Bíblica — puedes renombrarlo, pero no borrarlo ni cambiar su fuente.
+                  🔒 Paso protegido: es el gozne con Misión — puedes renombrarlo, pero no borrarlo ni cambiar su fuente.
                 </div>
               )}
             </div>

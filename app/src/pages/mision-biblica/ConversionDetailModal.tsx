@@ -177,7 +177,7 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Miembro de la iglesia</div>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>Sin miembro vinculado</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión está «{etiquetaDe(pasos, selConv.estado)}», pero no existe un miembro nacido de ella (dato anterior a este vínculo).</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>El registro está «{etiquetaDe(pasos, selConv.estado)}», pero no existe un miembro nacido de ella (dato anterior a este vínculo).</div>
                 </div>
               </div>
             )}
@@ -187,7 +187,7 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Miembro eliminado</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--red, #ef4444)' }}>Su miembro fue eliminado — no se recreará</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>La conversión sigue «{etiquetaDe(pasos, selConv.estado)}», pero el miembro borrado desde Miembros no volverá a crearse automáticamente.</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>El registro sigue «{etiquetaDe(pasos, selConv.estado)}», pero el miembro borrado desde Miembros no volverá a crearse automáticamente.</div>
                 </div>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={onPermitirRecrear}>Permitir recrear</button>
               </div>
@@ -201,7 +201,7 @@ export function ConversionDetailModal(props: ConversionDetailModalProps) {
               <div className="detail-row"><span className="detail-label">📍 Zona</span><span className="detail-value">{selConv.zona || '—'}</span></div>
               <div className="detail-row"><span className="detail-label">👤 Mayor</span><span className="detail-value">{selConv.lider || '—'}</span></div>
               <div className="detail-row"><span className="detail-label">🏠 Familia en ministerio</span><span className="detail-value">{selConv.familia || 'No'}</span></div>
-              <div className="detail-row"><span className="detail-label">📅 Fecha conversión</span><span className="detail-value">{fmt(selConv.fecha)}</span></div>
+              <div className="detail-row"><span className="detail-label">📅 Fecha de registro</span><span className="detail-value">{fmt(selConv.fecha)}</span></div>
               {selConv.direccion && <div className="detail-row" style={{ gridColumn: '1 / -1' }}><span className="detail-label">🏡 Dirección</span><span className="detail-value" style={{ fontSize: 12 }}>{selConv.direccion}</span></div>}
               {selConv.notas && <div className="detail-row" style={{ gridColumn: '1 / -1', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}><span className="detail-label">📝 Notas</span><span className="detail-value" style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'pre-wrap' }}>{selConv.notas}</span></div>}
             </div>

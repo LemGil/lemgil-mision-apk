@@ -155,7 +155,7 @@ export function MiembroDetailModal(props: MiembroDetailModalProps) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Origen — Conversión</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--oro-sombra)' }}>Convertido el {fmt(conversionOrigen.fecha)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Estado en Misión Bíblica: <strong>{etiquetaDe(pasosSeguimiento, conversionOrigen.estado)}</strong>{conversionOrigen.lider ? ` · Mayor: ${conversionOrigen.lider}` : ''}</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Estado en Misión: <strong>{etiquetaDe(pasosSeguimiento, conversionOrigen.estado)}</strong>{conversionOrigen.lider ? ` · Mayor: ${conversionOrigen.lider}` : ''}</div>
                 </div>
                 <button type="button" className="btn btn-gold btn-sm" onClick={() => navigate(`/mision?ver=${conversionOrigen.id}`)}>Ver conversión →</button>
               </div>

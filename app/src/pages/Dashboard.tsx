@@ -11,6 +11,7 @@ import { db } from '../lib/database';
 import { MS } from '../lib/utils';
 import { showToast } from '../lib/notification';
 import { contarPersonasUnicas } from '../lib/personaVista';
+import { fechaDeConversion, seConvirtio } from '../lib/pasosMision';
 import { mapaPersonas } from '../lib/personaDatos';
 import {
   actividadReciente, alertasDelPanel, barrasCrecimiento, certificadosDelPeriodo,
@@ -265,7 +266,7 @@ export default function Dashboard() {
         <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt)' }}>🚀 Acceso Rápido</div>
         <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2, marginBottom: 12 }}>Lo que más se hace cada semana, a un toque: registrar, entregar y reportar.</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <Link to="/mision" className="btn btn-gold">🌱 Nueva conversión</Link>
+          <Link to="/mision" className="btn btn-gold">🙏 Nuevo congregado</Link>
           <Link to="/mision" className="btn btn-secondary">📢 Evangelismo</Link>
           <Link to="/manos-abiertas" className="btn btn-secondary">🤲 Nueva entrega</Link>
           <Link to="/reportes" className="btn btn-secondary">📊 Generar Reporte</Link>
@@ -301,7 +302,7 @@ export default function Dashboard() {
           <div className="card-header"><div className="card-title">⚡ Actividad Reciente</div></div>
           {activities.length === 0 ? (
             <div style={{ color: 'var(--dim)', fontSize: 13, padding: 18, textAlign: 'center' }}>
-              Sin actividad reciente — registra conversiones, evangelismos o estudiantes para verlas aquí
+              Sin actividad reciente — registra congregados, evangelismos o estudiantes para verlas aquí
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -378,7 +379,7 @@ export default function Dashboard() {
                 {anos.map((a) => (
                   <tr key={a} style={{ cursor: 'pointer', background: filterAno === a ? 'rgba(201,162,74,0.08)' : undefined }} onClick={() => setFilterAno(filterAno === a ? '' : a)}>
                     <td style={{ fontWeight: 700 }}>{a}</td>
-                    <td>{convs.filter((c) => c.fecha?.startsWith(a)).length}</td>
+                    <td>{convs.filter((c) => seConvirtio(c) && fechaDeConversion(c).startsWith(a)).length}</td>
                     <td>{evangels.filter((e) => e.fecha?.startsWith(a)).length}</td>
                     <td>${aportes.filter((ap) => ap.fecha?.startsWith(a)).reduce((s, ap) => s + (ap.monto || 0), 0).toLocaleString()}</td>
                     <td>{entregas.filter((e) => e.fecha?.startsWith(a)).length}</td>

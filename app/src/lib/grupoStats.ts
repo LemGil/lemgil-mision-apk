@@ -4,7 +4,7 @@ import { PS_BAUTIZADO, PS_DISCIPULADO, PS_NUEVO, enCamino, idCanonico } from './
 export interface ConteoGrupo {
   /** Miembros asignados al grupo con estado «Activo». */
   miembrosActivos: number;
-  /** Conversiones en el paso de inicio (semilla «Nuevo»). */
+  /** Registros en el paso semilla «Converso» (ya aceptaron la fe). */
   nuevo: number;
   /** Conversiones en el paso semilla «Discipulado». */
   discipulado: number;
