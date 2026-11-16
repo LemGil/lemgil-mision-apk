@@ -13,6 +13,7 @@ import BienComun from './pages/BienComun';
 import Reportes from './pages/Reportes';
 import Miembros from './pages/Miembros';
 import Personas from './pages/Personas';
+import Mapa from './pages/Mapa';
 
 function AppRoutes() {
   const { session, loading } = useAuth();
@@ -39,6 +40,7 @@ function AppRoutes() {
             lleva directo a ella (corrección de LemGil, 2026-11-16). */}
         <Route path="/diezmadores" element={<Navigate to="/bien-comun?tab=diezmadores" replace />} />
         <Route path="/personas" element={<Personas />} />
+        <Route path="/mapa" element={<Mapa />} />
         <Route path="/reportes" element={<Reportes />} />
       </Routes>
     </HashRouter>

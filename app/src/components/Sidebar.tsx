@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Church, BookOpen, Heart, Briefcase, Radio, CircleDollarSign, FileBarChart, Menu, X, HandCoins, Users, ContactRound, UsersRound, Megaphone, HeartHandshake, PiggyBank } from 'lucide-react';
+import { LayoutDashboard, Church, BookOpen, Heart, Briefcase, Radio, CircleDollarSign, FileBarChart, Menu, X, HandCoins, Users, ContactRound, UsersRound, Megaphone, HeartHandshake, PiggyBank, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
 
@@ -31,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/mision?tab=grupos', label: 'Grupos', icon: UsersRound, tabKey: 'grupos' },
   { to: '/mision?tab=evangelismo', label: 'Evangelismos', icon: Megaphone, tabKey: 'evangelismo' },
   { to: '/manos-abiertas', label: 'Manos Abiertas', icon: Heart },
+  { to: '/mapa', label: 'Mapa', icon: MapPin },
   { section: 'Iglesia' },
   { to: '/miembros?tab=directorio', label: 'Miembros', icon: Users, tabKey: 'directorio' },
   { to: '/miembros?tab=ministerios', label: 'Ministerios', icon: HeartHandshake, tabKey: 'ministerios' },

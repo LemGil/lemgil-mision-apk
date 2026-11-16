@@ -28,6 +28,12 @@ export default defineConfig({
           urlPattern: /^https:\/\/ykynzeykphufrkwgncyu\.supabase\.co\/.*/i,
           handler: 'NetworkFirst',
           options: { cacheName: 'supabase-api', expiration: { maxEntries: 50, maxAgeSeconds: 300 } }
+        }, {
+          // Pedazos del mapa (OpenStreetMap): se guardan al verlos y la
+          // zona ya visitada se puede abrir después sin conexión.
+          urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/i,
+          handler: 'CacheFirst',
+          options: { cacheName: 'osm-tiles', expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 30 } }
         }]
       }
     })

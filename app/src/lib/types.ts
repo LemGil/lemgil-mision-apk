@@ -76,6 +76,14 @@ export interface Persona {
   telefono: string;
   email: string;
   direccion: string;
+  /**
+   * Ubicación fijada en el mapa (2026-11-16): la marca a mano el
+   * maestro — GPS al visitar o toque en el mapa — porque la dirección
+   * escrita no se puede geocodificar con fiabilidad. Null = sin fijar.
+   * Viaja en la ficha y se sincroniza como cualquier otro dato.
+   */
+  lat?: number | null;
+  lng?: number | null;
   zona: string;
   fechaNacimiento: string;
   profesion: string;
@@ -103,6 +111,9 @@ export interface Grupo {
   hora: string;
   capacidad: string;
   lugar: string;
+  /** Ubicación fijada en el mapa (ver Persona.lat). Null = sin fijar. */
+  lat?: number | null;
+  lng?: number | null;
   miembros: number;
   planOfrendasMensual?: number;
   version: number;

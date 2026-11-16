@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { PersonaFormModal } from '../../components/PersonaFormModal';
+import { FijarUbicacionModal } from '../../components/FijarUbicacionModal';
+import { db } from '../../lib/database';
 import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
 import { edadDesde, nombrePersona, situacionPersona, tarjetasDeProcesos, PROCESO_ETIQUETA, SITUACION_BADGE } from '../../lib/personaVista';
@@ -41,6 +43,7 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
   const [confirmando, setConfirmando] = useState(false);
   const [uniendo, setUniendo] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [fijando, setFijando] = useState(false);
 
   // Al cambiar de persona, la herramienta de unión y el editor vuelven
   // a su estado inicial.
@@ -88,9 +91,14 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
             📍 {persona.zona || 'Sin zona'}{grupoNombre ? ` · 👥 ${grupoNombre}` : ''}
           </div>
         </div>
-        <button type="button" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }} onClick={() => setEditando(true)}>
-          ✏️ Editar datos
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditando(true)}>
+            ✏️ Editar datos
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFijando(true)}>
+            📍 {persona.lat != null && persona.lng != null ? 'Ubicación ✓' : 'Fijar ubicación'}
+          </button>
+        </div>
       </div>
 
       {/* NÚCLEO */}
@@ -174,6 +182,27 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
         onClose={() => setEditando(false)}
         persona={persona}
         onSaved={() => { setEditando(false); showToast('Datos de la persona actualizados'); }}
+      />
+    )}
+
+    {/* FIJAR UBICACIÓN EN EL MAPA: la marca el maestro a mano o con el
+        GPS al visitar; viaja en la ficha y se sincroniza. */}
+    {fijando && (
+      <FijarUbicacionModal
+        titulo={nombrePersona(persona)}
+        lat={persona.lat ?? null}
+        lng={persona.lng ?? null}
+        onGuardar={async (la, ln) => {
+          await db.personas.update(persona.id, { lat: la, lng: ln });
+          setFijando(false);
+          showToast('Ubicación fijada 📍');
+        }}
+        onQuitar={async () => {
+          await db.personas.update(persona.id, { lat: null, lng: null });
+          setFijando(false);
+          showToast('Ubicación retirada');
+        }}
+        onClose={() => setFijando(false)}
       />
     )}
     </>

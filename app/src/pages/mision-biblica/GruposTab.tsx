@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { EmptyState } from '../../components/EmptyState';
+import { FijarUbicacionModal } from '../../components/FijarUbicacionModal';
+import { db } from '../../lib/database';
 import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
 import { exportGruposMisionPDF, safeExport } from '../../lib/pdfExport';
@@ -20,6 +23,7 @@ interface GruposTabProps {
 
 export function GruposTab(props: GruposTabProps) {
   const { pasos, grupos, gruposFiltrados, convs, miembros, openEditGrupo, onEliminar } = props;
+  const [fijando, setFijando] = useState<Grupo | null>(null);
   return (
         <div className="card">
            <div className="card-header">
@@ -118,6 +122,7 @@ export function GruposTab(props: GruposTabProps) {
                     </div>
                     <div style={{ display: 'flex', gap: 5, marginTop: 10 }}>
                       <button className="btn btn-secondary btn-sm" onClick={() => openEditGrupo(g.id)}>✏️ Editar</button>
+                      <button className="btn btn-secondary btn-sm" title="Fijar la ubicación del grupo en el mapa" onClick={() => setFijando(g)}>📍{g.lat != null && g.lng != null ? ' ✓' : ''}</button>
                       <button className="btn btn-danger btn-sm" onClick={() => { onEliminar(g.id); }}>🗑️</button>
                     </div>
                   </div>
@@ -127,6 +132,24 @@ export function GruposTab(props: GruposTabProps) {
             )}
             </>
           )}
+      {fijando && (
+        <FijarUbicacionModal
+          titulo={fijando.nombre}
+          lat={fijando.lat ?? null}
+          lng={fijando.lng ?? null}
+          onGuardar={async (la, ln) => {
+            await db.grupos.update(fijando.id, { lat: la, lng: ln });
+            setFijando(null);
+            showToast('Ubicación del grupo fijada 📍');
+          }}
+          onQuitar={async () => {
+            await db.grupos.update(fijando.id, { lat: null, lng: null });
+            setFijando(null);
+            showToast('Ubicación del grupo retirada');
+          }}
+          onClose={() => setFijando(null)}
+        />
+      )}
       </div>
   );
 }
