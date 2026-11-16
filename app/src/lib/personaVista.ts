@@ -483,3 +483,92 @@ export function posiblesRepetidas(
     }))
     .sort((a, b) => fuerza(b) - fuerza(a) || claveOrden(a.persona).localeCompare(claveOrden(b.persona)));
 }
+
+// ─── FILTROS DE LA LISTA DE PERSONAS (2026-11-16) ────────────────────
+
+/**
+ * Categoría de situación para FILTRAR: la misma prioridad que
+ * `situacionPersona` (la insignia de la lista), en claves estables
+ * para el selector de la página. Si cambia la prioridad allá, cambia
+ * aquí: son dos lecturas de la misma regla.
+ */
+export type CategoriaSituacion =
+  | 'fallecido' | 'apartado' | 'salida' | 'inactivo'
+  | 'miembro-activo' | 'integrado' | 'en-camino' | 'sin-situacion';
+
+export const CATEGORIA_SITUACION_ETIQUETA: Record<CategoriaSituacion, string> = {
+  'miembro-activo': 'Miembro activo',
+  'integrado': 'Integrado',
+  'en-camino': 'En el camino (Misión)',
+  'apartado': 'Apartado',
+  'inactivo': 'Inactivo',
+  'salida': 'Trasladado / otra salida',
+  'fallecido': 'Fallecido',
+  'sin-situacion': 'Sin situación (ni Misión ni Miembros)',
+};
+
+export function categoriaSituacion(g: ProcesosAgrupados, pasos?: PasoSeguimiento[]): CategoriaSituacion {
+  const convs = g.conversiones;
+  const miembros = g.miembros;
+  if (convs.some((c) => idCanonico(c.estado) === PS_FALLECIDO) || miembros.some((m) => m.estado === 'Fallecido')) return 'fallecido';
+  if (convs.some((c) => idCanonico(c.estado) === PS_APARTADO) || miembros.some((m) => (m.estado as string) === 'Apartado')) return 'apartado';
+  const haySalidaExtra = convs.some((c) => {
+    const id = idCanonico(c.estado);
+    return id !== PS_APARTADO && id !== PS_FALLECIDO && esSalida(pasos, c.estado);
+  });
+  if (haySalidaExtra || miembros.some((m) => m.estado === 'Trasladado')) return 'salida';
+  if (miembros.some((m) => m.estado === 'Inactivo')) return 'inactivo';
+  if (miembros.some((m) => m.estado === 'Activo')) return 'miembro-activo';
+  if (convs.some((c) => esGozne(pasos, c.estado))) return 'integrado';
+  if (convs.some((c) => enCamino(pasos, c.estado))) return 'en-camino';
+  return 'sin-situacion';
+}
+
+export type FiltroProceso = ProcesoPersona | 'sin-procesos';
+export type FiltroIncompleta = 'sin-telefono' | 'sin-identidad' | 'sin-grupo' | 'sin-hermano-mayor' | 'sin-nacimiento';
+export type FiltroBautismo = 'bautizado' | 'sin-bautizar';
+
+/** Los criterios de la fila de filtros de Personas; '' = sin filtro. */
+export interface CriteriosPersonas {
+  proceso?: FiltroProceso | '';
+  situacion?: CategoriaSituacion | '';
+  zona?: string;
+  grupoId?: string;
+  incompleta?: FiltroIncompleta | '';
+  bautismo?: FiltroBautismo | '';
+}
+
+export function hayCriteriosActivos(c: CriteriosPersonas): boolean {
+  return !!(c.proceso || c.situacion || c.zona || c.grupoId || c.incompleta || c.bautismo);
+}
+
+/** ¿La persona cumple TODOS los criterios activos? (se combinan en Y). */
+export function cumpleCriteriosPersonas(p: Persona, g: ProcesosAgrupados, c: CriteriosPersonas, pasos?: PasoSeguimiento[]): boolean {
+  if (c.proceso) {
+    if (c.proceso === 'sin-procesos') { if (totalProcesos(g) > 0) return false; }
+    else if (g[c.proceso].length === 0) return false;
+  }
+  if (c.situacion && categoriaSituacion(g, pasos) !== c.situacion) return false;
+  if (c.zona && p.zona !== c.zona) return false;
+  if (c.grupoId && p.grupoId !== c.grupoId) return false;
+  if (c.incompleta) {
+    if (c.incompleta === 'sin-telefono' && p.telefono.trim()) return false;
+    if (c.incompleta === 'sin-identidad' && p.numeroIdentidad.trim()) return false;
+    if (c.incompleta === 'sin-grupo' && p.grupoId) return false;
+    if (c.incompleta === 'sin-hermano-mayor' && p.hermanoMayorId) return false;
+    if (c.incompleta === 'sin-nacimiento' && p.fechaNacimiento) return false;
+  }
+  if (c.bautismo === 'bautizado' && !p.bautizado) return false;
+  if (c.bautismo === 'sin-bautizar' && p.bautizado) return false;
+  return true;
+}
+
+/** Aplica los criterios sobre la lista (la búsqueda por texto va antes, con `filtrarPersonas`). */
+export function aplicarFiltrosPersonas(
+  personas: Persona[],
+  agrupados: Map<string, ProcesosAgrupados>,
+  criterios: CriteriosPersonas,
+  pasos?: PasoSeguimiento[],
+): Persona[] {
+  return personas.filter((p) => cumpleCriteriosPersonas(p, agrupados.get(p.id) ?? procesosVacios(), criterios, pasos));
+}

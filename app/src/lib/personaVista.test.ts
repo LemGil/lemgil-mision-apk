@@ -3,7 +3,9 @@ import {
   agruparProcesos, tiposPresentes, totalProcesos, tarjetasDeProcesos,
   procesosHuerfanos, filtrarPersonas, edadDesde, procesosVacios, contarPersonasUnicas,
   posiblesDuplicados, situacionPersona, conversionDePersona, posiblesRepetidas,
+  categoriaSituacion, aplicarFiltrosPersonas, hayCriteriosActivos,
 } from './personaVista';
+import type { ProcesosAgrupados } from './personaVista';
 import { PASOS_MISION_DEFECTO } from './pasosMision';
 import type { FichasDePersona } from './personas';
 import type { Beneficiario, Conversion, Diezmador, Estudiante, Miembro, PasoSeguimiento, Persona } from './types';
@@ -505,5 +507,87 @@ describe('posiblesRepetidas: aviso por nombre en el formulario único', () => {
     const otra = personaBase({ id: 'p2', telefono: '5999' });
     expect(posiblesRepetidas([yo], datos, 'p1')).toEqual([]);
     expect(posiblesRepetidas([yo, otra], datos, 'p1').map((x) => x.persona.id)).toEqual(['p2']);
+  });
+});
+
+describe('categoriaSituacion: la prioridad de la insignia, en clave de filtro', () => {
+  const pasos = PASOS_MISION_DEFECTO;
+  const grupo = (over: Partial<ProcesosAgrupados>): ProcesosAgrupados => ({ ...procesosVacios(), ...over });
+
+  it('fallecido gana a todo, venga de la conversión o del miembro', () => {
+    expect(categoriaSituacion(grupo({ conversiones: [convBase({ estado: 'ps-fallecido' })], miembros: [miembroBase({})] }), pasos)).toBe('fallecido');
+    expect(categoriaSituacion(grupo({ miembros: [miembroBase({ estado: 'Fallecido' })] }), pasos)).toBe('fallecido');
+  });
+
+  it('apartado gana al miembro activo', () => {
+    expect(categoriaSituacion(grupo({ conversiones: [convBase({ estado: 'ps-apartado' })], miembros: [miembroBase({})] }), pasos)).toBe('apartado');
+  });
+
+  it('traslado (conversión o miembro) es «salida»', () => {
+    expect(categoriaSituacion(grupo({ conversiones: [convBase({ estado: 'ps-traslado' })] }), pasos)).toBe('salida');
+    expect(categoriaSituacion(grupo({ miembros: [miembroBase({ estado: 'Trasladado' })] }), pasos)).toBe('salida');
+  });
+
+  it('inactivo, miembro activo, integrado sin miembro y en el camino', () => {
+    expect(categoriaSituacion(grupo({ miembros: [miembroBase({ estado: 'Inactivo' })] }), pasos)).toBe('inactivo');
+    expect(categoriaSituacion(grupo({ miembros: [miembroBase({})] }), pasos)).toBe('miembro-activo');
+    expect(categoriaSituacion(grupo({ conversiones: [convBase({ estado: 'ps-integrado' })] }), pasos)).toBe('integrado');
+    expect(categoriaSituacion(grupo({ conversiones: [convBase({ estado: 'ps-discipulado' })] }), pasos)).toBe('en-camino');
+    expect(categoriaSituacion(grupo({ conversiones: [convBase({ estado: 'ps-congregado' })] }), pasos)).toBe('en-camino');
+  });
+
+  it('sin Misión ni Miembros no hay situación', () => {
+    expect(categoriaSituacion(grupo({}), pasos)).toBe('sin-situacion');
+    expect(categoriaSituacion(grupo({ estudiantes: [estBase({})] }), pasos)).toBe('sin-situacion');
+  });
+});
+
+describe('aplicarFiltrosPersonas: los filtros de la página Personas', () => {
+  const pasos = PASOS_MISION_DEFECTO;
+  const p1 = personaBase({ id: 'p1', nombre: 'Ana', zona: 'Norte', grupoId: 'g1', hermanoMayorId: 'p9', numeroIdentidad: '111', bautizado: true, fechaNacimiento: '1990-01-01' });
+  const p2 = personaBase({ id: 'p2', nombre: 'Beto', zona: 'Sur', grupoId: null, telefono: '', numeroIdentidad: '222' });
+  const p3 = personaBase({ id: 'p3', nombre: 'Cora', zona: 'Norte', grupoId: 'g2', numeroIdentidad: '333' });
+  const p4 = personaBase({ id: 'p4', nombre: 'Dario', zona: 'Este', numeroIdentidad: '' });
+  const personas = [p1, p2, p3, p4];
+  const agrupados = agruparProcesos({
+    conversiones: [convBase({ id: 'c1', personaId: 'p1', estado: 'ps-discipulado' })],
+    miembros: [miembroBase({ id: 'm3', personaId: 'p3' })],
+    estudiantes: [],
+    dadores: [],
+    beneficiarios: [{ id: 'b4', personaId: 'p4' } as Beneficiario],
+  });
+  const ids = (criterios: Parameters<typeof aplicarFiltrosPersonas>[2]) =>
+    aplicarFiltrosPersonas(personas, agrupados, criterios, pasos).map((p) => p.id);
+
+  it('por proceso, incluido «sin ningún proceso»', () => {
+    expect(ids({ proceso: 'miembros' })).toEqual(['p3']);
+    expect(ids({ proceso: 'conversiones' })).toEqual(['p1']);
+    expect(ids({ proceso: 'beneficiarios' })).toEqual(['p4']);
+    expect(ids({ proceso: 'sin-procesos' })).toEqual(['p2']);
+  });
+
+  it('por situación, zona y grupo', () => {
+    expect(ids({ situacion: 'en-camino' })).toEqual(['p1']);
+    expect(ids({ situacion: 'miembro-activo' })).toEqual(['p3']);
+    expect(ids({ situacion: 'sin-situacion' })).toEqual(['p2', 'p4']);
+    expect(ids({ zona: 'Norte' })).toEqual(['p1', 'p3']);
+    expect(ids({ grupoId: 'g1' })).toEqual(['p1']);
+  });
+
+  it('fichas incompletas y bautismo', () => {
+    expect(ids({ incompleta: 'sin-telefono' })).toEqual(['p2']);
+    expect(ids({ incompleta: 'sin-identidad' })).toEqual(['p4']);
+    expect(ids({ incompleta: 'sin-grupo' })).toEqual(['p2', 'p4']);
+    expect(ids({ incompleta: 'sin-hermano-mayor' })).toEqual(['p2', 'p3', 'p4']);
+    expect(ids({ incompleta: 'sin-nacimiento' })).toEqual(['p2', 'p3', 'p4']);
+    expect(ids({ bautismo: 'bautizado' })).toEqual(['p1']);
+    expect(ids({ bautismo: 'sin-bautizar' })).toEqual(['p2', 'p3', 'p4']);
+  });
+
+  it('los criterios se combinan en Y y el vacío no filtra', () => {
+    expect(ids({ zona: 'Norte', proceso: 'miembros' })).toEqual(['p3']);
+    expect(ids({})).toEqual(['p1', 'p2', 'p3', 'p4']);
+    expect(hayCriteriosActivos({})).toBe(false);
+    expect(hayCriteriosActivos({ zona: 'Norte' })).toBe(true);
   });
 });

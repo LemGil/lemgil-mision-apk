@@ -6,7 +6,8 @@ import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { unirPersonas, vincularProceso } from '../lib/personas';
 import type { FichasDePersona } from '../lib/personas';
-import { agruparProcesos, filtrarPersonas, nombrePersona, posiblesDuplicados, procesosHuerfanos, situacionPersona, tiposPresentes, PROCESO_ETIQUETA, PROCESO_ICONO, SITUACION_BADGE } from '../lib/personaVista';
+import { agruparProcesos, aplicarFiltrosPersonas, filtrarPersonas, hayCriteriosActivos, nombrePersona, posiblesDuplicados, procesosHuerfanos, situacionPersona, tiposPresentes, CATEGORIA_SITUACION_ETIQUETA, PROCESO_ETIQUETA, PROCESO_ICONO, SITUACION_BADGE } from '../lib/personaVista';
+import type { CategoriaSituacion, CriteriosPersonas, FiltroBautismo, FiltroIncompleta, FiltroProceso } from '../lib/personaVista';
 import type { ProcesoHuerfano } from '../lib/personaVista';
 import { showToast } from '../lib/notification';
 import type { Persona } from '../lib/types';
@@ -34,6 +35,15 @@ export default function Personas() {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
+  // Filtros de la lista (2026-11-16): proceso, situación, zona, grupo,
+  // fichas incompletas y bautismo — combinables entre sí y con la
+  // búsqueda. La lógica vive en lib/personaVista (pura, probada).
+  const [fProceso, setFProceso] = useState<FiltroProceso | ''>('');
+  const [fSituacion, setFSituacion] = useState<CategoriaSituacion | ''>('');
+  const [fZona, setFZona] = useState('');
+  const [fGrupo, setFGrupo] = useState('');
+  const [fIncompleta, setFIncompleta] = useState<FiltroIncompleta | ''>('');
+  const [fBautismo, setFBautismo] = useState<FiltroBautismo | ''>('');
 
   const personas = useLiveQuery(() => db.personas.toArray()) ?? [];
   const conversiones = useLiveQuery(() => db.conversiones.toArray()) ?? [];
@@ -44,6 +54,7 @@ export default function Personas() {
   const grupos = useLiveQuery(() => db.grupos.toArray()) ?? [];
   const cursos = useLiveQuery(() => db.cursos.toArray()) ?? [];
   const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray()) ?? [];
+  const zonas = useLiveQuery(() => db.zonas.toArray()) ?? [];
 
   const data = useMemo<FichasDePersona>(
     () => ({ miembros, conversiones, estudiantes, dadores, beneficiarios }),
@@ -57,10 +68,18 @@ export default function Personas() {
   }, [cursos]);
   const huerfanos = useMemo(() => procesosHuerfanos(data, idsPersonas, cursoNombre), [data, idsPersonas, cursoNombre]);
   const duplicados = useMemo(() => posiblesDuplicados(personas), [personas]);
+  const criterios = useMemo<CriteriosPersonas>(
+    () => ({ proceso: fProceso, situacion: fSituacion, zona: fZona, grupoId: fGrupo, incompleta: fIncompleta, bautismo: fBautismo }),
+    [fProceso, fSituacion, fZona, fGrupo, fIncompleta, fBautismo],
+  );
+  const conFiltros = hayCriteriosActivos(criterios);
+  const limpiarFiltros = () => {
+    setSearch(''); setFProceso(''); setFSituacion(''); setFZona(''); setFGrupo(''); setFIncompleta(''); setFBautismo('');
+  };
   const filtradas = useMemo(
-    () => [...filtrarPersonas(personas, search)].sort((a, b) =>
+    () => [...aplicarFiltrosPersonas(filtrarPersonas(personas, search), agrupados, criterios, pasosSeguimiento)].sort((a, b) =>
       `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)),
-    [personas, search],
+    [personas, search, agrupados, criterios, pasosSeguimiento],
   );
 
   const selPersona = personas.find((p) => p.id === selectedId);
@@ -114,9 +133,53 @@ export default function Personas() {
         </div>
         <div className="search-bar">
           <input className="search-input" placeholder="🔍 Buscar por nombre, teléfono o Nº de Identidad..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <select className="filter-select" value={fProceso} onChange={(e) => setFProceso(e.target.value as FiltroProceso | '')}>
+            <option value="">Todos los procesos</option>
+            <option value="conversiones">En Misión</option>
+            <option value="miembros">Miembros</option>
+            <option value="estudiantes">En Academia</option>
+            <option value="dadores">Diezmadores</option>
+            <option value="beneficiarios">En Manos Abiertas</option>
+            <option value="sin-procesos">Sin ningún proceso</option>
+          </select>
+          <select className="filter-select" value={fSituacion} onChange={(e) => setFSituacion(e.target.value as CategoriaSituacion | '')}>
+            <option value="">Todas las situaciones</option>
+            {(Object.keys(CATEGORIA_SITUACION_ETIQUETA) as CategoriaSituacion[]).map((c) => (
+              <option key={c} value={c}>{CATEGORIA_SITUACION_ETIQUETA[c]}</option>
+            ))}
+          </select>
+          <select className="filter-select" value={fZona} onChange={(e) => setFZona(e.target.value)}>
+            <option value="">Todas las zonas</option>
+            {zonas.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={fGrupo} onChange={(e) => setFGrupo(e.target.value)}>
+            <option value="">Todos los grupos</option>
+            {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+          </select>
+          <select className="filter-select" value={fIncompleta} onChange={(e) => setFIncompleta(e.target.value as FiltroIncompleta | '')}>
+            <option value="">Fichas completas o no</option>
+            <option value="sin-telefono">Sin teléfono</option>
+            <option value="sin-identidad">Sin Nº de Identidad</option>
+            <option value="sin-grupo">Sin grupo</option>
+            <option value="sin-hermano-mayor">Sin hermano mayor</option>
+            <option value="sin-nacimiento">Sin fecha de nacimiento</option>
+          </select>
+          <select className="filter-select" value={fBautismo} onChange={(e) => setFBautismo(e.target.value as FiltroBautismo | '')}>
+            <option value="">Bautizados o no</option>
+            <option value="bautizado">Bautizados</option>
+            <option value="sin-bautizar">Sin bautizar</option>
+          </select>
+          {(conFiltros || search) && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={limpiarFiltros}>🧹 Limpiar</button>
+          )}
         </div>
+        {(conFiltros || search) && (
+          <div style={{ fontSize: 12, color: 'var(--dim)', padding: '2px 0 8px' }}>
+            Mostrando {filtradas.length} de {personas.length} persona(s)
+          </div>
+        )}
         {filtradas.length === 0 ? (
-          <EmptyState icon="👤" title="Sin personas" sub={search ? 'Ninguna persona coincide con la búsqueda.' : 'Aún no hay personas en la ficha única.'} />
+          <EmptyState icon="👤" title="Sin personas" sub={search || conFiltros ? 'Ninguna persona coincide con la búsqueda y los filtros.' : 'Aún no hay personas en la ficha única.'} />
         ) : (
           <table className="data-table">
             <thead>
