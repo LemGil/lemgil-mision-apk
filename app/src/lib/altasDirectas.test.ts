@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { beneficiarioDeAlta, conversionDeAlta, estadoDeAlta, miembroDeAlta } from "./altasDirectas";
+import { beneficiarioDeAlta, conversionDeAlta, estadoDeAlta, miembroDeAlta, opcionesEfectivas } from "./altasDirectas";
 import { PS_CONGREGADO, PS_INTEGRADO, PS_NUEVO } from "./pasosMision";
 
 const HOY = "2026-11-15";
@@ -57,5 +57,27 @@ describe("altasDirectas: el miembro y el beneficiario", () => {
     expect(b.familia).toBe(1);
     expect(b.personaId).toBe("p1");
     expect(b.nombre).toBe("");
+  });
+});
+
+describe("altasDirectas al EDITAR: opcionesEfectivas no duplica procesos", () => {
+  const todas = { mision: true, entrada: "converso" as const, integrado: true, beneficiario: true };
+  const ninguno = { mision: false, miembro: false, beneficiario: false };
+
+  it("sin procesos previos, las opciones pasan enteras (el alta nueva)", () => {
+    expect(opcionesEfectivas(todas, ninguno)).toEqual(todas);
+    expect(opcionesEfectivas(base, ninguno)).toEqual(base);
+  });
+
+  it("cada proceso que ya tiene apaga solo su casilla", () => {
+    expect(opcionesEfectivas(todas, { mision: true, miembro: false, beneficiario: false }))
+      .toEqual({ mision: false, entrada: "converso", integrado: true, beneficiario: true });
+    expect(opcionesEfectivas(todas, { mision: false, miembro: true, beneficiario: false }).integrado).toBe(false);
+    expect(opcionesEfectivas(todas, { mision: false, miembro: false, beneficiario: true }).beneficiario).toBe(false);
+  });
+
+  it("con todo ya creado, no se aplica ninguna alta", () => {
+    expect(opcionesEfectivas(todas, { mision: true, miembro: true, beneficiario: true }))
+      .toEqual({ mision: false, entrada: "converso", integrado: false, beneficiario: false });
   });
 });

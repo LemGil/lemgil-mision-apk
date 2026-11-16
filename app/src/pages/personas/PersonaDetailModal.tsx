@@ -170,6 +170,7 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
     {editando && (
       <PersonaFormModal
         open
+        altasDirectas
         onClose={() => setEditando(false)}
         persona={persona}
         onSaved={() => { setEditando(false); showToast('Datos de la persona actualizados'); }}

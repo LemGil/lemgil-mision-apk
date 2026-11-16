@@ -35,6 +35,28 @@ export interface OpcionesAltaDirecta {
   beneficiario: boolean;
 }
 
+/** Los procesos que la persona YA tiene (al editar su ficha). */
+export interface ProcesosExistentes {
+  mision: boolean;
+  miembro: boolean;
+  beneficiario: boolean;
+}
+
+/**
+ * Las altas que SÍ se aplican al guardar: las marcadas MENOS las que la
+ * persona ya tiene — editar la ficha ofrece las mismas casillas que el
+ * alta (pedido de LemGil, 2026-11-16), pero ningún proceso se duplica.
+ * En el alta nueva no hay procesos previos y las opciones pasan enteras.
+ */
+export function opcionesEfectivas(opciones: OpcionesAltaDirecta, existentes: ProcesosExistentes): OpcionesAltaDirecta {
+  return {
+    mision: opciones.mision && !existentes.mision,
+    entrada: opciones.entrada,
+    integrado: opciones.integrado && !existentes.miembro,
+    beneficiario: opciones.beneficiario && !existentes.beneficiario,
+  };
+}
+
 /** El estado con el que nace el registro de Misión según las opciones. */
 export function estadoDeAlta(opciones: OpcionesAltaDirecta, pasos?: PasoSeguimiento[]): string {
   if (opciones.integrado) return pasoGozne(pasos)?.id ?? PS_INTEGRADO;
