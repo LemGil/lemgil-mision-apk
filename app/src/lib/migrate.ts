@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
-import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_NUEVO, PS_TRASLADO, ajusteDeConverso, catalogoConCongregado, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado, repararFusionEnConversion } from './pasosMision';
+import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_NUEVO, PS_TRASLADO, ajusteDeConverso, catalogoConCongregado, catalogoConInicioSano, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado, repararFusionEnConversion } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -330,6 +330,26 @@ export async function repararFusionCongregado(): Promise<number> {
   localStorage.setItem(FLAG_KEY, '1');
   if (reparadas > 0) console.log(`Reparación de la fusión: ${reparadas} conversión(es) devueltas a Converso`);
   return reparadas;
+}
+
+/**
+ * La cabeza de la ruta, en su orden (SIN bandera, convergente):
+ * Congregado primero y Converso segundo, siempre — la resurrección
+ * de ps-nuevo por sincronización lo devolvió una vez con el orden de
+ * su época de inicio y el pipeline lo pintó delante de Congregado.
+ * Solo escribe las filas cuyo `orden` cambia; el resto del catálogo
+ * (pasos de la iglesia, salidas) conserva su orden relativo.
+ */
+export async function normalizarOrdenDeRuta(): Promise<void> {
+  const existentes = await db.pasosSeguimiento.toArray();
+  const sanos = catalogoConInicioSano(existentes);
+  const porId = new Map(existentes.map((p) => [p.id, p]));
+  for (const p of sanos) {
+    const actual = porId.get(p.id);
+    if (actual && actual.orden !== p.orden) {
+      await db.pasosSeguimiento.update(p.id, { orden: p.orden });
+    }
+  }
 }
 
 export async function ensureMetas(): Promise<Metas> {

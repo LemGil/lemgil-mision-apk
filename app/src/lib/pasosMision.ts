@@ -89,7 +89,7 @@ export const PASOS_MISION_DEFECTO: PasoSeguimiento[] = [
   // visita) y la CONVERSIÓN es el avance a «Converso» — la semilla que
   // antes se llamaba «Nuevo» (su identidad no cambia: ps-nuevo).
   semilla(PS_CONGREGADO, 'Congregado', '🙏', 1, 'inicio', true),
-  semilla(PS_NUEVO, 'Converso', '🌱', 2, 'camino', true),
+  semilla(PS_NUEVO, 'Converso', '🌱', 2, 'camino'),
   semilla(PS_DISCIPULADO, 'Discipulado', '📖', 3, 'camino'),
   semilla(PS_BAUTIZADO, 'Bautizado', '💧', 4, 'camino'),
   semilla(PS_INTEGRADO, 'Integrado', '🏘️', 5, 'gozne', true),
@@ -560,6 +560,10 @@ export function ajusteDeConverso(paso: PasoSeguimiento | undefined): Partial<Pas
   const nombre = paso.nombre.trim().toLowerCase();
   if (nombre === 'nuevo' || nombre === 'congregado') cambios.nombre = 'Converso';
   if (paso.rol === 'inicio') cambios.rol = 'camino';
+  // La protección también era de su época de inicio: al frente de la
+  // ruta solo queda UN paso protegido, Congregado (LemGil, 2026-11-16).
+  // Converso es un paso del camino como Discipulado o Bautizado.
+  if (paso.protegido) cambios.protegido = false;
   return Object.keys(cambios).length > 0 ? cambios : null;
 }
 
@@ -588,4 +592,30 @@ export function repararFusionEnConversion(c: Conversion): { estado: string; hist
     estado = PS_NUEVO;
   }
   return { estado, historial: restaurado };
+}
+
+/**
+ * La cabeza de la ruta es ESTRUCTURAL (2026-11-16): «Congregado»
+ * abre la lista de Misión y «Converso» es el paso siguiente — así lo
+ * definió LemGil, y ningún reorden ni resurrección por sincronización
+ * puede invertirlos (a él le volvió Converso con el orden viejo de
+ * cuando era el inicio, y el pipeline lo pintó primero). Esta función
+ * pura devuelve el catálogo con el orden saneado: Congregado 1,
+ * Converso 2, y TODO lo demás — pasos propios de la iglesia como
+ * «Profeso» y las salidas — conserva su orden relativo actual.
+ */
+export function catalogoConInicioSano(pasos: PasoSeguimiento[]): PasoSeguimiento[] {
+  const propios = ordenar(pasos.filter((p) => p.ambito === 'mision'));
+  const cong = propios.find((p) => p.id === PS_CONGREGADO);
+  if (!cong) return pasos;
+  const conv = propios.find((p) => p.id === PS_NUEVO);
+  const resto = propios.filter((p) => p.id !== PS_CONGREGADO && p.id !== PS_NUEVO);
+  const secuencia = [
+    cong,
+    ...(conv ? [conv] : []),
+    ...resto.filter((p) => p.rol !== 'salida'),
+    ...resto.filter((p) => p.rol === 'salida'),
+  ];
+  const nuevoOrden = new Map(secuencia.map((p, i) => [p.id, i + 1]));
+  return pasos.map((p) => (nuevoOrden.has(p.id) ? { ...p, orden: nuevoOrden.get(p.id)! } : p));
 }

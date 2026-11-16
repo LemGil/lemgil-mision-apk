@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   PASOS_MISION_DEFECTO, PS_APARTADO, PS_BAUTIZADO, PS_CONGREGADO, PS_DISCIPULADO, PS_FALLECIDO,
-  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, ajusteDeConverso, repararFusionEnConversion, colorDe,
+  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, ajusteDeConverso, repararFusionEnConversion, catalogoConInicioSano, colorDe,
   contarUsoPaso, enCamino, entradaCambioDeEstado, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
   etiquetaConRespaldo, etiquetaDe, fechaDeConversion, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
   progresoEnRuta, rutaDe, salidasDe, seConvirtio, siguientePaso, tipoHitoDe, usoDelPaso,
@@ -705,6 +705,7 @@ describe("la fusión NUNCA entre semillas, y la reparación de lo fusionado", ()
   it("ajusteDeConverso: «Nuevo» o «Congregado» pasan a «Converso»; el renombre legítimo se respeta", () => {
     const base = PASOS_MISION_DEFECTO.find((p) => p.id === PS_NUEVO)!;
     expect(ajusteDeConverso({ ...base, nombre: "Nuevo", rol: "inicio" })).toEqual({ nombre: "Converso", rol: "camino" });
+    expect(ajusteDeConverso({ ...base, protegido: true })).toEqual({ protegido: false });
     expect(ajusteDeConverso({ ...base, nombre: "Congregado" })).toEqual({ nombre: "Converso" });
     expect(ajusteDeConverso({ ...base, nombre: "Creyente nuevo" })).toBeNull();
     expect(ajusteDeConverso(base)).toBeNull();
@@ -740,5 +741,42 @@ describe("la fusión NUNCA entre semillas, y la reparación de lo fusionado", ()
       historial: [{ fecha: "2026-11-16", estado: "ps-congregado", nota: "Volvió a congregarse" }],
     } as Conversion;
     expect(repararFusionEnConversion(sana)).toBeNull();
+  });
+});
+
+describe("catalogoConInicioSano: Congregado primero, Converso segundo, siempre", () => {
+  const ordenDe = (pasos: PasoSeguimiento[], id: string) => pasos.find((p) => p.id === id)!.orden;
+
+  it("el Converso resucitado con el orden viejo (1) baja al 2 y Congregado queda al frente", () => {
+    // El catálogo tal como volvió por sincronización en el equipo de
+    // LemGil: ps-nuevo con orden 1 (su época de inicio) y creado más
+    // antiguo que ps-congregado — el desempate lo pintaba primero.
+    const vuelto = PASOS_MISION_DEFECTO.map((p) => {
+      if (p.id === PS_NUEVO) return { ...p, orden: 1, creado: "2025-01-01T00:00:00.000Z" };
+      if (p.id === PS_CONGREGADO) return { ...p, orden: 1, creado: "2026-11-16T00:00:00.000Z" };
+      return { ...p, orden: p.orden + 1 };
+    });
+    const sano = catalogoConInicioSano(vuelto);
+    expect(ordenDe(sano, PS_CONGREGADO)).toBe(1);
+    expect(ordenDe(sano, PS_NUEVO)).toBe(2);
+    expect(ordenDe(sano, "ps-discipulado")).toBe(3);
+    expect(ordenDe(sano, PS_INTEGRADO)).toBe(5);
+    expect(ordenDe(sano, PS_FALLECIDO)).toBe(8);
+  });
+
+  it("un paso propio de la iglesia («Profeso») conserva su lugar relativo tras Converso", () => {
+    const profeso: PasoSeguimiento = {
+      id: "uuid-profeso", ambito: "mision", nombre: "Profeso", emoji: "📌", orden: 3,
+      fuente: "manual", rol: "camino", creado: "2026-11-16T00:00:00.000Z", version: 1,
+    };
+    const conProfeso = [...PASOS_MISION_DEFECTO.map((p) => (p.orden >= 3 ? { ...p, orden: p.orden + 1 } : p)), profeso];
+    const sano = catalogoConInicioSano(conProfeso);
+    expect(ordenDe(sano, "uuid-profeso")).toBe(3);
+    expect(ordenDe(sano, "ps-discipulado")).toBe(4);
+  });
+
+  it("un catálogo ya sano no cambia ningún orden", () => {
+    const sano = catalogoConInicioSano(PASOS_MISION_DEFECTO);
+    for (const p of PASOS_MISION_DEFECTO) expect(ordenDe(sano, p.id)).toBe(p.orden);
   });
 });
