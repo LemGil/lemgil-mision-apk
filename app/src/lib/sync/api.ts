@@ -1,8 +1,8 @@
 import { supabase } from "../supabase";
 import { db } from "../database";
-import { emitStatus } from "./status";
+import { emitStatus, saveLastSync } from "./status";
 import {
-  getOutbox, clearOutbox, getTombstones, removeTombstone,
+  getOutbox, clearOutbox, getPendingCount, getTombstones, removeTombstone,
   enqueueAllRecords, setApplyingRemote,
 } from "./queue";
 import type { SyncTableName, SyncError } from "./types";
@@ -206,7 +206,48 @@ export function parseMissingColumn(message: string): string | null {
  * `updated_at` — y una vez detectada la columna faltante, los registros
  * siguientes de esa tabla salen sin ella, sin repetir la escalera.
  */
-const droppedColumns = new Map<SyncTableName, Set<string>>();
+/**
+ * Los descartes se PERSISTEN entre sesiones (2026-11-16): sin esto,
+ * cada vez que la app abre, la primera subida de cada tabla desigual
+ * vuelve a chocar con el 400 de la columna faltante antes de
+ * descartarla — ruido en la consola y vueltas de red que en una
+ * conexión lenta se notan. La llave lleva versión: si el esquema
+ * remoto cambia (una columna que hoy falta aparece), un paquete
+ * futuro sube la versión y la app vuelve a sondear.
+ */
+const DROPPED_COLUMNS_KEY = "lemgil_sync_dropped_columns_v1";
+
+/** Serializa el mapa de descartes para guardarlo (pura, probada). */
+export function serializarColumnasDescartadas(mapa: Map<SyncTableName, Set<string>>): string {
+  const obj: Record<string, string[]> = {};
+  for (const [tabla, columnas] of mapa) obj[tabla] = [...columnas];
+  return JSON.stringify(obj);
+}
+
+/** Lee el mapa de descartes guardado; cualquier daño se lee como vacío (pura, probada). */
+export function leerColumnasDescartadas(raw: string | null): Map<SyncTableName, Set<string>> {
+  const mapa = new Map<SyncTableName, Set<string>>();
+  if (!raw) return mapa;
+  try {
+    const obj = JSON.parse(raw) as Record<string, unknown>;
+    for (const [tabla, columnas] of Object.entries(obj)) {
+      if (Array.isArray(columnas)) {
+        mapa.set(tabla as SyncTableName, new Set(columnas.filter((c): c is string => typeof c === "string")));
+      }
+    }
+  } catch { /* guardado dañado: se empieza de cero y la escalera re-aprende */ }
+  return mapa;
+}
+
+function cargarColumnasDescartadas(): Map<SyncTableName, Set<string>> {
+  try {
+    return leerColumnasDescartadas(localStorage.getItem(DROPPED_COLUMNS_KEY));
+  } catch {
+    return new Map();
+  }
+}
+
+const droppedColumns = cargarColumnasDescartadas();
 
 function noteDroppedColumn(table: SyncTableName, column: string): void {
   let set = droppedColumns.get(table);
@@ -214,10 +255,14 @@ function noteDroppedColumn(table: SyncTableName, column: string): void {
     set = new Set<string>();
     droppedColumns.set(table, set);
   }
+  if (set.has(column)) return;
   set.add(column);
+  try {
+    localStorage.setItem(DROPPED_COLUMNS_KEY, serializarColumnasDescartadas(droppedColumns));
+  } catch { /* sin almacenamiento disponible: el descarte vive en memoria esta sesión */ }
 }
 
-function applyDroppedColumns(table: SyncTableName, row: Record<string, unknown>): Record<string, unknown> {
+export function applyDroppedColumns(table: SyncTableName, row: Record<string, unknown>): Record<string, unknown> {
   const dropped = droppedColumns.get(table);
   if (!dropped || dropped.size === 0) return row;
   const out = { ...row };
@@ -404,8 +449,15 @@ export async function enqueueAllLocalRecords(): Promise<void> {
 export async function forcePushAllLocal(): Promise<void> {
   const errors = [...(await forceFullPush()), ...(await pullFromSupabase())];
   if (errors.length > 0) {
+    // El error también va al ESTADO del indicador (2026-11-16): antes
+    // solo salía el toast y la pastilla se quedaba en verde «Synced»
+    // aunque la subida hubiera fallado — LemGil lo reportó: «da el
+    // error pero sigue en verde siempre». Ahora la pastilla se pone
+    // roja y su panel muestra la lista, igual que en el ciclo normal.
+    emitStatus({ error: summarizeErrors(errors), errors, pending: await getPendingCount() });
     throw new Error(summarizeErrors(errors));
   }
+  emitStatus({ lastSync: saveLastSync(), error: "", errors: [], pending: 0 });
 }
 
 export async function testConnection(): Promise<boolean> {
@@ -415,7 +467,11 @@ export async function testConnection(): Promise<boolean> {
       emitStatus({ connected: false, error: error.message });
       return false;
     }
-    emitStatus({ connected: true, error: "" });
+    // Al conectar NO se limpia `error`: ese campo es del RESULTADO
+    // del ciclo, no de la conexión — limpiarlo aquí borraba la roja
+    // del indicador al arrancar el ciclo siguiente, antes de que el
+    // ciclo dijera su palabra (la otra mitad del «siempre verde»).
+    emitStatus({ connected: true });
     return true;
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);

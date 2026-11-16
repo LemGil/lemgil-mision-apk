@@ -63,14 +63,15 @@ export async function runSync(opts: { pull?: boolean } = {}): Promise<void> {
     }
 
     const pending = await getPendingCount();
-    if (errors.length === 0 && pending === 0) {
+    if (errors.length > 0) {
+      emitStatus({ pending, error: summarizeErrors(errors), errors });
+      console.warn("[Sync] ⚠️ Sync con errores:", errors);
+    } else if (pending === 0) {
       emitStatus({ lastSync: saveLastSync(), error: "", errors: [], pending: 0 });
     } else {
-      emitStatus({ pending });
-      if (errors.length > 0) {
-        emitStatus({ error: summarizeErrors(errors), errors });
-        console.warn("[Sync] ⚠️ Sync con errores:", errors);
-      }
+      // Sin errores pero con pendientes: el error anterior se limpia
+      // (la roja no debe quedarse pegada sobre el amarillo).
+      emitStatus({ pending, error: "", errors: [] });
     }
   } catch (err: unknown) {
     console.warn("[Sync] Falló el ciclo de sincronización:", err);
