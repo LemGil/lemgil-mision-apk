@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { cumplesDeMiembros, esSalidaMiembro, fotoEscalera, idsMiembrosEnCasa } from './resumenMiembros';
-import type { Miembro, MiembroMinisterio, Persona } from '../../lib/types';
+import { coincidePasoActual, conteoPasosCumplidos, cumplesDeMiembros, esSalidaMiembro, idsMiembrosEnCasa } from './resumenMiembros';
+import type { Miembro, PasoSeguimiento, Persona } from '../../lib/types';
+import type { EscaleraMiembro } from '../../lib/pasosMiembro';
 
 const miembro = (over: Partial<Miembro> = {}): Miembro => ({
   id: 'm1', nombre: '', apellido: '', telefono: '', email: '', direccion: '', zona: '',
@@ -19,6 +20,22 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
   fechaBautismo: '', conyuge: '', hijos: '', grupoId: null, hermanoMayorId: null,
   creado: '2024-01-01T00:00:00.000Z', version: 1, ...over,
 });
+
+const paso = (id: string, orden: number): PasoSeguimiento => ({
+  id, ambito: 'miembro', nombre: id, emoji: '🔹', orden, fuente: 'manual',
+  creado: '2024-01-01T00:00:00.000Z', version: 1,
+});
+
+const IDS = ['pm-integracion', 'pm-grupo', 'pm-ministerio'];
+const escalera = (cumplidos: string[], actualId: string | null): EscaleraMiembro => {
+  const pasos = IDS.map((id, i) => paso(id, i + 1));
+  return {
+    estados: pasos.map((p) => ({ paso: p, cumplido: cumplidos.includes(p.id) })),
+    actual: actualId ? pasos.find((p) => p.id === actualId) ?? null : null,
+    cumplidos: cumplidos.length,
+    total: pasos.length,
+  };
+};
 
 /** Fecha de nacimiento cuyo próximo cumpleaños cae en ~10 días. */
 const nacEn10Dias = () => {
@@ -51,15 +68,25 @@ describe('resumenMiembros — la foto de la página (2026-11-17)', () => {
     expect(idsMiembrosEnCasa(miembros).has('p2')).toBe(false);
   });
 
-  it('fotoEscalera: sobre los ACTIVOS — grupo, servicio, hermano mayor y bautismo', () => {
-    const miembros = [
-      miembro({ id: 'm1', personaId: 'p1', grupoId: 'g1', hermanoMayorId: 'p9', bautizado: true }),
-      miembro({ id: 'm2', personaId: 'p2' }),
-      miembro({ id: 'm3', personaId: 'p3', estado: 'Inactivo', grupoId: 'g1', bautizado: true }), // inactivo: fuera de la foto
-    ];
-    const asigs: MiembroMinisterio[] = [
-      { id: 'a1', miembroId: 'm1', ministerioId: 'mn1', rol: 'Servidor', desde: '2024-01-01', notas: '', creado: '2024-01-01T00:00:00.000Z', version: 1 },
-    ];
-    expect(fotoEscalera(miembros, asigs)).toEqual({ enGrupo: 1, sirviendo: 1, conHermanoMayor: 1, bautizados: 1 });
+  it('conteoPasosCumplidos: las tarjetas cuentan los pasos cumplidos del segmento', () => {
+    const conteo = conteoPasosCumplidos([
+      escalera(['pm-integracion', 'pm-grupo'], 'pm-ministerio'),
+      escalera(['pm-integracion'], 'pm-grupo'),
+      escalera(IDS, null),
+    ]);
+    expect(conteo.get('pm-integracion')).toBe(3);
+    expect(conteo.get('pm-grupo')).toBe(2);
+    expect(conteo.get('pm-ministerio')).toBe(1);
+  });
+
+  it('coincidePasoActual: parados en el paso, escalera completa y sin filtro', () => {
+    const enGrupo = escalera(['pm-integracion'], 'pm-grupo');
+    const completa = escalera(IDS, null);
+    expect(coincidePasoActual(enGrupo, '')).toBe(true);
+    expect(coincidePasoActual(enGrupo, 'pm-grupo')).toBe(true);
+    expect(coincidePasoActual(enGrupo, 'pm-ministerio')).toBe(false);
+    expect(coincidePasoActual(enGrupo, 'completa')).toBe(false);
+    expect(coincidePasoActual(completa, 'completa')).toBe(true);
+    expect(coincidePasoActual(undefined, 'pm-grupo')).toBe(false);
   });
 });

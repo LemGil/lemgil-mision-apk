@@ -10,7 +10,11 @@ import { today } from '../lib/utils';
 import { mapaPersonas, miembroConDatos } from '../lib/personaDatos';
 import { reflejarFallecimientoEnConversion, reflejarTrasladoEnConversion } from '../lib/propagacion';
 import { showToast } from '../lib/notification';
-import { cumplesDeMiembros, esSalidaMiembro, fotoEscalera } from './miembros/resumenMiembros';
+import { coincidePasoActual, conteoPasosCumplidos, cumplesDeMiembros, esSalidaMiembro } from './miembros/resumenMiembros';
+import { KpiCard } from '../components/KpiCard';
+import { escaleraDeMiembro, ordenarPasos, type EscaleraMiembro } from '../lib/pasosMiembro';
+
+const PALETA_PASOS = ['#f59e0b', '#22d3ee', '#34d399', '#a78bfa', '#f472b6', '#facc15'];
 import type { ModalType, Tab } from './miembros/constants';
 import { CumpleanosCard } from './miembros/CumpleanosCard';
 import { DirectorioTab } from './miembros/DirectorioTab';
@@ -53,6 +57,7 @@ export default function Miembros() {
   const [filterContacto, setFilterContacto] = useState('');
   const [filterGrupo, setFilterGrupo] = useState('');
   const [filterEstadoCivil, setFilterEstadoCivil] = useState('');
+  const [filterPaso, setFilterPaso] = useState('');
   const [modal, setModal] = useState<null | ModalType>(null);
   const [editMId, setEditMId] = useState<string | null>(null);
   const [editMinId, setEditMinId] = useState<string | null>(null);
@@ -110,20 +115,42 @@ export default function Miembros() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [zonasDb, miembros]);
 
-  const kpis = useMemo(() => {
-    const statusCounts = miembros.reduce((acc, m) => {
-      acc[m.estado] = (acc[m.estado] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    // La foto de la página (2026-11-17): cumpleaños SOLO de miembros
-    // (la fecha nace en la persona, pero el alcance es la membresía;
-    // el de todas las personas vive en el Panel) y la escalera de
-    // integración sobre los activos. El conteo de Ministerios salió
-    // de la barra: ya lo dice la pestaña.
-    return { statusCounts, cumplesProx: cumplesDeMiembros(personas, miembros).length, escalera: fotoEscalera(miembros, asignaciones) };
-  }, [miembros, personas, asignaciones]);
+  const asignacionesPorMiembro = useMemo(() => {
+    const map: Record<string, MiembroMinisterio[]> = {};
+    asignaciones.forEach((a) => { (map[a.miembroId] ||= []).push(a); });
+    return map;
+  }, [asignaciones]);
 
-  const proximosCumples = useMemo(() => cumplesDeMiembros(personas, miembros), [personas, miembros]);
+  const hitosPorMiembro = useMemo(() => {
+    const map: Record<string, Hito[]> = {};
+    hitos.forEach((h) => { if (h.miembroId) (map[h.miembroId] ||= []).push(h); });
+    Object.keys(map).forEach((k) => map[k].sort((a, b) => b.fecha.localeCompare(a.fecha)));
+    return map;
+  }, [hitos]);
+
+  // El catálogo de pasos de miembro, en su orden: alimenta las
+  // tarjetas del proceso y el filtro «Paso actual».
+  const pasosMiembroCatalogo = useMemo(
+    () => ordenarPasos(pasosSeguimiento.filter((p) => p.ambito === 'miembro')),
+    [pasosSeguimiento],
+  );
+
+  // La escalera de cada miembro, calculada una vez por cambio de
+  // datos con el MISMO contexto que usa el detalle de la ficha.
+  const escalerasPorMiembro = useMemo(() => {
+    const map = new Map<string, EscaleraMiembro>();
+    for (const m of miembros) {
+      map.set(m.id, escaleraDeMiembro(pasosSeguimiento, {
+        miembro: m,
+        conversionOrigen: m.conversionId ? conversiones.find((c) => c.id === m.conversionId) : undefined,
+        hitos: hitosPorMiembro[m.id] ?? [],
+        estudiantes,
+        asignaciones: asignacionesPorMiembro[m.id] ?? [],
+        esHermanoMayor: !!m.personaId && personas.some((p) => p.id !== m.personaId && p.hermanoMayorId === m.personaId),
+      }));
+    }
+    return map;
+  }, [miembros, pasosSeguimiento, conversiones, hitosPorMiembro, estudiantes, asignacionesPorMiembro, personas]);
 
   const miembrosFiltrados = useMemo(() => {
     const s = search.toLowerCase();
@@ -137,10 +164,39 @@ export default function Miembros() {
           && (!filterZona || m.zona === filterZona) 
           && (!filterContacto || m.contactoPreferido === filterContacto)
           && (!filterGrupo || m.grupoId === filterGrupo)
-          && (!filterEstadoCivil || m.estadoCivil === filterEstadoCivil);
+          && (!filterEstadoCivil || m.estadoCivil === filterEstadoCivil)
+          && coincidePasoActual(escalerasPorMiembro.get(m.id), filterPaso);
       })
       .sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`));
-  }, [miembros, asignaciones, ministerios, search, filterEstado, filterZona, filterContacto, filterGrupo, filterEstadoCivil]);
+  }, [miembros, asignaciones, ministerios, search, filterEstado, filterZona, filterContacto, filterGrupo, filterEstadoCivil, escalerasPorMiembro, filterPaso]);
+
+  // Espejo de Misión (2026-11-17): TODA la información de la página
+  // responde a los filtros del Directorio — la barra y las tarjetas
+  // se calculan sobre los miembros que se están mirando; sin
+  // filtros, la foto es la membresía en la casa. El total general
+  // vive en el Panel (censo). Los cumpleaños siguen siendo SOLO de
+  // miembros (la fecha nace en la persona; el de todas las personas
+  // vive en el Panel).
+  const kpis = useMemo(() => {
+    const statusCounts = miembrosFiltrados.reduce((acc, m) => {
+      acc[m.estado] = (acc[m.estado] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return {
+      statusCounts,
+      cumplesProx: cumplesDeMiembros(personas, miembrosFiltrados).length,
+      bautizados: miembrosFiltrados.filter((m) => m.bautizado).length,
+    };
+  }, [miembrosFiltrados, personas]);
+
+  const proximosCumples = useMemo(() => cumplesDeMiembros(personas, miembrosFiltrados), [personas, miembrosFiltrados]);
+
+  const idsFiltrados = useMemo(() => new Set(miembrosFiltrados.map((m) => m.id)), [miembrosFiltrados]);
+
+  const conteoPasos = useMemo(
+    () => conteoPasosCumplidos(miembrosFiltrados.map((m) => escalerasPorMiembro.get(m.id)).filter((e): e is EscaleraMiembro => !!e)),
+    [miembrosFiltrados, escalerasPorMiembro],
+  );
 
   const selMiembro = miembros.find((m) => m.id === selectedId);
   const selMinisterio = ministerios.find((x) => x.id === selectedId);
@@ -401,19 +457,6 @@ export default function Miembros() {
     }).sort((a, b) => b.asignados - a.asignados);
   }, [ministerios, asignaciones, miembros]);
 
-  const asignacionesPorMiembro = useMemo(() => {
-    const map: Record<string, MiembroMinisterio[]> = {};
-    asignaciones.forEach((a) => { (map[a.miembroId] ||= []).push(a); });
-    return map;
-  }, [asignaciones]);
-
-  const hitosPorMiembro = useMemo(() => {
-    const map: Record<string, Hito[]> = {};
-    hitos.forEach((h) => { if (h.miembroId) (map[h.miembroId] ||= []).push(h); });
-    Object.keys(map).forEach((k) => map[k].sort((a, b) => b.fecha.localeCompare(a.fecha)));
-    return map;
-  }, [hitos]);
-
   const hitosList = useMemo(() => {
     return [...hitos]
       .filter((h) => {
@@ -432,13 +475,19 @@ export default function Miembros() {
         {kpis.statusCounts['Trasladado'] > 0 && <div className="summary-item"><span className="summary-icon">🚚</span><span className="summary-value">{kpis.statusCounts['Trasladado']}</span><span className="summary-label">Trasladados</span></div>}
         {kpis.statusCounts['Disciplinado'] > 0 && <div className="summary-item"><span className="summary-icon">⚠️</span><span className="summary-value">{kpis.statusCounts['Disciplinado']}</span><span className="summary-label">Disciplinados</span></div>}
         {kpis.statusCounts['Fallecido'] > 0 && <div className="summary-item"><span className="summary-icon">✝️</span><span className="summary-value">{kpis.statusCounts['Fallecido']}</span><span className="summary-label">Fallecidos</span></div>}
-        <div className="summary-item"><span className="summary-icon">👥</span><span className="summary-value">{kpis.escalera.enGrupo}</span><span className="summary-label">En grupo</span></div>
-        <div className="summary-item"><span className="summary-icon">🤲</span><span className="summary-value">{kpis.escalera.sirviendo}</span><span className="summary-label">Sirviendo</span></div>
-        <div className="summary-item"><span className="summary-icon">🌱</span><span className="summary-value">{kpis.escalera.conHermanoMayor}</span><span className="summary-label">Con hermano mayor</span></div>
-        <div className="summary-item"><span className="summary-icon">💧</span><span className="summary-value">{kpis.escalera.bautizados}</span><span className="summary-label">Bautizados</span></div>
-        <div className="summary-item"><span className="summary-icon">📍</span><span className="summary-value">{hitos.filter((h) => h.fecha.startsWith(new Date().toISOString().slice(0, 7))).length}</span><span className="summary-label">Hitos este mes</span></div>
+        <div className="summary-item"><span className="summary-icon">📍</span><span className="summary-value">{hitos.filter((h) => !!h.miembroId && idsFiltrados.has(h.miembroId) && h.fecha.startsWith(new Date().toISOString().slice(0, 7))).length}</span><span className="summary-label">Hitos este mes</span></div>
         <div className="summary-item"><span className="summary-icon">🎂</span><span className="summary-value">{kpis.cumplesProx}</span><span className="summary-label">Próximos cumpleaños</span></div>
       </div>
+
+      {/* El proceso de los miembros: una tarjeta por paso de la escalera */}
+      {pasosMiembroCatalogo.length > 0 && (
+        <div className="kpis" style={{ marginBottom: 16 }}>
+          {pasosMiembroCatalogo.map((p, i) => (
+            <KpiCard key={p.id} label={p.nombre} value={conteoPasos.get(p.id) ?? 0} icon={p.emoji || '🔹'} accent={PALETA_PASOS[i % PALETA_PASOS.length]} sub={`cumplido · de ${miembrosFiltrados.length} en la lista`} />
+          ))}
+          <KpiCard label="Bautizados" value={kpis.bautizados} icon="💧" accent="#38bdf8" sub="dato de la persona, no un paso" />
+        </div>
+      )}
 
       {miembros.length > 0 && (
         <CumpleanosCard proximosCumples={proximosCumples} />
@@ -467,6 +516,7 @@ export default function Miembros() {
           filterGrupo={filterGrupo} setFilterGrupo={setFilterGrupo}
           filterEstadoCivil={filterEstadoCivil} setFilterEstadoCivil={setFilterEstadoCivil}
           filterContacto={filterContacto} setFilterContacto={setFilterContacto}
+          filterPaso={filterPaso} setFilterPaso={setFilterPaso} pasosMiembro={pasosMiembroCatalogo}
           openNewM={openNewM}
           openEditM={openEditM}
           onVer={(id) => { setSelectedId(id); setModal('detail'); }}

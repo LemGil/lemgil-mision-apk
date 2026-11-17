@@ -4,7 +4,7 @@ import { CsvImportButton } from '../../components/CsvImportButton';
 import { exportCSV } from '../../lib/csvExport';
 import { exportMiembrosPDF, safeExport } from '../../lib/pdfExport';
 import { showToast } from '../../lib/notification';
-import type { Conversion, Grupo, Miembro, MiembroMinisterio, Ministerio } from '../../lib/types';
+import type { Conversion, Grupo, Miembro, MiembroMinisterio, Ministerio, PasoSeguimiento } from '../../lib/types';
 import { EST_BADGE, calcAge } from './constants';
 
 interface DirectorioTabProps {
@@ -20,6 +20,8 @@ interface DirectorioTabProps {
   filterGrupo: string; setFilterGrupo: Dispatch<SetStateAction<string>>;
   filterEstadoCivil: string; setFilterEstadoCivil: Dispatch<SetStateAction<string>>;
   filterContacto: string; setFilterContacto: Dispatch<SetStateAction<string>>;
+  filterPaso: string; setFilterPaso: Dispatch<SetStateAction<string>>;
+  pasosMiembro: PasoSeguimiento[];
   openNewM: () => void;
   openEditM: (id: string) => void;
   onVer: (id: string) => void;
@@ -27,7 +29,7 @@ interface DirectorioTabProps {
 }
 
 export function DirectorioTab(props: DirectorioTabProps) {
-  const { miembrosFiltrados, conversiones, asignacionesPorMiembro, ministerios, grupos, zonas, search, setSearch, filterEstado, setFilterEstado, filterZona, setFilterZona, filterGrupo, setFilterGrupo, filterEstadoCivil, setFilterEstadoCivil, filterContacto, setFilterContacto, openNewM, openEditM, onVer, onEliminar } = props;
+  const { miembrosFiltrados, conversiones, asignacionesPorMiembro, ministerios, grupos, zonas, search, setSearch, filterEstado, setFilterEstado, filterZona, setFilterZona, filterGrupo, setFilterGrupo, filterEstadoCivil, setFilterEstadoCivil, filterContacto, setFilterContacto, filterPaso, setFilterPaso, pasosMiembro, openNewM, openEditM, onVer, onEliminar } = props;
   return (
         <div className="card">
            <div className="card-header">
@@ -77,6 +79,11 @@ export function DirectorioTab(props: DirectorioTabProps) {
             <select className="filter-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
               <option value="">Todos los estados</option>
               <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option><option>Fallecido</option>
+            </select>
+            <select className="filter-select" value={filterPaso} onChange={(e) => setFilterPaso(e.target.value)}>
+              <option value="">🧭 Paso actual: todos</option>
+              {pasosMiembro.map((p) => <option key={p.id} value={p.id}>{p.emoji} Parados en: {p.nombre}</option>)}
+              <option value="completa">🏁 Escalera completa</option>
             </select>
             <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>
               <option value="">Todas las zonas</option>
