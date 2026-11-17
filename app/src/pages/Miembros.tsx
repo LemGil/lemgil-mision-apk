@@ -10,7 +10,7 @@ import { today } from '../lib/utils';
 import { mapaPersonas, miembroConDatos } from '../lib/personaDatos';
 import { reflejarFallecimientoEnConversion, reflejarTrasladoEnConversion } from '../lib/propagacion';
 import { showToast } from '../lib/notification';
-import { diasHastaCumple } from './miembros/constants';
+import { cumplesDeMiembros, esSalidaMiembro, fotoEscalera } from './miembros/resumenMiembros';
 import type { ModalType, Tab } from './miembros/constants';
 import { CumpleanosCard } from './miembros/CumpleanosCard';
 import { DirectorioTab } from './miembros/DirectorioTab';
@@ -115,20 +115,15 @@ export default function Miembros() {
       acc[m.estado] = (acc[m.estado] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const ministeriosCount = ministerios.length;
-    // P6: los cumpleaños salen del NÚCLEO (personas), no del proceso
-    // miembro: la fecha de nacimiento es de la persona, así que cuentan
-    // también quienes aún no tienen proceso de miembro.
-    const cumplesProx = personas.filter(p => { const d = diasHastaCumple(p.fechaNacimiento); return d !== null && d <= 30; }).length;
-    return { statusCounts, ministeriosCount, cumplesProx };
-  }, [miembros, ministerios, personas]);
+    // La foto de la página (2026-11-17): cumpleaños SOLO de miembros
+    // (la fecha nace en la persona, pero el alcance es la membresía;
+    // el de todas las personas vive en el Panel) y la escalera de
+    // integración sobre los activos. El conteo de Ministerios salió
+    // de la barra: ya lo dice la pestaña.
+    return { statusCounts, cumplesProx: cumplesDeMiembros(personas, miembros).length, escalera: fotoEscalera(miembros, asignaciones) };
+  }, [miembros, personas, asignaciones]);
 
-  const proximosCumples = useMemo(() => {
-    return personas
-      .map(p => ({ p, dias: diasHastaCumple(p.fechaNacimiento) }))
-      .filter(x => x.dias !== null && x.dias <= 30)
-      .sort((a, b) => (a.dias || 0) - (b.dias || 0));
-  }, [personas]);
+  const proximosCumples = useMemo(() => cumplesDeMiembros(personas, miembros), [personas, miembros]);
 
   const miembrosFiltrados = useMemo(() => {
     const s = search.toLowerCase();
@@ -138,7 +133,7 @@ export default function Miembros() {
         const mints = asigs.map((a) => ministerios.find((x) => x.id === a.ministerioId)?.nombre).filter(Boolean).join(' ');
         const full = `${m.nombre} ${m.apellido} ${m.telefono} ${m.email} ${m.profesion} ${mints}`.toLowerCase();
         return (!s || full.includes(s)) 
-          && (!filterEstado || m.estado === filterEstado) 
+          && (filterEstado ? m.estado === filterEstado : !esSalidaMiembro(m.estado)) 
           && (!filterZona || m.zona === filterZona) 
           && (!filterContacto || m.contactoPreferido === filterContacto)
           && (!filterGrupo || m.grupoId === filterGrupo)
@@ -437,7 +432,10 @@ export default function Miembros() {
         {kpis.statusCounts['Trasladado'] > 0 && <div className="summary-item"><span className="summary-icon">🚚</span><span className="summary-value">{kpis.statusCounts['Trasladado']}</span><span className="summary-label">Trasladados</span></div>}
         {kpis.statusCounts['Disciplinado'] > 0 && <div className="summary-item"><span className="summary-icon">⚠️</span><span className="summary-value">{kpis.statusCounts['Disciplinado']}</span><span className="summary-label">Disciplinados</span></div>}
         {kpis.statusCounts['Fallecido'] > 0 && <div className="summary-item"><span className="summary-icon">✝️</span><span className="summary-value">{kpis.statusCounts['Fallecido']}</span><span className="summary-label">Fallecidos</span></div>}
-        <div className="summary-item"><span className="summary-icon">⛪</span><span className="summary-value">{kpis.ministeriosCount}</span><span className="summary-label">Ministerios</span></div>
+        <div className="summary-item"><span className="summary-icon">👥</span><span className="summary-value">{kpis.escalera.enGrupo}</span><span className="summary-label">En grupo</span></div>
+        <div className="summary-item"><span className="summary-icon">🤲</span><span className="summary-value">{kpis.escalera.sirviendo}</span><span className="summary-label">Sirviendo</span></div>
+        <div className="summary-item"><span className="summary-icon">🌱</span><span className="summary-value">{kpis.escalera.conHermanoMayor}</span><span className="summary-label">Con hermano mayor</span></div>
+        <div className="summary-item"><span className="summary-icon">💧</span><span className="summary-value">{kpis.escalera.bautizados}</span><span className="summary-label">Bautizados</span></div>
         <div className="summary-item"><span className="summary-icon">📍</span><span className="summary-value">{hitos.filter((h) => h.fecha.startsWith(new Date().toISOString().slice(0, 7))).length}</span><span className="summary-label">Hitos este mes</span></div>
         <div className="summary-item"><span className="summary-icon">🎂</span><span className="summary-value">{kpis.cumplesProx}</span><span className="summary-label">Próximos cumpleaños</span></div>
       </div>
@@ -448,7 +446,7 @@ export default function Miembros() {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <div className="tabs" style={{ flex: 1 }}>
-          <button className={`tab ${tab === 'directorio' ? 'active' : ''}`} onClick={() => { setTab('directorio'); setSearchParams({ tab: 'directorio' }); }}>📖 Directorio · {miembros.length}</button>
+          <button className={`tab ${tab === 'directorio' ? 'active' : ''}`} onClick={() => { setTab('directorio'); setSearchParams({ tab: 'directorio' }); }}>📖 Directorio · {miembrosFiltrados.length}</button>
           <button className={`tab ${tab === 'ministerios' ? 'active' : ''}`} onClick={() => { setTab('ministerios'); setSearchParams({ tab: 'ministerios' }); }}>⛪ Ministerios · {ministerios.length}</button>
           <button className={`tab ${tab === 'hitos' ? 'active' : ''}`} onClick={() => { setTab('hitos'); setSearchParams({ tab: 'hitos' }); }}>📍 Hitos · {hitos.length}</button>
         </div>
