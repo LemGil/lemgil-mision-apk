@@ -1,0 +1,857 @@
+import { useState, useMemo, useEffect } from 'react';
+import { v4 as uuid } from 'uuid';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Layout } from '../components/Layout';
+import { Modal } from '../components/Modal';
+import { exportCSV } from '../lib/csvExport';
+import { exportInformeDepartamentoPDF, exportReporteGeneralPDF, parseReporteResumen, type ReporteDatos } from '../lib/pdfExport';
+import { DEPARTAMENTOS, construirInforme, type DepartamentoId } from '../lib/informes';
+import { EmptyState } from '../components/EmptyState';
+import { db } from '../lib/database';
+import { createBaseRecord } from '../lib/utils/recordHelpers';
+import { MS_FULL, fmt, monthKey, inRange, money } from '../lib/utils';
+import { esGozne, fechaDeConversion, seConvirtio } from '../lib/pasosMision';
+import { calcularCenso } from '../lib/censo';
+import { contarPersonasUnicas } from '../lib/personaVista';
+import { showToast } from '../lib/notification';
+
+const num = (n: number) => n.toLocaleString('en-US');
+
+type PeriodoPreset = 'mes' | 'mesAnterior' | 'anio' | 'todo' | 'custom';
+type Tab = 'actual' | 'historial';
+
+export default function Reportes() {
+  const convs = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
+  const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray(), []) ?? [];
+  const personasReg = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+  const ministerios = useLiveQuery(() => db.ministerios.toArray(), []) ?? [];
+  const miembrosMinisterios = useLiveQuery(() => db.miembrosMinisterios.toArray(), []) ?? [];
+  const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
+  const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
+  const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
+  const estudiantes = useLiveQuery(() => db.estudiantes.toArray(), []) ?? [];
+  const certs = useLiveQuery(() => db.certificados.toArray(), []) ?? [];
+  const diezmadores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
+  const aportes = useLiveQuery(() => db.aportes.toArray(), []) ?? [];
+  const colaboradores = useLiveQuery(() => db.colaboradores.toArray(), []) ?? [];
+  const aportesComun = useLiveQuery(() => db.aportesComun.toArray(), []) ?? [];
+  const beneficiarios = useLiveQuery(() => db.beneficiarios.toArray(), []) ?? [];
+  const campanas = useLiveQuery(() => db.campanas.toArray(), []) ?? [];
+  const entregas = useLiveQuery(() => db.entregas.toArray(), []) ?? [];
+  const negocios = useLiveQuery(() => db.negocios.toArray(), []) ?? [];
+  const publicaciones = useLiveQuery(() => db.publicaciones.toArray(), []) ?? [];
+  const metasDoc = useLiveQuery(() => db.metas.get('default'), []);
+  const reportes = useLiveQuery(() => db.reportes.toArray(), []) ?? [];
+
+  const pageSize = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [reportes.length]);
+
+  const sortedReportes = useMemo(() => {
+    return [...reportes].sort((a, b) => b.generado.localeCompare(a.generado));
+  }, [reportes]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedReportes.length / pageSize));
+  const paginatedReportes = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedReportes.slice(start, start + pageSize);
+  }, [sortedReportes, currentPage, pageSize]);
+
+  const today = new Date();
+  const ymNow = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const ymPrev = (() => {
+    const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  })();
+
+  const [preset, setPreset] = useState<PeriodoPreset>('mes');
+  const [desde, setDesde] = useState(`${ymNow}-01`);
+  const [hasta, setHasta] = useState(`${ymNow}-${String(new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()).padStart(2, '0')}`);
+  const [tab, setTab] = useState<Tab>('actual');
+  const [dept, setDept] = useState<DepartamentoId>('general');
+  // Las Metas viven aquí desde la revisión del Panel (2026-11-17):
+  // son planificación contra plan — material de Informe, no de la
+  // portada diaria. Su editor se mudó con la tarjeta.
+  const [editMetas, setEditMetas] = useState(false);
+  const [mMembresia, setMMembresia] = useState('500');
+  const [mAcademia, setMAcademia] = useState('150');
+  const [mSostenimiento, setMSostenimiento] = useState('8000');
+  const [mFamilias, setMFamilias] = useState('200');
+  const [mPersonas, setMPersonas] = useState('800');
+  const [modal, setModal] = useState<null | 'gen' | 'ver' | 'del'>(null);
+  const [genTitulo, setGenTitulo] = useState('');
+  const [viewId, setViewId] = useState<string | null>(null);
+  const [delId, setDelId] = useState<string | null>(null);
+
+  const applyPreset = (p: PeriodoPreset) => {
+    setPreset(p);
+    if (p === 'mes') {
+      const last = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      setDesde(`${ymNow}-01`);
+      setHasta(`${ymNow}-${String(last).padStart(2, '0')}`);
+    } else if (p === 'mesAnterior') {
+      const last = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+      setDesde(`${ymPrev}-01`);
+      setHasta(`${ymPrev}-${String(last).padStart(2, '0')}`);
+    } else if (p === 'anio') {
+      setDesde(`${today.getFullYear()}-01-01`);
+      setHasta(`${today.getFullYear()}-12-31`);
+    } else if (p === 'todo') {
+      setDesde('2020-01-01');
+      setHasta('2099-12-31');
+    }
+  };
+
+  const periodoLabel = useMemo(() => {
+    if (preset === 'mes') return `${MS_FULL[today.getMonth()]} ${today.getFullYear()}`;
+    if (preset === 'mesAnterior') return `${MS_FULL[today.getMonth() === 0 ? 11 : today.getMonth() - 1]} ${today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()}`;
+    if (preset === 'anio') return `Año ${today.getFullYear()}`;
+    if (preset === 'todo') return 'Histórico completo';
+    return `${fmt(desde)} → ${fmt(hasta)}`;
+  }, [preset, desde, hasta, today]);
+
+  const datos = useMemo((): ReporteDatos => {
+    const enRango = <T extends { fecha?: string; fechaInicio?: string; creado?: string; emitido?: string }>(arr: T[], key: 'fecha' | 'fechaInicio' | 'creado' | 'emitido' = 'fecha') =>
+      arr.filter((x) => inRange(x[key] || '', desde, hasta));
+
+    // Ruta Congregado → Converso (2026-11-15): «conv» son las CONVERSIONES
+    // del período — avances al paso Converso por su fecha de conversión.
+    // Los registros nuevos de la lista (congregados) van en `convMes`,
+    // que las pantallas rotulan «Registrados en Misión».
+    const conv = convs.filter((c) => seConvirtio(c) && inRange(fechaDeConversion(c), desde, hasta));
+    // Conversiones cuyo mes (monthKey) cae dentro del período seleccionado:
+    // antes se contaban solo las del mes en curso, diera el período que diera.
+    const mkDesde = monthKey(desde);
+    const mkHasta = monthKey(hasta);
+    const convMes = convs.filter((c) => {
+      const mk = monthKey(c.fecha);
+      return mk >= mkDesde && mk <= mkHasta;
+    }).length;
+    // Fase 2: «integrados» = conversiones en el paso-GOZNE del catálogo.
+    const convIntegrados = conv.filter((c) => esGozne(pasosSeguimiento, c.estado)).length;
+    const evang = enRango(evangels);
+    const evangContactos = evang.reduce((s, e) => s + (e.contactos || 0), 0);
+    // P2 (§3.5): la cifra de conversiones del evangelismo es DERIVADA — las
+    // conversiones enlazadas a los evangelismos del período. La cifra
+    // manual vieja (e.conversiones) quedó dormida y ya no se suma.
+    const idsEvangEnRango = new Set(evang.map((e) => e.id));
+    const evangConvs = convs.filter((c) => c.evangelismoId && idsEvangEnRango.has(c.evangelismoId) && seConvirtio(c)).length;
+
+    // Matrícula total de estudiantes activos (antes solo contaba los creados
+    // dentro del rango, y la etiqueta «Estudiantes matriculados» no cuadraba).
+    const estActivos = estudiantes.filter((e) => e.estado === 'Activo').length;
+    const certRango = enRango(certs, 'emitido');
+    const cursosActivos = cursos.filter((c) => c.estado === 'Activo').length;
+
+    const apRango = enRango(aportes);
+    const apTotal = apRango.reduce((s, a) => s + (a.monto || 0), 0);
+    const apDiezmos = apRango.filter((a) => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
+    const apOfrendas = apRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+
+    const apComunRango = enRango(aportesComun);
+    const apComunTotal = apComunRango.reduce((s, a) => s + (a.monto || 0), 0);
+    const apComunDiezmos = apComunRango.filter((a) => a.tipo === 'Diezmo').reduce((s, a) => s + (a.monto || 0), 0);
+    const apComunOfrendas = apComunRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+
+    const finDiezmos = apDiezmos + apComunDiezmos;
+    const finOfrendas = apOfrendas + apComunOfrendas;
+
+    const bienComunDiezmos = apComunDiezmos;
+    const bienComunOfrendas = apComunOfrendas;
+    const bienComunTotal = apComunTotal;
+    const bienComunGruposPlan = grupos.reduce((s, g) => s + (g.planOfrendasMensual || 0), 0);
+    const bienComunPlan = diezmadores.reduce((s, c) => s + (c.planDiezmo || 0), 0) + bienComunGruposPlan;
+
+    const colaboradoresAyuda = apRango.filter((a) => a.tipo === 'Ofrenda').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresMisiones = apRango.filter((a) => a.tipo === 'Misión').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresManosAbiertas = apRango.filter((a) => a.tipo === 'Manos Abiertas').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresConstruccion = apRango.filter((a) => a.tipo === 'Construcción').reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresOtro = apRango.filter((a) => !['Diezmo', 'Ofrenda', 'Misión', 'Manos Abiertas', 'Construcción'].includes(a.tipo)).reduce((s, a) => s + (a.monto || 0), 0);
+    const colaboradoresTotal = apTotal;
+    const colaboradoresPlan = colaboradores.reduce((s, d) => s + (d.planOfrendaMonto || 0), 0);
+
+    const totalFinal = bienComunTotal + colaboradoresTotal;
+    const planMensual = bienComunPlan + colaboradoresPlan;
+
+    const entrRango = enRango(entregas);
+    const benefUnicos = new Set(entrRango.map((e) => e.beneficiarioId)).size;
+    const personas = beneficiarios
+      .filter((b) => entrRango.some((e) => e.beneficiarioId === b.id))
+      .reduce((s, b) => s + (b.familia || 1), 0);
+
+    const negActivos = negocios.filter((n) => n.estado === 'Activo').length;
+    const negIngresos = negocios.filter((n) => n.estado === 'Activo').reduce((s, n) => s + (n.ingresosMensuales || 0), 0);
+
+    const pubRango = publicaciones.filter((p) => p.estado === 'Publicada' && inRange(p.fecha, desde, hasta));
+    const pubAlcance = pubRango.reduce((s, p) => s + (p.alcance || 0), 0);
+    const pubEng = pubRango.reduce((s, p) => s + (p.engagement || 0), 0);
+
+    return {
+      // P6: «personasUnicas» es el tamaño del registro único (la colección
+      // `personas`): una persona cuenta una vez tenga los procesos que
+      // tenga. Los demás contadores de esta sección son de PROCESO
+      // (conversiones del período, integrados) y no cambian.
+      conv: { total: conv.length, mesActual: convMes, integrados: convIntegrados, grupos: grupos.length, personasUnicas: personasReg.length },
+      evang: { total: evang.length, contactos: evangContactos, conversiones: evangConvs },
+      academia: { cursos: cursos.length, cursosActivos, estudiantes: estActivos, certificados: certRango.length },
+      finanzas: { diezmos: finDiezmos, ofrendas: finOfrendas, bienComunDiezmos, bienComunOfrendas, bienComunTotal, bienComunPlan, colaboradoresAyuda, colaboradoresMisiones, colaboradoresManosAbiertas, colaboradoresConstruccion, colaboradoresOtro, colaboradoresTotal, colaboradoresPlan, totalFinal, planMensual },
+      manos: { beneficiarios: beneficiarios.length, campanas: campanas.filter((c) => inRange(c.fechaInicio, desde, hasta)).length, entregas: entrRango.length, familias: benefUnicos, personas },
+      negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
+      comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
+      censo: calcularCenso(personasReg, { conversiones: convs, miembros, estudiantes, dadores: diezmadores, beneficiarios }, pasosSeguimiento, { desde, hasta }, today),
+    };
+  }, [convs, personasReg, miembros, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, pasosSeguimiento, desde, hasta, today]);
+
+  useEffect(() => {
+    if (metasDoc) {
+      setMMembresia(String(metasDoc.membresia));
+      setMAcademia(String(metasDoc.academia));
+      setMSostenimiento(String(metasDoc.sostenimiento));
+      setMFamilias(String(metasDoc.familias));
+      setMPersonas(String(metasDoc.personas));
+    }
+  }, [metasDoc]);
+
+  const metas = metasDoc ?? { membresia: 500, academia: 150, sostenimiento: 8000, familias: 200, personas: 800 };
+  const mesesPeriodo = (() => {
+    const [y1, m1] = desde.split('-').map(Number);
+    const [y2, m2] = hasta.split('-').map(Number);
+    return Math.max(1, (y2 - y1) * 12 + (m2 - m1) + 1);
+  })();
+  const goals = [
+    { label: `👥 Membresía: ${metas.membresia} miembros`, current: contarPersonasUnicas(miembros), total: metas.membresia, color: 'var(--green)', prefix: '' },
+    { label: `🎓 Academia: ${metas.academia} graduados`, current: datos.academia.certificados, total: metas.academia, color: 'var(--academia-teal)', prefix: '' },
+    { label: `💰 Sostenimiento: meta de ${mesesPeriodo} mes(es)`, current: datos.finanzas.colaboradoresTotal, total: metas.sostenimiento * mesesPeriodo, color: 'var(--oro-apostolico)', prefix: '$' },
+    { label: `🤲 Familias impactadas: ${metas.familias}`, current: datos.manos.familias, total: metas.familias, color: 'var(--manos-terracota)', prefix: '' },
+  ];
+  const saveMetas = async () => {
+    const membresia = parseInt(mMembresia) || 0;
+    const academia = parseInt(mAcademia) || 0;
+    const sostenimiento = parseInt(mSostenimiento) || 0;
+    const familias = parseInt(mFamilias) || 0;
+    const personasMeta = parseInt(mPersonas) || 0;
+    if (membresia <= 0 || academia <= 0 || sostenimiento <= 0 || familias <= 0 || personasMeta <= 0) {
+      return showToast('Todos los valores deben ser mayores a 0');
+    }
+    const existing = await db.metas.get('default');
+    const nextVersion = (existing?.version || 0) + 1;
+    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas: personasMeta, actualizado: new Date().toISOString(), version: nextVersion });
+    setEditMetas(false);
+    showToast('Metas actualizadas');
+  };
+
+  const deptInfo = DEPARTAMENTOS.find((d) => d.id === dept) ?? DEPARTAMENTOS[0];
+  const informe = useMemo(
+    () => (dept === 'general' ? null : construirInforme(dept, {
+      datos, conversiones: convs, pasos: pasosSeguimiento, grupos, evangelismos: evangels,
+      miembros, ministerios, miembrosMinisterios, cursos, estudiantes, certificados: certs,
+      diezmadores, aportesComun, colaboradores, aportes, beneficiarios, campanas, entregas,
+      periodo: { desde, hasta },
+    })),
+    [dept, datos, convs, pasosSeguimiento, grupos, evangels, miembros, ministerios, miembrosMinisterios, cursos, estudiantes, certs, diezmadores, aportesComun, colaboradores, aportes, beneficiarios, campanas, entregas, desde, hasta],
+  );
+
+
+  /* Constructores de exportación compartidos: el cálculo en vivo y el
+     snapshot guardado (Historial) exportan con el MISMO formato. */
+  const buildTxtLines = (d: ReporteDatos, periodo: string, dde: string, hta: string, generadoLabel: string): string[] => {
+    const lines: string[] = [];
+    lines.push(`REPORTE LEMGIL — ${periodo}`);
+    lines.push(`Período: ${fmt(dde)} → ${fmt(hta)}`);
+    lines.push(`Generado: ${generadoLabel}`);
+    lines.push('');
+    lines.push('MISIÓN');
+    lines.push(`Conversiones: ${d.conv.total} (registrados en Misión: ${d.conv.mesActual})`);
+    lines.push(`Integrados: ${d.conv.integrados}`);
+    lines.push(`Grupos: ${d.conv.grupos}`);
+    lines.push(`Personas únicas: ${d.conv.personasUnicas}`);
+    lines.push(`Evangelismos: ${d.evang.total} (contactos: ${d.evang.contactos}, conversiones: ${d.evang.conversiones})`);
+    lines.push('');
+    lines.push('ACADEMIA');
+    lines.push(`Cursos: ${d.academia.cursos} (${d.academia.cursosActivos} activos)`);
+    lines.push(`Estudiantes activos: ${d.academia.estudiantes}`);
+    lines.push(`Certificados emitidos: ${d.academia.certificados}`);
+    lines.push('');
+    lines.push('FINANZAS');
+    lines.push('');
+    lines.push('BIEN COMÚN (Diezmos+Ofrendas):');
+    lines.push(`  Diezmos: ${money(d.finanzas.bienComunDiezmos)}`);
+    lines.push(`  Ofrendas: ${money(d.finanzas.bienComunOfrendas)}`);
+    lines.push(`  Total Bien Común: ${money(d.finanzas.bienComunTotal)}`);
+    lines.push(`  Plan mensual: ${money(d.finanzas.bienComunPlan)}`);
+    lines.push('');
+    lines.push('COLABORADORES (Red Externa):');
+    lines.push(`  Ayuda / Ofrendas: ${money(d.finanzas.colaboradoresAyuda)}`);
+    lines.push(`  Misiones: ${money(d.finanzas.colaboradoresMisiones)}`);
+    lines.push(`  Manos Abiertas: ${money(d.finanzas.colaboradoresManosAbiertas)}`);
+    lines.push(`  Construcción: ${money(d.finanzas.colaboradoresConstruccion)}`);
+    lines.push(`  Otros: ${money(d.finanzas.colaboradoresOtro)}`);
+    lines.push(`  Total Colaboradores: ${money(d.finanzas.colaboradoresTotal)}`);
+    lines.push(`  Plan mensual: ${money(d.finanzas.colaboradoresPlan)}`);
+    lines.push('');
+    lines.push(`TOTAL FINAL: ${money(d.finanzas.totalFinal)}`);
+    lines.push(`Plan mensual: ${money(d.finanzas.bienComunPlan + d.finanzas.colaboradoresPlan)}`);
+    lines.push('');
+    lines.push('MANOS ABIERTAS');
+    lines.push(`Beneficiarios: ${d.manos.beneficiarios}`);
+    lines.push(`Campañas: ${d.manos.campanas}`);
+    lines.push(`Entregas: ${d.manos.entregas}`);
+    lines.push(`Familias impactadas: ${d.manos.familias} (${d.manos.personas} personas)`);
+    lines.push('');
+    lines.push('NEGOCIOS ADONAY');
+    lines.push(`Proyectos activos: ${d.negocios.activos}`);
+    lines.push(`Emprendedores: ${d.negocios.emprendedores}`);
+    lines.push(`Ingresos mensuales: ${money(d.negocios.ingresos)}`);
+    lines.push('');
+    lines.push('COMUNICACION');
+    lines.push(`Publicaciones: ${d.comunicacion.publicaciones}`);
+    lines.push(`Alcance: ${num(d.comunicacion.alcance)}`);
+    lines.push(`Engagement: ${num(d.comunicacion.engagement)}`);
+    return lines;
+  };
+
+  const downloadTxt = (d: ReporteDatos, periodo: string, dde: string, hta: string, generadoLabel: string, filename: string) => {
+    const txt = buildTxtLines(d, periodo, dde, hta, generadoLabel).join('\n');
+    const b = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(u);
+    showToast('TXT exportado');
+  };
+
+  const buildCsvRows = (d: ReporteDatos): (string | number)[][] => [
+    ['Misión', 'Conversiones', d.conv.total],
+    ['Misión', 'Registrados en Misión', d.conv.mesActual],
+    ['Misión', 'Integrados', d.conv.integrados],
+    ['Misión', 'Grupos', d.conv.grupos],
+    ['Misión', 'Personas únicas', d.conv.personasUnicas],
+    ['Misión', 'Evangelismos', d.evang.total],
+    ['Misión', 'Contactos', d.evang.contactos],
+    ['Academia', 'Cursos', d.academia.cursos],
+    ['Academia', 'Estudiantes', d.academia.estudiantes],
+    ['Academia', 'Certificados', d.academia.certificados],
+    ['Finanzas', 'Bien Común', d.finanzas.bienComunTotal],
+    ['Finanzas', 'Colaboradores', d.finanzas.colaboradoresTotal],
+    ['Finanzas', 'Total', d.finanzas.totalFinal],
+    ['Manos Abiertas', 'Beneficiarios', d.manos.beneficiarios],
+    ['Manos Abiertas', 'Entregas', d.manos.entregas],
+    ['Negocios', 'Activos', d.negocios.activos],
+    ['Negocios', 'Ingresos', d.negocios.ingresos],
+    ['Comunicación', 'Publicaciones', d.comunicacion.publicaciones],
+    ['Comunicación', 'Alcance', d.comunicacion.alcance],
+  ];
+
+  const handleExportPDFActual = () => {
+    try {
+      if (dept === 'general' || !informe) {
+        exportReporteGeneralPDF({ datos, periodo: periodoLabel, desde, hasta });
+      } else {
+        exportInformeDepartamentoPDF({ informe, periodo: periodoLabel, desde, hasta });
+      }
+      showToast('PDF exportado');
+    } catch {
+      showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (dept === 'general' || !informe) {
+      exportCSV(['Módulo', 'Métrica', 'Valor'], buildCsvRows(datos), `reporte-lemgil-${ymNow}.csv`);
+    } else {
+      const rows = informe.secciones.flatMap((s) => s.filas.map(([k, v]) => [informe.titulo, s.titulo, k, v]));
+      exportCSV(['Departamento', 'Sección', 'Indicador', 'Valor'], rows, `informe-${dept}-${ymNow}.csv`);
+    }
+    showToast('CSV exportado');
+  };
+
+  const openGen = () => {
+    setGenTitulo(`Reporte ${periodoLabel}`);
+    setModal('gen');
+  };
+  const saveReporte = async () => {
+    if (!genTitulo.trim()) return showToast('El título es obligatorio');
+    // Sin el campo fantasma «creado»: la interfaz Reporte y la tabla remota
+    // no lo tienen (cada informe nuevo pagaba un 400 en su primer sync).
+    const { creado: _creado, ...registro } = createBaseRecord({
+      id: uuid(),
+      titulo: genTitulo.trim(),
+      periodo: periodoLabel,
+      desde,
+      hasta,
+      resumen: JSON.stringify(datos),
+      generado: new Date().toISOString(),
+      generadoPor: 'LemGil',
+      version: 1,
+    });
+    await db.reportes.add(registro);
+    showToast('Reporte guardado');
+    setModal(null);
+    setTab('historial');
+  };
+  const delReporte = async () => {
+    if (!delId) return;
+    await db.reportes.delete(delId);
+    showToast('Reporte eliminado');
+    setModal(null);
+  };
+
+  const selReporte = viewId ? reportes.find((r) => r.id === viewId) : null;
+  // Parseo blindado: un snapshot dañado o incompleto muestra ceros por
+  // sección en vez de lanzar y tumbar la app al ErrorBoundary.
+  const selResumen: ReporteDatos = useMemo(
+    () => parseReporteResumen(selReporte?.resumen),
+    [selReporte],
+  );
+
+  const handleSelPDF = () => {
+    if (!selReporte) return;
+    try {
+      exportReporteGeneralPDF({ datos: selResumen, periodo: selReporte.periodo, desde: selReporte.desde, hasta: selReporte.hasta });
+      showToast('PDF exportado');
+    } catch {
+      showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
+    }
+  };
+  const handleSelTXT = () => {
+    if (!selReporte) return;
+    downloadTxt(selResumen, selReporte.periodo, selReporte.desde, selReporte.hasta, new Date(selReporte.generado).toLocaleString('es-ES'), `reporte-lemgil-${selReporte.desde.slice(0, 7)}.txt`);
+  };
+  const handleSelCSV = () => {
+    if (!selReporte) return;
+    exportCSV(['Módulo', 'Métrica', 'Valor'], buildCsvRows(selResumen), `reporte-lemgil-${selReporte.desde.slice(0, 7)}.csv`);
+    showToast('CSV exportado');
+  };
+
+  return (
+    <Layout title="Informe">
+      <div className="page-reportes">
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--green)', letterSpacing: 1 }}>
+            Sistema de Reportes
+          </div>
+          <div style={{ fontFamily: 'var(--font-reading)', color: 'var(--dim)', fontSize: 14, marginTop: 4, fontStyle: 'italic' }}>
+            Semanales · Mensuales · KPI · Evaluaciones
+          </div>
+        </div>
+
+        <div className="tabs">
+          <button className={`tab ${tab === 'actual' ? 'active' : ''}`} onClick={() => setTab('actual')}>📊 Reporte Actual</button>
+          <button className={`tab ${tab === 'historial' ? 'active' : ''}`} onClick={() => setTab('historial')}>📁 Historial ({reportes.length})</button>
+        </div>
+
+        {tab === 'actual' && (
+          <>
+            <div className="card" style={{ marginBottom: 18 }}>
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <div className="card-title">📅 Período del Reporte</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button className={`btn btn-sm ${preset === 'mes' ? 'btn-gold' : 'btn-secondary'}`} onClick={() => applyPreset('mes')}>Este Mes</button>
+                  <button className={`btn btn-sm ${preset === 'mesAnterior' ? 'btn-gold' : 'btn-secondary'}`} onClick={() => applyPreset('mesAnterior')}>Mes Anterior</button>
+                  <button className={`btn btn-sm ${preset === 'anio' ? 'btn-gold' : 'btn-secondary'}`} onClick={() => applyPreset('anio')}>Este Año</button>
+                  <button className={`btn btn-sm ${preset === 'todo' ? 'btn-gold' : 'btn-secondary'}`} onClick={() => applyPreset('todo')}>Todo</button>
+                  <button className={`btn btn-sm ${preset === 'custom' ? 'btn-gold' : 'btn-secondary'}`} onClick={() => setPreset('custom')}>Personalizado</button>
+                </div>
+              </div>
+              {preset === 'custom' && (
+                <div className="form-row" style={{ marginTop: 12 }}>
+                  <div className="form-group"><label className="form-label">Desde</label><input className="form-input" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">Hasta</label><input className="form-input" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
+                </div>
+              )}
+              <div style={{ marginTop: 12, fontSize: 13, color: 'var(--dim)' }}>
+                Período seleccionado: <strong style={{ color: 'var(--txt)' }}>{periodoLabel}</strong> ({fmt(desde)} → {fmt(hasta)})
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 18 }}>
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <div className="card-title">🏛️ Departamento</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {DEPARTAMENTOS.map((d) => (
+                    <button key={d.id} className={`btn btn-sm ${dept === d.id ? 'btn-gold' : 'btn-secondary'}`} onClick={() => setDept(d.id)}>
+                      {d.emoji} {d.etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 13, color: 'var(--dim)' }}>
+                {dept === 'general'
+                  ? 'El consolidado de todo el Ministerio, con el censo de la congregación al frente.'
+                  : `El informe de ${deptInfo.etiqueta} para compartir con su responsable: lo que se ve abajo es lo que sale en su PDF.`}
+              </div>
+            </div>
+
+            <div className="actions-row">
+              {dept === 'general' && <button className="btn btn-gold" onClick={openGen}>💾 Guardar Reporte</button>}
+              <button className="btn btn-secondary" onClick={handleExportPDFActual}>📄 Exportar PDF</button>
+              <button className="btn btn-secondary" onClick={() => window.print()}>🖨 Imprimir</button>
+              {dept === 'general' && <button className="btn btn-secondary" onClick={() => downloadTxt(datos, periodoLabel, desde, hasta, new Date().toLocaleString('es-ES'), `reporte-lemgil-${ymNow}.txt`)}>📥 Exportar TXT</button>}
+              <button className="btn btn-secondary" onClick={handleExportCSV}>📥 Exportar CSV</button>
+            </div>
+
+            <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+              {dept !== 'general' && informe ? (
+                informe.secciones.map((s) => (
+                  <ModuleCard key={s.titulo} color={deptInfo.color} emoji={deptInfo.emoji} title={s.titulo} rows={s.filas} />
+                ))
+              ) : (
+              <>
+              <ModuleCard color="var(--gold)" emoji="👥" title="Censo de la Congregación" rows={[
+                ['TOTAL DE CONGREGADOS', datos.censo.total],
+                ...datos.censo.etapas.map((e): [string, number] => [e.etiqueta, e.cantidad]),
+                ['Miembros', datos.censo.miembros],
+                ['Diezmadores', datos.censo.diezmadores],
+                ['— DEMOGRAFÍA —', ''],
+                ['Hombres', datos.censo.hombres],
+                ['Mujeres', datos.censo.mujeres],
+                ['Sexo sin dato', datos.censo.sexoSinDato],
+                ['Niños (0–11)', datos.censo.ninos],
+                ['Jóvenes (12–29)', datos.censo.jovenes],
+                ['Adultos (30–59)', datos.censo.adultos],
+                ['Ancianos (60+)', datos.censo.ancianos],
+                ['Sin fecha de nacimiento', datos.censo.edadSinDato],
+                ['— FUERA DEL TOTAL —', ''],
+                ['Miembros inactivos', datos.censo.miembrosInactivos],
+                ['Bajas · Apartados', datos.censo.bajas.apartados],
+                ['Bajas · Traslados', datos.censo.bajas.traslados],
+                ['Bajas · Fallecidos', datos.censo.bajas.fallecidos],
+                ['Bajas · Otras salidas', datos.censo.bajas.otrasSalidas],
+                ['— DEL PERÍODO —', ''],
+                ['Confesiones', datos.censo.periodo.confesiones],
+                ['Conversiones (permanecieron)', datos.censo.periodo.conversiones],
+                ['Bajas del período', datos.censo.periodo.bajas],
+              ]} />
+
+              <ModuleCard color="var(--mision-purple)" emoji="🙏" title="Misión" rows={[
+                ['Conversiones (período)', datos.conv.total],
+                ['Registrados en Misión (período)', datos.conv.mesActual],
+                ['Integrados', datos.conv.integrados],
+                ['Grupos activos', datos.conv.grupos],
+                ['Personas únicas', datos.conv.personasUnicas],
+                ['Evangelismos', datos.evang.total],
+                ['Contactos alcanzados', num(datos.evang.contactos)],
+                ['Conversiones evangelísticas', datos.evang.conversiones],
+              ]} />
+
+              <ModuleCard color="var(--academia-teal)" emoji="🎓" title="Academia" rows={[
+                ['Cursos totales', datos.academia.cursos],
+                ['Cursos activos', datos.academia.cursosActivos],
+                ['Estudiantes matriculados', datos.academia.estudiantes],
+                ['Certificados emitidos', datos.academia.certificados],
+              ]} />
+
+              <ModuleCard color="var(--oro-apostolico)" emoji="💰" title="Finanzas" rows={[
+                ['— BIEN COMÚN (Diezmos+Ofrendas) —', ''],
+                ['  Diezmos', money(datos.finanzas.bienComunDiezmos)],
+                ['  Ofrendas', money(datos.finanzas.bienComunOfrendas)],
+                ['  Total Bien Común', money(datos.finanzas.bienComunTotal)],
+                ['  Plan mensual', money(datos.finanzas.bienComunPlan)],
+                ['— COLABORADORES (Red Externa) —', ''],
+                ['  Ayuda / Ofrendas', money(datos.finanzas.colaboradoresAyuda)],
+                ['  Misiones', money(datos.finanzas.colaboradoresMisiones)],
+                ['  Manos Abiertas', money(datos.finanzas.colaboradoresManosAbiertas)],
+                ['  Construcción', money(datos.finanzas.colaboradoresConstruccion)],
+                ['  Otros', money(datos.finanzas.colaboradoresOtro)],
+                ['  Total Colaboradores', money(datos.finanzas.colaboradoresTotal)],
+                ['  Plan mensual', money(datos.finanzas.colaboradoresPlan)],
+                ['— TOTAL FINAL —', ''],
+                ['  Total Final', money(datos.finanzas.totalFinal)],
+                ['  Plan mensual', money(datos.finanzas.planMensual)],
+                ['  % de meta', `${datos.finanzas.planMensual ? Math.round((datos.finanzas.totalFinal / datos.finanzas.planMensual) * 100) : 0}%`],
+              ]} />
+
+              <ModuleCard color="var(--manos-terracota)" emoji="🤲" title="Manos Abiertas" rows={[
+                ['Beneficiarios registrados', datos.manos.beneficiarios],
+                ['Campañas (período)', datos.manos.campanas],
+                ['Entregas (período)', datos.manos.entregas],
+                ['Familias impactadas', datos.manos.familias],
+                ['Personas alcanzadas', datos.manos.personas],
+                ['Meta familias', metasDoc?.familias || 200],
+                ['% de meta', `${Math.round((datos.manos.familias / (metasDoc?.familias || 200)) * 100)}%`],
+              ]} />
+
+              <ModuleCard color="var(--oro-luz)" emoji="💼" title="Negocios Adonay" rows={[
+                ['Proyectos activos', datos.negocios.activos],
+                ['Emprendedores únicos', datos.negocios.emprendedores],
+                ['Ingresos mensuales', money(datos.negocios.ingresos)],
+              ]} />
+
+              <ModuleCard color="var(--mision-blue)" emoji="📡" title="Comunicación" rows={[
+                ['Publicaciones', datos.comunicacion.publicaciones],
+                ['Alcance total', num(datos.comunicacion.alcance)],
+                ['Engagement total', num(datos.comunicacion.engagement)],
+                ['Engagement rate', `${datos.comunicacion.alcance ? ((datos.comunicacion.engagement / datos.comunicacion.alcance) * 100).toFixed(1) : '0.0'}%`],
+              ]} />
+              </>
+              )}
+            </div>
+
+            {dept === 'general' && (
+              <>
+                <div className="card" style={{ marginTop: 18 }}>
+                  <div className="card-header">
+                    <div className="card-title">🎯 Metas del Ministerio — Progreso</div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setEditMetas(true)}>✏️ Editar Metas</button>
+                  </div>
+                  {goals.map((g, i) => (
+                    <div key={i} className="progress-row">
+                      <div className="progress-header">
+                        <span style={{ color: 'var(--txt)' }}>{g.label}</span>
+                        <span style={{ color: 'var(--oro-apostolico)', fontWeight: 700 }}>
+                          {g.prefix}{g.current.toLocaleString()} / {g.prefix}{g.total.toLocaleString()} · {g.total ? Math.round((g.current / g.total) * 100) : 0}%
+                        </span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${g.total ? Math.min(100, (g.current / g.total) * 100) : 0}%`, background: g.color }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 6 }}>
+                    Las barras se miden con el período elegido arriba: la membresía es la foto actual (personas únicas);
+                    Academia, los certificados del período; Sostenimiento, los aportes de Colaboradores del período contra la meta mensual × los meses del período;
+                    Familias, las impactadas del período.
+                  </div>
+                </div>
+
+                <Modal
+                  open={editMetas}
+                  onClose={() => setEditMetas(false)}
+                  title="📊 Editar Metas Anuales"
+                  footer={
+                    <>
+                      <button className="btn btn-secondary" onClick={() => setEditMetas(false)}>Cancelar</button>
+                      <button className="btn btn-gold" onClick={saveMetas}>💾 Guardar Metas</button>
+                    </>
+                  }
+                >
+                  <div className="form-section">Define las metas anuales del ministerio</div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">👥 Membresía (personas)</label>
+                      <input className="form-input" type="number" value={mMembresia} onChange={(e) => setMMembresia(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">🎓 Academia (graduados)</label>
+                      <input className="form-input" type="number" value={mAcademia} onChange={(e) => setMAcademia(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">💰 Sostenimiento ($/mes)</label>
+                      <input className="form-input" type="number" value={mSostenimiento} onChange={(e) => setMSostenimiento(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">👪 Familias impactadas</label>
+                      <input className="form-input" type="number" value={mFamilias} onChange={(e) => setMFamilias(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">🧑 Personas impactadas</label>
+                      <input className="form-input" type="number" value={mPersonas} onChange={(e) => setMPersonas(e.target.value)} min="1" />
+                    </div>
+                  </div>
+                </Modal>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === 'historial' && (
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">📁 Reportes Guardados</div>
+              <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+                Mostrando {paginatedReportes.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–{(currentPage - 1) * pageSize + paginatedReportes.length} de {reportes.length} reportes
+              </div>
+            </div>
+            {reportes.length === 0 ? (
+              <EmptyState icon="📁" title="Sin reportes guardados" sub='Usa "💾 Guardar Reporte" en la pestaña Reporte Actual para crear el primero' />
+            ) : (
+              <>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Título</th>
+                      <th>Período</th>
+                      <th>Rango</th>
+                      <th>Generado</th>
+                      <th>Por</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedReportes.map((r) => (
+                      <tr key={r.id}>
+                        <td><strong>{r.titulo}</strong></td>
+                        <td>{r.periodo}</td>
+                        <td style={{ fontSize: 11, color: 'var(--dim)' }}>{fmt(r.desde)} → {fmt(r.hasta)}</td>
+                        <td style={{ fontSize: 12 }}>{fmt(r.generado.slice(0, 10))}</td>
+                        <td style={{ fontSize: 12 }}>{r.generadoPor}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 5 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => { setViewId(r.id); setModal('ver'); }}>👁 Ver</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => { setDelId(r.id); setModal('del'); }}>🗑️</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, padding: '0 4px' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    >
+                      ← Anterior
+                    </button>
+                    <span style={{ fontSize: 13, color: 'var(--dim)' }}>
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Siguiente →
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        <Modal
+          open={modal === 'gen'}
+          onClose={() => setModal(null)}
+          title="💾 Guardar Reporte"
+          footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-gold" onClick={saveReporte}>💾 Guardar</button></>}
+        >
+          <div className="form-section">Datos del Reporte</div>
+          <div className="form-group">
+            <label className="form-label">Título *</label>
+            <input className="form-input" value={genTitulo} onChange={(e) => setGenTitulo(e.target.value)} placeholder="Ej: Reporte Mensual Mayo 2026" />
+          </div>
+          <div className="form-group" style={{ marginTop: 12 }}>
+            <label className="form-label">Período</label>
+            <input className="form-input" value={periodoLabel} readOnly style={{ background: 'var(--surface-2)' }} />
+          </div>
+          <div className="form-group" style={{ marginTop: 12 }}>
+            <label className="form-label">Rango de fechas</label>
+            <input className="form-input" value={`${fmt(desde)} → ${fmt(hasta)}`} readOnly style={{ background: 'var(--surface-2)' }} />
+          </div>
+          <div style={{ marginTop: 14, padding: 12, background: 'var(--surface-2)', borderRadius: 8, fontSize: 12, color: 'var(--dim)' }}>
+            💡 Se guardará una instantánea de los datos del período. Podrás consultarla en el Historial.
+          </div>
+        </Modal>
+
+        <Modal
+          open={modal === 'ver'}
+          onClose={() => setModal(null)}
+          title={`📄 ${selReporte?.titulo || ''}`}
+          wide
+          footer={<>
+            <button className="btn btn-secondary" onClick={handleSelPDF}>📄 PDF</button>
+            <button className="btn btn-secondary" onClick={handleSelTXT}>📥 TXT</button>
+            <button className="btn btn-secondary" onClick={handleSelCSV}>📥 CSV</button>
+            <button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button>
+          </>}
+        >
+          {selReporte && selResumen && (
+            <>
+              <div className="detail-row"><span className="detail-label">Período</span><span className="detail-value">{selReporte.periodo}</span></div>
+              <div className="detail-row"><span className="detail-label">Rango</span><span className="detail-value">{fmt(selReporte.desde)} → {fmt(selReporte.hasta)}</span></div>
+              <div className="detail-row"><span className="detail-label">Generado</span><span className="detail-value">{selReporte.generado.slice(0, 19).replace('T', ' ')}</span></div>
+              <div className="detail-row"><span className="detail-label">Por</span><span className="detail-value">{selReporte.generadoPor}</span></div>
+
+              <div className="form-section" style={{ marginTop: 14 }}>🙏 Misión</div>
+              <div className="detail-row"><span className="detail-label">Conversiones</span><span className="detail-value">{selResumen.conv.total} (registrados en Misión: {selResumen.conv.mesActual})</span></div>
+              <div className="detail-row"><span className="detail-label">Integrados</span><span className="detail-value">{selResumen.conv.integrados}</span></div>
+              <div className="detail-row"><span className="detail-label">Grupos</span><span className="detail-value">{selResumen.conv.grupos}</span></div>
+              <div className="detail-row"><span className="detail-label">Personas únicas</span><span className="detail-value">{selResumen.conv.personasUnicas}</span></div>
+              <div className="detail-row"><span className="detail-label">Evangelismos</span><span className="detail-value">{selResumen.evang.total} ({num(selResumen.evang.contactos)} contactos)</span></div>
+
+              <div className="form-section" style={{ marginTop: 14 }}>🎓 Academia</div>
+              <div className="detail-row"><span className="detail-label">Cursos</span><span className="detail-value">{selResumen.academia.cursos} ({selResumen.academia.cursosActivos} activos)</span></div>
+              <div className="detail-row"><span className="detail-label">Estudiantes</span><span className="detail-value">{selResumen.academia.estudiantes}</span></div>
+              <div className="detail-row"><span className="detail-label">Certificados</span><span className="detail-value">{selResumen.academia.certificados}</span></div>
+
+              <div className="form-section" style={{ marginTop: 14 }}>💰 Finanzas</div>
+              <div className="detail-row"><span className="detail-label">Bien Común</span><span className="detail-value">{money(selResumen.finanzas.bienComunTotal)}</span></div>
+              <div className="detail-row"><span className="detail-label">Colaboradores</span><span className="detail-value">{money(selResumen.finanzas.colaboradoresTotal)}</span></div>
+              <div className="detail-row"><span className="detail-label">Total Final</span><span className="detail-value">{money(selResumen.finanzas.totalFinal)}</span></div>
+              {selResumen.finanzas.bienComunPlan && (
+                <div className="detail-row"><span className="detail-label">Plan mensual</span><span className="detail-value">{money(selResumen.finanzas.bienComunPlan + (selResumen.finanzas.colaboradoresPlan || 0))}</span></div>
+              )}
+
+              <div className="form-section" style={{ marginTop: 14 }}>🤲 Manos Abiertas</div>
+              <div className="detail-row"><span className="detail-label">Beneficiarios</span><span className="detail-value">{selResumen.manos.beneficiarios}</span></div>
+              <div className="detail-row"><span className="detail-label">Campañas</span><span className="detail-value">{selResumen.manos.campanas}</span></div>
+              <div className="detail-row"><span className="detail-label">Entregas</span><span className="detail-value">{selResumen.manos.entregas}</span></div>
+              <div className="detail-row"><span className="detail-label">Impacto</span><span className="detail-value">{selResumen.manos.familias} familias · {selResumen.manos.personas} personas</span></div>
+
+              <div className="form-section" style={{ marginTop: 14 }}>💼 Negocios Adonay</div>
+              <div className="detail-row"><span className="detail-label">Proyectos</span><span className="detail-value">{selResumen.negocios.activos} activos</span></div>
+              <div className="detail-row"><span className="detail-label">Emprendedores</span><span className="detail-value">{selResumen.negocios.emprendedores}</span></div>
+              <div className="detail-row"><span className="detail-label">Ingresos</span><span className="detail-value">{money(selResumen.negocios.ingresos)}</span></div>
+
+              <div className="form-section" style={{ marginTop: 14 }}>📡 Comunicación</div>
+              <div className="detail-row"><span className="detail-label">Publicaciones</span><span className="detail-value">{selResumen.comunicacion.publicaciones}</span></div>
+              <div className="detail-row"><span className="detail-label">Alcance</span><span className="detail-value">{num(selResumen.comunicacion.alcance)}</span></div>
+              <div className="detail-row"><span className="detail-label">Engagement</span><span className="detail-value">{num(selResumen.comunicacion.engagement)}</span></div>
+            </>
+          )}
+        </Modal>
+
+        <Modal
+          open={modal === 'del'}
+          onClose={() => setModal(null)}
+          title="⚠️ Eliminar Reporte"
+          footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button><button className="btn btn-danger" onClick={delReporte}>Sí, Eliminar</button></>}
+        >
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 44, marginBottom: 10 }}>🗑️</div>
+            <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6 }}>¿Eliminar este reporte guardado?<br />Esta acción no se puede deshacer.</p>
+          </div>
+        </Modal>
+      </div>
+    </Layout>
+  );
+}
+
+function ModuleCard({ color, emoji, title, rows }: { color: string; emoji: string; title: string; rows: [string, string | number][] }) {
+  return (
+    <div className="card" style={{ borderLeft: `3px solid ${color}` }}>
+      <div className="card-header">
+        <div className="card-title" style={{ color, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 18 }}>{emoji}</span>
+          {title}
+        </div>
+      </div>
+      <div>
+        {rows.map(([k, v], i) => {
+          if (v === '' && k.startsWith('—')) {
+            return (
+              <div key={i} style={{ padding: '10px 0 4px', fontSize: 11, fontWeight: 700, color: 'var(--dim)', letterSpacing: 0.5, borderBottom: '1px solid var(--border)' }}>
+                {k}
+              </div>
+            );
+          }
+          return (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <span style={{ fontSize: 12, color: 'var(--dim)' }}>{k}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{v}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
