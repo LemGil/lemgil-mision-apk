@@ -4,6 +4,7 @@ import { showToast } from './notification';
 import { MS, fmt } from './utils';
 import { conteoGrupo } from './grupoStats';
 import { CENSO_VACIO, type CensoCongregacion } from './censo';
+import type { InformeDepartamento } from './informes';
 import { esGozne, etiquetaDe, idCanonico } from './pasosMision';
 import type { DiezmadorVista, EvangelismoVista } from './personaDatos';
 import type {
@@ -1363,4 +1364,40 @@ export function exportReporteGeneralPDF(opts: { datos: ReporteDatos; periodo: st
 
   footer(doc);
   doc.save(`reporte-lemgil-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/**
+ * El PDF de UN departamento (2026-11-17): el informe que Secretaría
+ * comparte con el responsable de cada área. Mismo traje que el
+ * general (cabecera, secciones con tabla, pie) y las mismas filas
+ * que se ven en pantalla — lo que se ve es lo que se comparte.
+ */
+export function exportInformeDepartamentoPDF(opts: { informe: InformeDepartamento; periodo: string; desde: string; hasta: string }) {
+  const { informe, periodo, desde, hasta } = opts;
+  const doc = new jsPDF();
+  header(doc, `Informe — ${informe.titulo}`, `${periodo} · ${fmt(desde)} → ${fmt(hasta)}`, 'Informes');
+
+  let y = 36;
+  const section = (title: string, rows: [string, string][]) => {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(12);
+    doc.setTextColor(...COLORS.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, 14, y);
+    autoTable(doc, {
+      startY: y + 4,
+      head: [['Indicador', 'Valor']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: COLORS.gold, textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  };
+
+  for (const s of informe.secciones) section(s.titulo, s.filas);
+
+  footer(doc);
+  doc.save(`informe-${informe.id}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }

@@ -4,7 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
 import { exportCSV } from '../lib/csvExport';
-import { exportReporteGeneralPDF, parseReporteResumen, type ReporteDatos } from '../lib/pdfExport';
+import { exportInformeDepartamentoPDF, exportReporteGeneralPDF, parseReporteResumen, type ReporteDatos } from '../lib/pdfExport';
+import { DEPARTAMENTOS, construirInforme, type DepartamentoId } from '../lib/informes';
 import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
@@ -23,6 +24,8 @@ export default function Reportes() {
   const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray(), []) ?? [];
   const personasReg = useLiveQuery(() => db.personas.toArray(), []) ?? [];
   const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
+  const ministerios = useLiveQuery(() => db.ministerios.toArray(), []) ?? [];
+  const miembrosMinisterios = useLiveQuery(() => db.miembrosMinisterios.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
   const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
@@ -68,6 +71,7 @@ export default function Reportes() {
   const [desde, setDesde] = useState(`${ymNow}-01`);
   const [hasta, setHasta] = useState(`${ymNow}-${String(new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()).padStart(2, '0')}`);
   const [tab, setTab] = useState<Tab>('actual');
+  const [dept, setDept] = useState<DepartamentoId>('general');
   const [modal, setModal] = useState<null | 'gen' | 'ver' | 'del'>(null);
   const [genTitulo, setGenTitulo] = useState('');
   const [viewId, setViewId] = useState<string | null>(null);
@@ -192,6 +196,18 @@ export default function Reportes() {
     };
   }, [convs, personasReg, miembros, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, pasosSeguimiento, desde, hasta, today]);
 
+  const deptInfo = DEPARTAMENTOS.find((d) => d.id === dept) ?? DEPARTAMENTOS[0];
+  const informe = useMemo(
+    () => (dept === 'general' ? null : construirInforme(dept, {
+      datos, conversiones: convs, pasos: pasosSeguimiento, grupos, evangelismos: evangels,
+      miembros, ministerios, miembrosMinisterios, cursos, estudiantes, certificados: certs,
+      diezmadores, aportesComun, colaboradores, aportes, beneficiarios, campanas, entregas,
+      periodo: { desde, hasta },
+    })),
+    [dept, datos, convs, pasosSeguimiento, grupos, evangels, miembros, ministerios, miembrosMinisterios, cursos, estudiantes, certs, diezmadores, aportesComun, colaboradores, aportes, beneficiarios, campanas, entregas, desde, hasta],
+  );
+
+
   /* Constructores de exportación compartidos: el cálculo en vivo y el
      snapshot guardado (Historial) exportan con el MISMO formato. */
   const buildTxtLines = (d: ReporteDatos, periodo: string, dde: string, hta: string, generadoLabel: string): string[] => {
@@ -286,11 +302,25 @@ export default function Reportes() {
 
   const handleExportPDFActual = () => {
     try {
-      exportReporteGeneralPDF({ datos, periodo: periodoLabel, desde, hasta });
+      if (dept === 'general' || !informe) {
+        exportReporteGeneralPDF({ datos, periodo: periodoLabel, desde, hasta });
+      } else {
+        exportInformeDepartamentoPDF({ informe, periodo: periodoLabel, desde, hasta });
+      }
       showToast('PDF exportado');
     } catch {
       showToast('Error al generar el PDF. Inténtalo de nuevo.', 'error');
     }
+  };
+
+  const handleExportCSV = () => {
+    if (dept === 'general' || !informe) {
+      exportCSV(['Módulo', 'Métrica', 'Valor'], buildCsvRows(datos), `reporte-lemgil-${ymNow}.csv`);
+    } else {
+      const rows = informe.secciones.flatMap((s) => s.filas.map(([k, v]) => [informe.titulo, s.titulo, k, v]));
+      exportCSV(['Departamento', 'Sección', 'Indicador', 'Valor'], rows, `informe-${dept}-${ymNow}.csv`);
+    }
+    showToast('CSV exportado');
   };
 
   const openGen = () => {
@@ -392,18 +422,39 @@ export default function Reportes() {
               </div>
             </div>
 
+            <div className="card" style={{ marginBottom: 18 }}>
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <div className="card-title">🏛️ Departamento</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {DEPARTAMENTOS.map((d) => (
+                    <button key={d.id} className={`btn btn-sm ${dept === d.id ? 'btn-gold' : 'btn-secondary'}`} onClick={() => setDept(d.id)}>
+                      {d.emoji} {d.etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 13, color: 'var(--dim)' }}>
+                {dept === 'general'
+                  ? 'El consolidado de todo el Ministerio, con el censo de la congregación al frente.'
+                  : `El informe de ${deptInfo.etiqueta} para compartir con su responsable: lo que se ve abajo es lo que sale en su PDF.`}
+              </div>
+            </div>
+
             <div className="actions-row">
-              <button className="btn btn-gold" onClick={openGen}>💾 Guardar Reporte</button>
+              {dept === 'general' && <button className="btn btn-gold" onClick={openGen}>💾 Guardar Reporte</button>}
               <button className="btn btn-secondary" onClick={handleExportPDFActual}>📄 Exportar PDF</button>
               <button className="btn btn-secondary" onClick={() => window.print()}>🖨 Imprimir</button>
-              <button className="btn btn-secondary" onClick={() => downloadTxt(datos, periodoLabel, desde, hasta, new Date().toLocaleString('es-ES'), `reporte-lemgil-${ymNow}.txt`)}>📥 Exportar TXT</button>
-              <button className="btn btn-secondary" onClick={() => {
-                exportCSV(['Módulo', 'Métrica', 'Valor'], buildCsvRows(datos), `reporte-lemgil-${ymNow}.csv`);
-                showToast('CSV exportado');
-              }}>📥 Exportar CSV</button>
+              {dept === 'general' && <button className="btn btn-secondary" onClick={() => downloadTxt(datos, periodoLabel, desde, hasta, new Date().toLocaleString('es-ES'), `reporte-lemgil-${ymNow}.txt`)}>📥 Exportar TXT</button>}
+              <button className="btn btn-secondary" onClick={handleExportCSV}>📥 Exportar CSV</button>
             </div>
 
             <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+              {dept !== 'general' && informe ? (
+                informe.secciones.map((s) => (
+                  <ModuleCard key={s.titulo} color={deptInfo.color} emoji={deptInfo.emoji} title={s.titulo} rows={s.filas} />
+                ))
+              ) : (
+              <>
               <ModuleCard color="var(--gold)" emoji="👥" title="Censo de la Congregación" rows={[
                 ['TOTAL DE CONGREGADOS', datos.censo.total],
                 ...datos.censo.etapas.map((e): [string, number] => [e.etiqueta, e.cantidad]),
@@ -490,6 +541,8 @@ export default function Reportes() {
                 ['Engagement total', num(datos.comunicacion.engagement)],
                 ['Engagement rate', `${datos.comunicacion.alcance ? ((datos.comunicacion.engagement / datos.comunicacion.alcance) * 100).toFixed(1) : '0.0'}%`],
               ]} />
+              </>
+              )}
             </div>
           </>
         )}
