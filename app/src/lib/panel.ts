@@ -3,7 +3,7 @@ import type {
 } from './types';
 import { conversionConDatos, estudianteConDatos, evangelismoConDatos } from './personaDatos';
 import { conteoGrupo } from './grupoStats';
-import { esInicio, etiquetaConRespaldo, etiquetaDe, fechaDeConversion, pasoInicio, seConvirtio } from './pasosMision';
+import { PS_CONFESO, esInicio, etiquetaConRespaldo, etiquetaDe, fechaDeConversion, idCanonico, seConvirtio } from './pasosMision';
 import { fechaDeEstado, monthKey, MS, MS_FULL } from './utils';
 
 /**
@@ -312,7 +312,7 @@ export interface EntradaAlertas {
   cursos: Curso[];
   evangelismos: Evangelismo[];
   personasMap: Map<string, Persona>;
-  /** Catálogo de pasos (Fase 2): «estancadas» se ancla al paso de inicio por rol. */
+  /** Catálogo de pasos: «estancadas» vigila los pasos de espera (el de inicio y Confeso). */
   pasosMision?: PasoSeguimiento[];
   /** Conversiones del mes según el KPI (solo se usa sin filtro). */
   mesCount: number;
@@ -357,25 +357,37 @@ export function alertasDelPanel(e: EntradaAlertas): AlertaPanel[] {
     out.push({ tipo: 'warn', texto: `${vacios} grupo(s) sin miembros activos`, href: '/miembros' });
   }
 
-  // Fase 2: «nuevas» = en el paso de INICIO del catálogo (antes el
-  // literal 'Nuevo'). Desde la ruta nueva (2026-11-15) el inicio es
-  // «Congregado»: la alerta vigila a los congregados que no avanzan,
-  // y su texto nombra el paso por su etiqueta viva.
+  // Los pasos de ESPERA (decisión de LemGil, 2026-11-17): la alerta
+  // vigila el paso de inicio («Congregado»: aún no confiesa) y
+  // «Confeso» (ya confesó; está por verse si permanece) — los dos
+  // lugares donde una persona se queda quieta esperando el avance.
+  // El texto reparte el conteo por paso, con su etiqueta viva, y
+  // cada caso nombrado dice también en qué paso está.
+  const esEspera = (estado: string) =>
+    esInicio(e.pasosMision, estado) || idCanonico(estado) === PS_CONFESO;
   const estancadas = e.conversiones
-    .filter((c) => esInicio(e.pasosMision, c.estado) && diasSinMovimiento(c, e.hoy) > 14)
+    .filter((c) => esEspera(c.estado) && diasSinMovimiento(c, e.hoy) > 14)
     .map((c) => ({ c, dias: diasSinMovimiento(c, e.hoy) }))
     .sort((a, b) => b.dias - a.dias);
   if (estancadas.length > 0) {
+    const porPaso = new Map<string, number>();
+    for (const { c } of estancadas) {
+      const id = idCanonico(c.estado);
+      porPaso.set(id, (porPaso.get(id) ?? 0) + 1);
+    }
+    const detalle = [...porPaso.entries()]
+      .map(([id, n]) => `${n} en «${etiquetaConRespaldo(e.pasosMision, id)}»`)
+      .join(' · ');
     out.push({
       tipo: 'warn',
-      texto: `${estancadas.length} en «${etiquetaConRespaldo(e.pasosMision, pasoInicio(e.pasosMision).id)}» sin movimiento hace más de 14 días`,
+      texto: `${detalle} sin movimiento hace más de 14 días`,
       href: '/mision',
       items: itemsNombrados(
         estancadas,
         ({ c, dias }) => {
           const v = conversionConDatos(c, e.personasMap);
           const nombre = `${v.nombre} ${v.apellido}`.trim() || 'Registro sin nombre';
-          return `${nombre} · ${dias} días`;
+          return `${nombre} · ${etiquetaConRespaldo(e.pasosMision, c.estado)} · ${dias} días`;
         },
         ({ c }) => `/mision?ver=${c.id}`,
         '/mision',

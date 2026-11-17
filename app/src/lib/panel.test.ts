@@ -344,6 +344,27 @@ describe('alertas del Panel', () => {
     expect(est!.items![8].href).toBe('/mision');
   });
 
+  it('estancadas también vigila Confeso (la espera de la permanencia); Converso quieto no cuenta', () => {
+    const confesoViejo = convBase({ id: 'cf', estado: 'ps-confeso', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] });
+    const conversoViejo = convBase({ id: 'cv', estado: 'ps-nuevo', fecha: '2026-09-01', creado: '2026-09-01T12:00:00', historial: [] });
+    const a = alertasDelPanel(entrada({ conversiones: [confesoViejo, conversoViejo] }));
+    const est = a.find((x) => x.texto.includes('sin movimiento'));
+    expect(est).toBeDefined();
+    expect(est!.texto).toContain('1 en «Confeso»');
+    expect(est!.texto).not.toContain('Converso»');
+    expect(est!.items).toHaveLength(1);
+    expect(est!.items![0].texto).toContain('Confeso');
+  });
+
+  it('estancadas mezcladas: el texto reparte el conteo por paso', () => {
+    const cong = convBase({ id: 'g', estado: 'ps-congregado', fecha: '2026-10-20', creado: '2026-10-20T12:00:00', historial: [] });
+    const conf = convBase({ id: 'f', estado: 'Confeso', fecha: '2026-10-15', creado: '2026-10-15T12:00:00', historial: [] });
+    const a = alertasDelPanel(entrada({ conversiones: [cong, conf] }));
+    const est = a.find((x) => x.texto.includes('sin movimiento'));
+    expect(est!.texto).toContain('1 en «Congregado»');
+    expect(est!.texto).toContain('1 en «Confeso»');
+  });
+
   it('la alerta de «sin conversiones este mes» no se genera con filtro de año', () => {
     const a = alertasDelPanel(entrada({ mesCount: 0, filterAno: '2025' }));
     expect(a.every((x) => x.tipo !== 'danger')).toBe(true);

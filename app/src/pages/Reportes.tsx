@@ -12,6 +12,7 @@ import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { MS_FULL, fmt, monthKey, inRange, money } from '../lib/utils';
 import { esGozne, fechaDeConversion, seConvirtio } from '../lib/pasosMision';
 import { calcularCenso } from '../lib/censo';
+import { contarPersonasUnicas } from '../lib/personaVista';
 import { showToast } from '../lib/notification';
 
 const num = (n: number) => n.toLocaleString('en-US');
@@ -72,6 +73,15 @@ export default function Reportes() {
   const [hasta, setHasta] = useState(`${ymNow}-${String(new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()).padStart(2, '0')}`);
   const [tab, setTab] = useState<Tab>('actual');
   const [dept, setDept] = useState<DepartamentoId>('general');
+  // Las Metas viven aquí desde la revisión del Panel (2026-11-17):
+  // son planificación contra plan — material de Informe, no de la
+  // portada diaria. Su editor se mudó con la tarjeta.
+  const [editMetas, setEditMetas] = useState(false);
+  const [mMembresia, setMMembresia] = useState('500');
+  const [mAcademia, setMAcademia] = useState('150');
+  const [mSostenimiento, setMSostenimiento] = useState('8000');
+  const [mFamilias, setMFamilias] = useState('200');
+  const [mPersonas, setMPersonas] = useState('800');
   const [modal, setModal] = useState<null | 'gen' | 'ver' | 'del'>(null);
   const [genTitulo, setGenTitulo] = useState('');
   const [viewId, setViewId] = useState<string | null>(null);
@@ -195,6 +205,44 @@ export default function Reportes() {
       censo: calcularCenso(personasReg, { conversiones: convs, miembros, estudiantes, dadores: diezmadores, beneficiarios }, pasosSeguimiento, { desde, hasta }, today),
     };
   }, [convs, personasReg, miembros, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, pasosSeguimiento, desde, hasta, today]);
+
+  useEffect(() => {
+    if (metasDoc) {
+      setMMembresia(String(metasDoc.membresia));
+      setMAcademia(String(metasDoc.academia));
+      setMSostenimiento(String(metasDoc.sostenimiento));
+      setMFamilias(String(metasDoc.familias));
+      setMPersonas(String(metasDoc.personas));
+    }
+  }, [metasDoc]);
+
+  const metas = metasDoc ?? { membresia: 500, academia: 150, sostenimiento: 8000, familias: 200, personas: 800 };
+  const mesesPeriodo = (() => {
+    const [y1, m1] = desde.split('-').map(Number);
+    const [y2, m2] = hasta.split('-').map(Number);
+    return Math.max(1, (y2 - y1) * 12 + (m2 - m1) + 1);
+  })();
+  const goals = [
+    { label: `👥 Membresía: ${metas.membresia} miembros`, current: contarPersonasUnicas(miembros), total: metas.membresia, color: 'var(--green)', prefix: '' },
+    { label: `🎓 Academia: ${metas.academia} graduados`, current: datos.academia.certificados, total: metas.academia, color: 'var(--academia-teal)', prefix: '' },
+    { label: `💰 Sostenimiento: meta de ${mesesPeriodo} mes(es)`, current: datos.finanzas.colaboradoresTotal, total: metas.sostenimiento * mesesPeriodo, color: 'var(--oro-apostolico)', prefix: '$' },
+    { label: `🤲 Familias impactadas: ${metas.familias}`, current: datos.manos.familias, total: metas.familias, color: 'var(--manos-terracota)', prefix: '' },
+  ];
+  const saveMetas = async () => {
+    const membresia = parseInt(mMembresia) || 0;
+    const academia = parseInt(mAcademia) || 0;
+    const sostenimiento = parseInt(mSostenimiento) || 0;
+    const familias = parseInt(mFamilias) || 0;
+    const personasMeta = parseInt(mPersonas) || 0;
+    if (membresia <= 0 || academia <= 0 || sostenimiento <= 0 || familias <= 0 || personasMeta <= 0) {
+      return showToast('Todos los valores deben ser mayores a 0');
+    }
+    const existing = await db.metas.get('default');
+    const nextVersion = (existing?.version || 0) + 1;
+    await db.metas.put({ id: 'default', membresia, academia, sostenimiento, familias, personas: personasMeta, actualizado: new Date().toISOString(), version: nextVersion });
+    setEditMetas(false);
+    showToast('Metas actualizadas');
+  };
 
   const deptInfo = DEPARTAMENTOS.find((d) => d.id === dept) ?? DEPARTAMENTOS[0];
   const informe = useMemo(
@@ -544,6 +592,71 @@ export default function Reportes() {
               </>
               )}
             </div>
+
+            {dept === 'general' && (
+              <>
+                <div className="card" style={{ marginTop: 18 }}>
+                  <div className="card-header">
+                    <div className="card-title">🎯 Metas del Ministerio — Progreso</div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setEditMetas(true)}>✏️ Editar Metas</button>
+                  </div>
+                  {goals.map((g, i) => (
+                    <div key={i} className="progress-row">
+                      <div className="progress-header">
+                        <span style={{ color: 'var(--txt)' }}>{g.label}</span>
+                        <span style={{ color: 'var(--oro-apostolico)', fontWeight: 700 }}>
+                          {g.prefix}{g.current.toLocaleString()} / {g.prefix}{g.total.toLocaleString()} · {g.total ? Math.round((g.current / g.total) * 100) : 0}%
+                        </span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${g.total ? Math.min(100, (g.current / g.total) * 100) : 0}%`, background: g.color }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 6 }}>
+                    Las barras se miden con el período elegido arriba: la membresía es la foto actual (personas únicas);
+                    Academia, los certificados del período; Sostenimiento, los aportes de Colaboradores del período contra la meta mensual × los meses del período;
+                    Familias, las impactadas del período.
+                  </div>
+                </div>
+
+                <Modal
+                  open={editMetas}
+                  onClose={() => setEditMetas(false)}
+                  title="📊 Editar Metas Anuales"
+                  footer={
+                    <>
+                      <button className="btn btn-secondary" onClick={() => setEditMetas(false)}>Cancelar</button>
+                      <button className="btn btn-gold" onClick={saveMetas}>💾 Guardar Metas</button>
+                    </>
+                  }
+                >
+                  <div className="form-section">Define las metas anuales del ministerio</div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">👥 Membresía (personas)</label>
+                      <input className="form-input" type="number" value={mMembresia} onChange={(e) => setMMembresia(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">🎓 Academia (graduados)</label>
+                      <input className="form-input" type="number" value={mAcademia} onChange={(e) => setMAcademia(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">💰 Sostenimiento ($/mes)</label>
+                      <input className="form-input" type="number" value={mSostenimiento} onChange={(e) => setMSostenimiento(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">👪 Familias impactadas</label>
+                      <input className="form-input" type="number" value={mFamilias} onChange={(e) => setMFamilias(e.target.value)} min="1" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">🧑 Personas impactadas</label>
+                      <input className="form-input" type="number" value={mPersonas} onChange={(e) => setMPersonas(e.target.value)} min="1" />
+                    </div>
+                  </div>
+                </Modal>
+              </>
+            )}
           </>
         )}
 

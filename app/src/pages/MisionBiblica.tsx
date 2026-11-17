@@ -19,8 +19,9 @@ import { CsvImportButton } from '../components/CsvImportButton';
 import type { DataTab, ModalType } from './mision-biblica/constants';
 import {
   PS_APARTADO, PS_BAUTIZADO, PS_CONGREGADO, PS_DISCIPULADO, PS_FALLECIDO, PS_INTEGRADO, PS_NUEVO,
-  emojiDe, entradaCambioDeEstado, estadoCoincideConFiltro, etiquetaConRespaldo, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
+  emojiDe, entradaCambioDeEstado, esSalida, estadoCoincideConFiltro, etiquetaConRespaldo, etiquetaDe, idCanonico, pasoInicio, pasosDeMision, siguientePaso, tipoHitoDe,
 } from '../lib/pasosMision';
+import { calcularCenso } from '../lib/censo';
 import { PasosMisionEditorModal } from './mision-biblica/PasosMisionEditorModal';
 import { reflejoDeSalidaEnMiembro } from '../lib/propagacion';
 import { syncMemberFromConversion } from './mision-biblica/syncMember';
@@ -127,8 +128,19 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   const resetGrupo = () => { setEditGrupoId(null); setGNombre(''); setGZona(''); setGLider(''); setGDia('Lunes'); setGHora('19:00'); setGCap('15'); setGLugar(''); setGMeta(''); };
   const resetEvang = () => { setEditEvangId(null); setETipo('Visita domiciliaria'); setEFecha(today()); setEZona('Norte'); setELiderId(''); setELiderExterno(''); setEParticipanteIds([]); setEParticipantesExternos([]); setENuevoExterno(''); setEContactos('0'); setENotas(''); };
 
-  const mo = new Date().toISOString().slice(0, 7);
-  const mesCount = convs.filter((c) => c.fecha?.startsWith(mo)).length;
+  // El total de Congregados, con la definición de LemGil (la del
+  // censo, 2026-11-16): todos los ACTIVOS en el proceso de Misión
+  // (sin las salidas: apartados, traslados, fallecidos…) MÁS los
+  // Miembros Activos. Sale de calcularCenso — la misma fuente que
+  // el Panel y el Informe, para que el número sea uno solo.
+  const censoMision = useMemo(() => calcularCenso(
+    personas,
+    { conversiones: convsCrudas, miembros: miembrosCrudos, estudiantes: [], dadores: [], beneficiarios: [] },
+    pasosSeguimiento,
+    { desde: '2020-01-01', hasta: '2099-12-31' },
+    new Date(),
+  ), [personas, convsCrudas, miembrosCrudos, pasosSeguimiento]);
+  const enProcesoCount = censoMision.etapas.reduce((s, e) => s + e.cantidad, 0);
 
   // Fase 2: los conteos se anclan a la IDENTIDAD de las semillas; las
   // etiquetas de los KPI se resuelven vivas en el render.
@@ -183,7 +195,11 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   // líder y ADEMÁS teléfono por dígitos y Nº de Identidad).
   // M1: la lista se presenta por fecha de conversión descendente.
   const filtered = ordenarConversionesRecientes(convs.filter((c) => {
-    const byLocal = coincideBusquedaConversion(c, search)
+    // La lista de trabajo es el proceso ACTIVO: sin filtro de estado,
+    // las salidas (apartados, traslados, fallecidos y cualquier otra
+    // de rol salida) no se muestran; se ven eligiéndolas en el filtro.
+    const bySalida = filterEstado !== '' || !esSalida(pasosSeguimiento, c.estado);
+    const byLocal = bySalida && coincideBusquedaConversion(c, search)
       && estadoCoincideConFiltro(c.estado, filterEstado)
       && (!filterZona || c.zona === filterZona) 
       && (!filterAnoConv || c.fecha?.startsWith(filterAnoConv)) 
@@ -544,7 +560,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       )}
 
       <div className="kpis">
-        <KpiCard label={globalAno ? `Congregados ${globalAno}` : 'Congregados'} value={filtered.length} icon="🙏" accent="var(--mision-purple)" sub={globalMes ? `${MS[parseInt(globalMes) - 1]}: ${convs.filter((c) => c.fecha?.startsWith(globalAno || new Date().getFullYear().toString()) && c.fecha?.slice(5, 7) === globalMes).length}` : `este mes: ${mesCount}`} />
+        <KpiCard label="Congregados" value={censoMision.total} icon="🙏" accent="var(--mision-purple)" sub={`${enProcesoCount} en proceso · ${censoMision.miembros} miembros activos`} />
         <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_NUEVO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_NUEVO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_NUEVO && (() => { const f = getFechaEstado(c, PS_NUEVO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : conversoCount} icon={emojiDe(pasosSeguimiento, PS_NUEVO) || '🌱'} accent="var(--blue)" sub="ya aceptaron la fe" />
         {/* F8: los títulos de la cabecera van con etiquetaConRespaldo —
             si un paso de semilla se borró (Discipulado/Bautizado pueden),
