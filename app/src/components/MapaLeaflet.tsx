@@ -59,14 +59,18 @@ interface MapaLeafletProps {
   onMoverPunto?: (lat: number, lng: number) => void;
   /** Las ubicaciones ya fijadas, visibles de referencia en modo fijar. */
   referencias?: PuntoMapa[];
-  /** El tipo de la ficha que se está fijando (color de su chincheta). */
+  /** El tipo de la ficha que se está fijando (su chincheta). */
   tipoEditable?: 'persona' | 'grupo';
+  /** Modo organizar (mapa principal): las chinchetas se arrastran y al
+   *  soltarlas se avisa con su punto y su nueva posición. */
+  arrastrables?: boolean;
+  onArrastrarPunto?: (punto: PuntoMapa, lat: number, lng: number) => void;
   centro?: [number, number];
   zoom?: number;
   altura?: number;
 }
 
-export function MapaLeaflet({ puntos, puntoEditable, onMoverPunto, referencias, tipoEditable, centro, zoom, altura = 420 }: MapaLeafletProps) {
+export function MapaLeaflet({ puntos, puntoEditable, onMoverPunto, referencias, tipoEditable, arrastrables, onArrastrarPunto, centro, zoom, altura = 420 }: MapaLeafletProps) {
   const divRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const capaRef = useRef<L.LayerGroup | null>(null);
@@ -78,6 +82,8 @@ export function MapaLeaflet({ puntos, puntoEditable, onMoverPunto, referencias, 
   onMoverRef.current = onMoverPunto;
   const puntoEditableRef = useRef(puntoEditable);
   puntoEditableRef.current = puntoEditable;
+  const onArrastrarRef = useRef(onArrastrarPunto);
+  onArrastrarRef.current = onArrastrarPunto;
   const editable = Boolean(onMoverPunto);
 
   // Crear el mapa una sola vez.
@@ -114,16 +120,22 @@ export function MapaLeaflet({ puntos, puntoEditable, onMoverPunto, referencias, 
     capa.clearLayers();
     for (const p of puntos) {
       const detalle = p.detalle ? `<br/>${escaparHtml(p.detalle)}` : '';
-      L.marker([p.lat, p.lng], { icon: iconoPunto(p) })
+      const marcador = L.marker([p.lat, p.lng], { icon: iconoPunto(p), draggable: Boolean(arrastrables) })
         .bindPopup(`<strong>${escaparHtml(p.nombre)}</strong>${detalle}<br/><a href="#${p.href}">Ver ficha →</a>`)
         .addTo(capa);
+      if (arrastrables) {
+        marcador.on('dragend', () => {
+          const ll = marcador.getLatLng();
+          onArrastrarRef.current?.(p, ll.lat, ll.lng);
+        });
+      }
     }
     if (puntos.length > 0 && !encuadradoRef.current) {
       encuadradoRef.current = true;
       const bounds = L.latLngBounds(puntos.map((p) => [p.lat, p.lng] as [number, number]));
       map.fitBounds(bounds.pad(0.15));
     }
-  }, [puntos]);
+  }, [puntos, arrastrables]);
 
   // Referencias: las ya fijadas se ven al fijar una nueva, para no
   // caer encima de otra (misma casa o cerca). Al llegar las primeras

@@ -73,6 +73,11 @@ export function puntosDelMapa(personas: Persona[], grupos: Grupo[]): PuntoMapa[]
  * cerca, y sin ver las demás chinchetas la nueva cae encima de otra.
  * Se excluye la ficha que se está fijando: la suya es la movible.
  */
+/** La identidad real de la ficha detrás de un punto (`persona:<id>` → `<id>`). */
+export function idRealDePunto(p: PuntoMapa): string {
+  return p.id.slice(p.tipo.length + 1);
+}
+
 export function puntosDeReferencia(
   personas: Persona[],
   grupos: Grupo[],

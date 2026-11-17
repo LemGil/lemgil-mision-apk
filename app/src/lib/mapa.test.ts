@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { centroDePuntos, puntosDeReferencia, puntosDelMapa, tieneUbicacion } from './mapa';
+import { centroDePuntos, idRealDePunto, puntosDeReferencia, puntosDelMapa, tieneUbicacion } from './mapa';
 import type { Grupo, Persona } from './types';
 
 const persona = (extra: Partial<Persona>): Persona =>
@@ -74,5 +74,16 @@ describe('puntosDeReferencia', () => {
     expect(refs.map((p) => p.id)).toEqual(['persona:p2', 'grupo:g1']);
     const refsGrupo = puntosDeReferencia(personas, grupos, { tipo: 'grupo', id: 'g1' });
     expect(refsGrupo.map((p) => p.id)).toEqual(['persona:p1', 'persona:p2']);
+  });
+});
+
+describe('idRealDePunto', () => {
+  it('despega el prefijo del tipo y deja la identidad de la ficha', () => {
+    const [pp, pg] = puntosDelMapa(
+      [persona({ lat: 23.1, lng: -82.4 })],
+      [grupo({ lat: 23.2, lng: -82.3 })],
+    );
+    expect(idRealDePunto(pp)).toBe('p1');
+    expect(idRealDePunto(pg)).toBe('g1');
   });
 });
