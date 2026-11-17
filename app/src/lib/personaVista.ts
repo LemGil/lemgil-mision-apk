@@ -438,6 +438,51 @@ export function conversionDePersona(
   })[0];
 }
 
+/**
+ * La ficha de miembro de una persona (la «viva» si hubiera duplicados
+ * viejos): primero la Activa; a igualdad, la más reciente por
+ * creación. Espejo de conversionDePersona para el bloqueo del alta
+ * manual en Miembros (2026-11-17).
+ */
+export function miembroDePersona(
+  miembros: Miembro[],
+  personaId: string | null | undefined,
+): Miembro | null {
+  if (!personaId) return null;
+  const suyos = miembros.filter((m) => m.personaId === personaId);
+  if (suyos.length === 0) return null;
+  return [...suyos].sort((a, b) => {
+    const actA = a.estado === 'Activo' ? 0 : 1;
+    const actB = b.estado === 'Activo' ? 0 : 1;
+    if (actA !== actB) return actA - actB;
+    return (b.creado ?? '').localeCompare(a.creado ?? '');
+  })[0];
+}
+
+export interface ProcesoDuplicado {
+  /** Nombre del módulo: 'Misión', 'Miembros', 'Academia', 'Diezmadores', 'Manos Abiertas'. */
+  proceso: string;
+  cantidad: number;
+}
+
+/**
+ * Los procesos que una persona tiene REPETIDOS (más de un registro
+ * del mismo tipo): la señal de Personas (2026-11-17). Los duplicados
+ * de proceso no nacen por el formulario — ahí ahora hay bloqueo —
+ * sino por importación o por la sincronización entre equipos; esta
+ * señal los hace visibles en la ficha y en la lista para limpiarlos.
+ */
+export function procesosDuplicados(g: ProcesosAgrupados): ProcesoDuplicado[] {
+  const conteos: [string, number][] = [
+    ['Misión', g.conversiones.length],
+    ['Miembros', g.miembros.length],
+    ['Academia', g.estudiantes.length],
+    ['Diezmadores', g.dadores.length],
+    ['Manos Abiertas', g.beneficiarios.length],
+  ];
+  return conteos.filter(([, n]) => n > 1).map(([proceso, cantidad]) => ({ proceso, cantidad }));
+}
+
 export interface RepetidaPorNombre {
   persona: Persona;
   /** Fuerza extra: también coincide el teléfono (comparado por dígitos). */

@@ -78,16 +78,18 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
   const grupo = persona?.grupoId ? grupos.find((g) => g.id === persona.grupoId) : undefined;
   const mentor = persona?.hermanoMayorId ? personas.find((p) => p.id === persona.hermanoMayorId) : undefined;
   const edad = persona ? edadDesde(persona.fechaNacimiento) : null;
-  // Guardia «ya en Misión» (2026-11-07): SOLO al crear — si la persona
-  // elegida ya tiene una conversión, se avisa ANTES de duplicar el
-  // proceso (al editar, la conversión existente es esta misma u otra
-  // historia que no se juzga aquí). No bloquea: rotula el guardado
-  // para que crear otra sea una decisión informada, nunca un descuido.
+  // Guardia «ya en Misión»: SOLO al crear — si la persona elegida ya
+  // tiene una conversión, NO se puede crear otra. Nació como aviso
+  // (2026-11-07, «Crear otra de todos modos») y LemGil lo subió a
+  // BLOQUEO DURO el 2026-11-17: la persona se elige de la lista — es
+  // la ficha exacta, no un parecido — y un segundo registro nunca es
+  // legítimo; los duplicados reales de sus datos nacieron por ahí.
+  // (Al editar no aplica: la conversión existente es esta misma.)
   const convExistente = !editConvId ? conversionDePersona(conversiones ?? [], fPersonaId, pasos) : null;
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={editConvId ? '✏️ Editar registro' : '🙏 Nuevo Congregado'} footer={<><button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-gold" onClick={saveConv}>💾 {editConvId ? 'Guardar Cambios' : convExistente ? 'Crear otra de todos modos' : 'Guardar'}</button></>} wide>
+      <Modal open={open} onClose={onClose} title={editConvId ? '✏️ Editar registro' : '🙏 Nuevo Congregado'} footer={<><button className="btn btn-secondary" onClick={onClose}>Cancelar</button><button className="btn btn-gold" onClick={saveConv} disabled={!!convExistente}>💾 {editConvId ? 'Guardar Cambios' : 'Guardar'}</button></>} wide>
 
         {/* ─── SECCIÓN: PERSONA ─── */}
         <div className="form-section">👤 Persona (se teclea una sola vez)</div>
@@ -115,8 +117,8 @@ export function ConversionFormModal(props: ConversionFormModalProps) {
         )}
         {convExistente && persona && (
           <div style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)', borderRadius: 8, padding: '10px 12px', marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
-            ⚠️ {persona.nombre} {persona.apellido} ya está en Misión — estado actual: <strong>{etiquetaDe(pasos, convExistente.estado)}</strong>.
-            Si sigues y guardas, crearás OTRO registro para la misma persona.
+            ⛔ {persona.nombre} {persona.apellido} ya está en Misión — estado actual: <strong>{etiquetaDe(pasos, convExistente.estado)}</strong>.
+            Una persona solo puede tener UN registro en Misión: no se puede crear otro. Trabaja sobre su ficha.
             {onVerConversion && (
               <>
                 {' '}

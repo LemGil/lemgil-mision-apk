@@ -122,12 +122,19 @@ function renderCrear(over: {
 }
 
 describe("ConversionFormModal — guardia «ya en Misión»", () => {
-  it("persona CON conversión: aviso con el estado vivo y guardado rotulado «Crear otra de todos modos»", () => {
+  it("persona CON conversión: BLOQUEO — aviso con el estado vivo y Guardar deshabilitado (2026-11-17)", () => {
     renderCrear({ conversiones: [convDe()] });
     const aviso = screen.getByText(/ya está en Misión/);
     expect(aviso).toBeInTheDocument();
     expect(aviso.textContent).toContain("Discipulado");
-    expect(screen.getByRole("button", { name: /Crear otra de todos modos/ })).toBeInTheDocument();
+    expect(aviso.textContent).toContain("solo puede tener UN registro");
+    expect(screen.queryByRole("button", { name: /Crear otra de todos modos/ })).not.toBeInTheDocument();
+    // El pie del formulario y el PersonaFormModal incrustado montan
+    // sendos «💾 Guardar»: el del pie es el que crea el registro y
+    // debe estar deshabilitado por el bloqueo.
+    const guardars = screen.getAllByRole("button", { name: /💾 Guardar/ });
+    expect(guardars.length).toBeGreaterThan(0);
+    expect(guardars[0]).toBeDisabled();
   });
 
   it("«Ver esa ficha» cierra el formulario y pide abrir la conversión existente", () => {

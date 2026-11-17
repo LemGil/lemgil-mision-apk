@@ -6,7 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { db } from '../lib/database';
 import { unirPersonas, vincularProceso } from '../lib/personas';
 import type { FichasDePersona } from '../lib/personas';
-import { agruparProcesos, aplicarFiltrosPersonas, filtrarPersonas, hayCriteriosActivos, nombrePersona, posiblesDuplicados, procesosHuerfanos, situacionPersona, tiposPresentes, CATEGORIA_SITUACION_ETIQUETA, PROCESO_ETIQUETA, PROCESO_ICONO, SITUACION_BADGE } from '../lib/personaVista';
+import { agruparProcesos, aplicarFiltrosPersonas, filtrarPersonas, hayCriteriosActivos, nombrePersona, posiblesDuplicados, procesosDuplicados, procesosHuerfanos, situacionPersona, tiposPresentes, CATEGORIA_SITUACION_ETIQUETA, PROCESO_ETIQUETA, PROCESO_ICONO, SITUACION_BADGE } from '../lib/personaVista';
 import type { CategoriaSituacion, CriteriosPersonas, FiltroBautismo, FiltroIncompleta, FiltroProceso } from '../lib/personaVista';
 import type { ProcesoHuerfano } from '../lib/personaVista';
 import { showToast } from '../lib/notification';
@@ -206,6 +206,9 @@ export default function Personas() {
                         {situacion && (
                           <span className={`badge ${SITUACION_BADGE[situacion.tono]}`}>{situacion.texto}</span>
                         )}
+                        {procesosDuplicados(g).map((d) => (
+                          <span key={d.proceso} className="badge badge-red">⚠ {d.cantidad} en {d.proceso}</span>
+                        ))}
                       </div>
                     </td>
                     <td>

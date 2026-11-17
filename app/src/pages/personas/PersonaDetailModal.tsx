@@ -6,7 +6,7 @@ import { FijarUbicacionModal } from '../../components/FijarUbicacionModal';
 import { db } from '../../lib/database';
 import { showToast } from '../../lib/notification';
 import { fmt } from '../../lib/utils';
-import { edadDesde, nombrePersona, situacionPersona, tarjetasDeProcesos, PROCESO_ETIQUETA, SITUACION_BADGE } from '../../lib/personaVista';
+import { edadDesde, nombrePersona, procesosDuplicados, situacionPersona, tarjetasDeProcesos, PROCESO_ETIQUETA, SITUACION_BADGE } from '../../lib/personaVista';
 import type { ProcesosAgrupados } from '../../lib/personaVista';
 import type { PasoSeguimiento, Persona } from '../../lib/types';
 
@@ -54,6 +54,7 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
   }
 
   const tarjetas = tarjetasDeProcesos(procesos, cursoNombre, pasosMision);
+  const duplicados = procesosDuplicados(procesos);
   const situacion = situacionPersona(procesos, pasosMision);
   const iniciales = `${persona.nombre[0] || ''}${persona.apellido[0] || ''}`.toUpperCase();
   const edad = edadDesde(persona.fechaNacimiento);
@@ -122,6 +123,11 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
 
       {/* PROCESOS */}
       <div className="form-section" style={{ marginTop: 16 }}>Sus procesos</div>
+      {duplicados.length > 0 && (
+        <div style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 13, lineHeight: 1.5 }}>
+          ⚠️ Esta persona tiene procesos repetidos: <strong>{duplicados.map((d) => `${d.cantidad} en ${d.proceso}`).join(' · ')}</strong>. Deja el registro bueno y borra el sobrante en su módulo.
+        </div>
+      )}
       {tarjetas.length === 0 && (
         <div style={{ fontSize: 12, color: 'var(--dim)', padding: '4px 0 8px' }}>Esta persona aún no tiene procesos en ningún módulo.</div>
       )}

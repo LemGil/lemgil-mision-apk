@@ -513,6 +513,8 @@ export default function Miembros() {
         mIngreso={mIngreso} setMIngreso={setMIngreso}
         mEstado={mEstado} setMEstado={setMEstado}
         mNotas={mNotas} setMNotas={setMNotas}
+        miembros={miembros}
+        onVerMiembro={(id) => { resetM(); setSelectedId(id); setModal('detail'); }}
       />
 
       <MinisterioFormModal

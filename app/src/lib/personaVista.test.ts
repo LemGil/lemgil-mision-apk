@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   agruparProcesos, tiposPresentes, totalProcesos, tarjetasDeProcesos,
   procesosHuerfanos, filtrarPersonas, edadDesde, procesosVacios, contarPersonasUnicas,
-  posiblesDuplicados, situacionPersona, conversionDePersona, posiblesRepetidas,
+  posiblesDuplicados, situacionPersona, conversionDePersona, miembroDePersona, procesosDuplicados, posiblesRepetidas,
   categoriaSituacion, aplicarFiltrosPersonas, hayCriteriosActivos,
 } from './personaVista';
 import type { ProcesosAgrupados } from './personaVista';
@@ -589,5 +589,25 @@ describe('aplicarFiltrosPersonas: los filtros de la página Personas', () => {
     expect(ids({})).toEqual(['p1', 'p2', 'p3', 'p4']);
     expect(hayCriteriosActivos({})).toBe(false);
     expect(hayCriteriosActivos({ zona: 'Norte' })).toBe(true);
+  });
+});
+
+describe('miembroDePersona y procesosDuplicados (bloqueo y señal, 2026-11-17)', () => {
+  it('miembroDePersona: sin ficha → null; con duplicados manda la Activa', () => {
+    expect(miembroDePersona([], 'p1')).toBeNull();
+    expect(miembroDePersona([miembroBase({ id: 'm1', personaId: 'p2' })], 'p1')).toBeNull();
+    const inactiva = miembroBase({ id: 'm-vieja', personaId: 'p1', estado: 'Inactivo', creado: '2025-01-01T00:00:00.000Z' });
+    const activa = miembroBase({ id: 'm-viva', personaId: 'p1', estado: 'Activo', creado: '2024-01-01T00:00:00.000Z' });
+    expect(miembroDePersona([inactiva, activa], 'p1')?.id).toBe('m-viva');
+  });
+
+  it('procesosDuplicados: solo los tipos con más de un registro, con su cantidad', () => {
+    const g: ProcesosAgrupados = {
+      ...procesosVacios(),
+      conversiones: [convBase({ id: 'c1', personaId: 'p1' }), convBase({ id: 'c2', personaId: 'p1' })],
+      miembros: [miembroBase({ id: 'm1', personaId: 'p1' })],
+    };
+    expect(procesosDuplicados(g)).toEqual([{ proceso: 'Misión', cantidad: 2 }]);
+    expect(procesosDuplicados(procesosVacios())).toEqual([]);
   });
 });

@@ -235,3 +235,43 @@ describe('Ficha única — editar el núcleo desde la propia ficha', () => {
     });
   });
 });
+
+describe('Ficha única — señal de procesos repetidos (2026-11-17)', () => {
+  it('dos registros en Misión: aviso con el conteo y la salida (dejar el bueno, borrar el sobrante)', () => {
+    const procesos = {
+      ...procesosVacios(),
+      conversiones: [conversion, { ...conversion, id: 'c2' }],
+    };
+    render(
+      <MemoryRouter>
+        <PersonaDetailModal
+          open
+          onClose={() => {}}
+          persona={persona}
+          procesos={procesos}
+          otrasPersonas={[]}
+          onUnir={vi.fn(async () => {})}
+        />
+      </MemoryRouter>,
+    );
+    const aviso = screen.getByText(/procesos repetidos/);
+    expect(aviso.textContent).toContain('2 en Misión');
+  });
+
+  it('sin repetidos no hay aviso', () => {
+    const procesos = { ...procesosVacios(), conversiones: [conversion] };
+    render(
+      <MemoryRouter>
+        <PersonaDetailModal
+          open
+          onClose={() => {}}
+          persona={persona}
+          procesos={procesos}
+          otrasPersonas={[]}
+          onUnir={vi.fn(async () => {})}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/procesos repetidos/)).not.toBeInTheDocument();
+  });
+});

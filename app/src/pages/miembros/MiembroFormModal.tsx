@@ -2,8 +2,8 @@ import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Modal } from '../../components/Modal';
 import { PersonaSelect } from '../../components/PersonaSelect';
 import { PersonaFormModal } from '../../components/PersonaFormModal';
-import { edadDesde } from '../../lib/personaVista';
-import type { Grupo, Persona } from '../../lib/types';
+import { edadDesde, miembroDePersona } from '../../lib/personaVista';
+import type { Grupo, Miembro, Persona } from '../../lib/types';
 
 interface MiembroFormModalProps {
   open: boolean;
@@ -16,6 +16,10 @@ interface MiembroFormModalProps {
   mIngreso: string; setMIngreso: Dispatch<SetStateAction<string>>;
   mEstado: string; setMEstado: Dispatch<SetStateAction<string>>;
   mNotas: string; setMNotas: Dispatch<SetStateAction<string>>;
+  /** Todos los miembros (para el bloqueo «ya es miembro», 2026-11-17). */
+  miembros?: Miembro[];
+  /** Abrir la ficha del miembro existente desde el aviso de bloqueo. */
+  onVerMiembro?: (id: string) => void;
 }
 
 /**
@@ -26,12 +30,16 @@ interface MiembroFormModalProps {
  * nacimiento, bautismo y contacto son de la persona y viven en su ficha.
  */
 export function MiembroFormModal(props: MiembroFormModalProps) {
-  const { open, onClose, editMId, saveM, personas, grupos, mPersonaId, setMPersonaId, mIngreso, setMIngreso, mEstado, setMEstado, mNotas, setMNotas } = props;
+  const { open, onClose, editMId, saveM, personas, grupos, mPersonaId, setMPersonaId, mIngreso, setMIngreso, mEstado, setMEstado, mNotas, setMNotas, miembros, onVerMiembro } = props;
   const [editandoPersona, setEditandoPersona] = useState(false);
   const persona = personas.find((p) => p.id === mPersonaId);
   const grupo = persona?.grupoId ? grupos.find((g) => g.id === persona.grupoId) : undefined;
   const mentor = persona?.hermanoMayorId ? personas.find((p) => p.id === persona.hermanoMayorId) : undefined;
   const edad = persona ? edadDesde(persona.fechaNacimiento) : null;
+  // Bloqueo «ya es miembro» (2026-11-17, espejo del de Misión): SOLO
+  // al crear — si la persona elegida ya tiene ficha en Miembros, no
+  // se puede crear otra; una persona, una sola ficha de miembro.
+  const miembroExistente = !editMId ? miembroDePersona(miembros ?? [], mPersonaId) : null;
 
   return (
     <>
@@ -61,6 +69,19 @@ export function MiembroFormModal(props: MiembroFormModalProps) {
           </div>
         )}
 
+        {miembroExistente && persona && (
+          <div style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)', borderRadius: 8, padding: '10px 12px', marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
+            ⛔ {persona.nombre} {persona.apellido} ya es miembro — estado: <strong>{miembroExistente.estado}</strong>.
+            Una persona solo puede tener UNA ficha en Miembros: no se puede crear otra. Trabaja sobre su ficha.
+            {onVerMiembro && (
+              <>
+                {' '}
+                <button type="button" className="btn btn-gold btn-sm" onClick={() => { onClose(); onVerMiembro(miembroExistente.id); }}>Ver esa ficha</button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ─── SECCIÓN: MEMBRESÍA ─── */}
         <div className="form-section" style={{ marginTop: 16 }}>⛪ Membresía</div>
         <div className="form-row">
@@ -78,7 +99,7 @@ export function MiembroFormModal(props: MiembroFormModalProps) {
 
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-gold" onClick={saveM}>{editMId ? 'Guardar cambios' : 'Registrar miembro'}</button>
+          <button className="btn btn-gold" onClick={saveM} disabled={!!miembroExistente}>{editMId ? 'Guardar cambios' : 'Registrar miembro'}</button>
         </div>
       </Modal>
 
