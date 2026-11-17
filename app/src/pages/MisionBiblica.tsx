@@ -147,6 +147,24 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
   const apaCount = convs.filter((c) => idCanonico(c.estado) === PS_APARTADO).length;
   const falCount = convs.filter((c) => idCanonico(c.estado) === PS_FALLECIDO).length;
   const trasCount = convs.filter((c) => idCanonico(c.estado) === PS_TRASLADO).length;
+  // TODAS las tarjetas responden al filtro de período (decisión de
+  // LemGil, 2026-11-17: «o todos tienen o ninguno»): con año/mes
+  // elegido, cada tarjeta cuenta las ENTRADAS a su paso en el período
+  // (la fecha sale del historial, como ya hacían las del camino).
+  // «En Proceso» cuenta los que entraron a la RUTA en el período y
+  // siguen en ella; las salidas, los que entraron a esa salida.
+  const hayPeriodo = !!(globalAno || globalMes);
+  const entroEnPeriodo = (c: Conversion, pasoId: string) => {
+    const f = getFechaEstado(c, pasoId);
+    return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes);
+  };
+  const procesoPeriodoCount = convs.filter((c) => !esSalida(pasosSeguimiento, c.estado) && entroEnPeriodo(c, inicioId)).length;
+  const apaPeriodoCount = convs.filter((c) => idCanonico(c.estado) === PS_APARTADO && entroEnPeriodo(c, PS_APARTADO)).length;
+  const trasPeriodoCount = convs.filter((c) => idCanonico(c.estado) === PS_TRASLADO && entroEnPeriodo(c, PS_TRASLADO)).length;
+  const falPeriodoCount = convs.filter((c) => idCanonico(c.estado) === PS_FALLECIDO && entroEnPeriodo(c, PS_FALLECIDO)).length;
+  const apaVal = hayPeriodo ? apaPeriodoCount : apaCount;
+  const trasVal = hayPeriodo ? trasPeriodoCount : trasCount;
+  const falVal = hayPeriodo ? falPeriodoCount : falCount;
 
   // Extract unique years from ALL data sources
   const anos = Array.from(
@@ -557,7 +575,7 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
       )}
 
       <div className="kpis">
-        <KpiCard label="En proceso" value={procesoCount} icon="🧭" accent="var(--mision-purple)" sub="registros en la ruta de Misión" />
+        <KpiCard label="En proceso" value={hayPeriodo ? procesoPeriodoCount : procesoCount} icon="🧭" accent="var(--mision-purple)" sub={hayPeriodo ? 'entraron en el período y siguen en la ruta' : 'registros en la ruta de Misión'} />
         <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, inicioId)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, inicioId)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === inicioId && (() => { const f = getFechaEstado(c, inicioId); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : inicioCount} icon={emojiDe(pasosSeguimiento, inicioId) || '🙏'} accent="var(--violet, #8b5cf6)" sub="asisten, sin confesar la fe" />
         <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_CONFESO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_CONFESO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_CONFESO && (() => { const f = getFechaEstado(c, PS_CONFESO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : confesoCount} icon={emojiDe(pasosSeguimiento, PS_CONFESO) || '🤲'} accent="var(--green, #22c55e)" sub="hicieron la oración de fe" />
         <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_NUEVO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_NUEVO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_NUEVO && (() => { const f = getFechaEstado(c, PS_NUEVO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : conversoCount} icon={emojiDe(pasosSeguimiento, PS_NUEVO) || '🌱'} accent="var(--blue)" sub="ya aceptaron la fe" />
@@ -567,9 +585,9 @@ const [fHistorial, setFHistorial] = useState<{ fecha: string; estado: string; no
         <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_DISCIPULADO)} ${globalAno}` : `En ${etiquetaConRespaldo(pasosSeguimiento, PS_DISCIPULADO)}`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_DISCIPULADO && (() => { const f = getFechaEstado(c, PS_DISCIPULADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : discCount} icon={emojiDe(pasosSeguimiento, PS_DISCIPULADO) || '📖'} accent="var(--oro-apostolico)" sub="seguimiento activo" />
         <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_BAUTIZADO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_BAUTIZADO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_BAUTIZADO && (() => { const f = getFechaEstado(c, PS_BAUTIZADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : bautCount} icon={emojiDe(pasosSeguimiento, PS_BAUTIZADO) || '💧'} accent="var(--mision-blue)" sub="confirmados" />
         <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_INTEGRADO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_INTEGRADO)}s`} value={globalAno || globalMes ? convs.filter((c) => idCanonico(c.estado) === PS_INTEGRADO && (() => { const f = getFechaEstado(c, PS_INTEGRADO); return (!globalAno || f.startsWith(globalAno)) && (!globalMes || f.slice(5, 7) === globalMes); })()).length : intCount} icon={emojiDe(pasosSeguimiento, PS_INTEGRADO) || '🏘️'} accent="var(--oro-luz)" sub="al ministerio" />
-        {apaCount > 0 && <KpiCard label={`${etiquetaConRespaldo(pasosSeguimiento, PS_APARTADO)}s`} value={apaCount} icon={emojiDe(pasosSeguimiento, PS_APARTADO) || '🚪'} accent="var(--red, #ef4444)" sub="se apartaron" />}
-        {trasCount > 0 && <KpiCard label={`${etiquetaConRespaldo(pasosSeguimiento, PS_TRASLADO)}s`} value={trasCount} icon={emojiDe(pasosSeguimiento, PS_TRASLADO) || '🧳'} accent="var(--amber, #f59e0b)" sub="se trasladaron" />}
-        {falCount > 0 && <KpiCard label={`${etiquetaConRespaldo(pasosSeguimiento, PS_FALLECIDO)}s`} value={falCount} icon={emojiDe(pasosSeguimiento, PS_FALLECIDO) || '✝️'} accent="var(--dim)" sub="en memoria" />}
+        {apaVal > 0 && <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_APARTADO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_APARTADO)}s`} value={apaVal} icon={emojiDe(pasosSeguimiento, PS_APARTADO) || '🚪'} accent="var(--red, #ef4444)" sub="se apartaron" />}
+        {trasVal > 0 && <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_TRASLADO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_TRASLADO)}s`} value={trasVal} icon={emojiDe(pasosSeguimiento, PS_TRASLADO) || '🧳'} accent="var(--amber, #f59e0b)" sub="se trasladaron" />}
+        {falVal > 0 && <KpiCard label={globalAno ? `${etiquetaConRespaldo(pasosSeguimiento, PS_FALLECIDO)}s ${globalAno}` : `${etiquetaConRespaldo(pasosSeguimiento, PS_FALLECIDO)}s`} value={falVal} icon={emojiDe(pasosSeguimiento, PS_FALLECIDO) || '✝️'} accent="var(--dim)" sub="en memoria" />}
       </div>
 
       <div className="tabs">
