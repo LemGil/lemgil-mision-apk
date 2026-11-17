@@ -67,6 +67,21 @@ export function puntosDelMapa(personas: Persona[], grupos: Grupo[]): PuntoMapa[]
 }
 
 /** Centro medio de los puntos (o el de por defecto si no hay ninguno). */
+/**
+ * Las ubicaciones YA fijadas que se ven de referencia al fijar una
+ * nueva (LemGil, 2026-11-17): hay quienes viven en la misma casa o
+ * cerca, y sin ver las demás chinchetas la nueva cae encima de otra.
+ * Se excluye la ficha que se está fijando: la suya es la movible.
+ */
+export function puntosDeReferencia(
+  personas: Persona[],
+  grupos: Grupo[],
+  excluir?: { tipo: 'persona' | 'grupo'; id: string },
+): PuntoMapa[] {
+  const clave = excluir ? `${excluir.tipo}:${excluir.id}` : null;
+  return puntosDelMapa(personas, grupos).filter((p) => p.id !== clave);
+}
+
 export function centroDePuntos(puntos: PuntoMapa[]): [number, number] {
   if (puntos.length === 0) return CENTRO_DEFECTO;
   const lat = puntos.reduce((s, p) => s + p.lat, 0) / puntos.length;

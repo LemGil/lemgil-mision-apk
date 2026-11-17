@@ -135,6 +135,8 @@ export function GruposTab(props: GruposTabProps) {
       {fijando && (
         <FijarUbicacionModal
           titulo={fijando.nombre}
+          tipo="grupo"
+          fichaId={fijando.id}
           lat={fijando.lat ?? null}
           lng={fijando.lng ?? null}
           onGuardar={async (la, ln) => {

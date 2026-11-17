@@ -190,6 +190,8 @@ export function PersonaDetailModal(props: PersonaDetailModalProps) {
     {fijando && (
       <FijarUbicacionModal
         titulo={nombrePersona(persona)}
+        tipo="persona"
+        fichaId={persona.id}
         lat={persona.lat ?? null}
         lng={persona.lng ?? null}
         onGuardar={async (la, ln) => {

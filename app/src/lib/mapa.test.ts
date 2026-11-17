@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { centroDePuntos, puntosDelMapa, tieneUbicacion } from './mapa';
+import { centroDePuntos, puntosDeReferencia, puntosDelMapa, tieneUbicacion } from './mapa';
 import type { Grupo, Persona } from './types';
 
 const persona = (extra: Partial<Persona>): Persona =>
@@ -58,5 +58,21 @@ describe('centroDePuntos', () => {
     const [lat, lng] = centroDePuntos(puntos);
     expect(lat).toBeCloseTo(23.1);
     expect(lng).toBeCloseTo(-82.1);
+  });
+});
+
+describe('puntosDeReferencia', () => {
+  const personas = [persona({ lat: 23.1, lng: -82.4 }), persona({ id: 'p2', nombre: 'Luis', lat: 23.11, lng: -82.41 })];
+  const grupos = [grupo({ lat: 23.2, lng: -82.3 })];
+
+  it('sin excluir: todas las fijadas', () => {
+    expect(puntosDeReferencia(personas, grupos)).toHaveLength(3);
+  });
+
+  it('excluye la ficha que se está fijando (la suya es la movible)', () => {
+    const refs = puntosDeReferencia(personas, grupos, { tipo: 'persona', id: 'p1' });
+    expect(refs.map((p) => p.id)).toEqual(['persona:p2', 'grupo:g1']);
+    const refsGrupo = puntosDeReferencia(personas, grupos, { tipo: 'grupo', id: 'g1' });
+    expect(refsGrupo.map((p) => p.id)).toEqual(['persona:p1', 'persona:p2']);
   });
 });

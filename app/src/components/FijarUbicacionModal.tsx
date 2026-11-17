@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Modal } from './Modal';
 import { MapaLeaflet } from './MapaLeaflet';
-import { CENTRO_DEFECTO } from '../lib/mapa';
+import { CENTRO_DEFECTO, puntosDeReferencia } from '../lib/mapa';
+import { db } from '../lib/database';
 
 /**
  * Fijar la ubicación de una ficha (persona o grupo): el maestro toca
@@ -32,6 +34,10 @@ function ultimoCentro(): [number, number] {
 interface FijarUbicacionModalProps {
   /** Nombre de la ficha, para el título. */
   titulo: string;
+  /** El tipo y la identidad de la ficha: su chincheta lleva su color y
+   *  las referencias excluyen su propio punto (ese es el movible). */
+  tipo: 'persona' | 'grupo';
+  fichaId: string;
   lat: number | null;
   lng: number | null;
   onGuardar: (lat: number, lng: number) => void;
@@ -39,7 +45,10 @@ interface FijarUbicacionModalProps {
   onClose: () => void;
 }
 
-export function FijarUbicacionModal({ titulo, lat, lng, onGuardar, onQuitar, onClose }: FijarUbicacionModalProps) {
+export function FijarUbicacionModal({ titulo, tipo, fichaId, lat, lng, onGuardar, onQuitar, onClose }: FijarUbicacionModalProps) {
+  const personas = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
+  const referencias = puntosDeReferencia(personas, grupos, { tipo, id: fichaId });
   const tenia = lat != null && lng != null;
   const [punto, setPunto] = useState<{ lat: number; lng: number } | null>(
     tenia ? { lat: lat as number, lng: lng as number } : null,
@@ -98,10 +107,14 @@ export function FijarUbicacionModal({ titulo, lat, lng, onGuardar, onQuitar, onC
     >
       <p style={{ fontSize: 13, color: 'var(--dim)', marginTop: 0 }}>
         Toca el mapa en el lugar exacto, o arrastra la chincheta. Si estás de visita en la casa,
-        «Usar mi ubicación» la fija con el GPS del teléfono.
+        «Usar mi ubicación» la fija con el GPS del teléfono. Las chinchetas pequeñas son las
+        ubicaciones ya fijadas: si viven en la misma casa o cerca, coloca la tuya junto a la
+        suya, no encima.
       </p>
       <MapaLeaflet
         puntoEditable={punto}
+        referencias={referencias}
+        tipoEditable={tipo}
         onMoverPunto={(la, ln) => setPunto({ lat: la, lng: ln })}
         centro={centro}
         zoom={punto ? 16 : 12}

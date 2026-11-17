@@ -637,12 +637,24 @@ a.btn {
 
 /* Chinchetas del mapa (Leaflet, divIcon propio) */
 .mapa-pin-wrap { background: transparent; border: none; }
+/* El emoji va sobre disco BLANCO con anillo grueso de color: sobre el
+   fondo azul la silueta de la persona no se distinguía (contraste,
+   LemGil 2026-11-17). El anillo sigue diciendo persona (azul) o
+   grupo (dorado oscuro), y la sombra levanta la chincheta del mapa. */
 .mapa-pin {
-  width: 30px; height: 30px; border-radius: 50%;
+  width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px; border: 2px solid #fff;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  font-size: 17px; background: #fff;
+  border: 4px solid #1e40af;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
 }
-.mapa-pin-persona { background: #2563eb; }
-.mapa-pin-grupo { background: #C9A24A; }
+.mapa-pin-persona { border-color: #1e40af; }
+.mapa-pin-grupo { border-color: #b8860b; }
+/* Las ya fijadas, vistas de referencia al fijar una nueva: pequeñas. */
+.mapa-pin-ref { width: 22px; height: 22px; font-size: 11px; border-width: 3px; opacity: 0.95; }
+/* La chincheta que se está fijando: mayor y con halo blanco. */
+.mapa-pin-editable {
+  width: 38px; height: 38px; font-size: 19px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 1px 8px rgba(0, 0, 0, 0.6);
+}
 .leaflet-container { font: inherit; }
