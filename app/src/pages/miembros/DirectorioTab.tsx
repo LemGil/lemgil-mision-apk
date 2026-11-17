@@ -81,8 +81,8 @@ export function DirectorioTab(props: DirectorioTabProps) {
               <option>Activo</option><option>Inactivo</option><option>Trasladado</option><option>Disciplinado</option><option>Fallecido</option>
             </select>
             <select className="filter-select" value={filterPaso} onChange={(e) => setFilterPaso(e.target.value)}>
-              <option value="">🧭 Paso actual: todos</option>
-              {pasosMiembro.map((p) => <option key={p.id} value={p.id}>{p.emoji} Parados en: {p.nombre}</option>)}
+              <option value="">⏳ Pendientes de: todos</option>
+              {pasosMiembro.map((p) => <option key={p.id} value={p.id}>{p.emoji} Pendientes de: {p.nombre}</option>)}
               <option value="completa">🏁 Escalera completa</option>
             </select>
             <select className="filter-select" value={filterZona} onChange={(e) => setFilterZona(e.target.value)}>

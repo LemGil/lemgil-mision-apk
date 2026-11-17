@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coincidePasoActual, conteoPasosCumplidos, cumplesDeMiembros, esSalidaMiembro, idsMiembrosEnCasa } from './resumenMiembros';
+import { cumplesDeMiembros, esSalidaMiembro, idsMiembrosEnCasa, pendienteDePaso, tarjetasDeMiembros } from './resumenMiembros';
 import type { Miembro, PasoSeguimiento, Persona } from '../../lib/types';
 import type { EscaleraMiembro } from '../../lib/pasosMiembro';
 
@@ -21,20 +21,22 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
   creado: '2024-01-01T00:00:00.000Z', version: 1, ...over,
 });
 
-const paso = (id: string, orden: number): PasoSeguimiento => ({
-  id, ambito: 'miembro', nombre: id, emoji: '🔹', orden, fuente: 'manual',
+const paso = (id: string, orden: number, fuente: PasoSeguimiento['fuente']): PasoSeguimiento => ({
+  id, ambito: 'miembro', nombre: id, emoji: '🔹', orden, fuente,
   creado: '2024-01-01T00:00:00.000Z', version: 1,
 });
 
-const IDS = ['pm-integracion', 'pm-grupo', 'pm-ministerio'];
-const escalera = (cumplidos: string[], actualId: string | null): EscaleraMiembro => {
-  const pasos = IDS.map((id, i) => paso(id, i + 1));
-  return {
-    estados: pasos.map((p) => ({ paso: p, cumplido: cumplidos.includes(p.id) })),
-    actual: actualId ? pasos.find((p) => p.id === actualId) ?? null : null,
-    cumplidos: cumplidos.length,
-    total: pasos.length,
-  };
+const PASOS: PasoSeguimiento[] = [
+  paso('pm-grupo', 2, 'grupo'),
+  paso('pm-academia', 3, 'academia'),
+  paso('pm-ministerio', 4, 'ministerio'),
+  paso('pm-liderazgo', 6, 'manual'),
+];
+
+const escalera = (cumplidos: string[]): EscaleraMiembro => {
+  const estados = PASOS.map((p) => ({ paso: p, cumplido: cumplidos.includes(p.id) }));
+  const pendiente = estados.find((e) => !e.cumplido);
+  return { estados, actual: pendiente ? pendiente.paso : null, cumplidos: cumplidos.length, total: PASOS.length };
 };
 
 /** Fecha de nacimiento cuyo próximo cumpleaños cae en ~10 días. */
@@ -68,25 +70,33 @@ describe('resumenMiembros — la foto de la página (2026-11-17)', () => {
     expect(idsMiembrosEnCasa(miembros).has('p2')).toBe(false);
   });
 
-  it('conteoPasosCumplidos: las tarjetas cuentan los pasos cumplidos del segmento', () => {
-    const conteo = conteoPasosCumplidos([
-      escalera(['pm-integracion', 'pm-grupo'], 'pm-ministerio'),
-      escalera(['pm-integracion'], 'pm-grupo'),
-      escalera(IDS, null),
+  it('tarjetas: estados sobre todas las fichas, atributos sobre los ACTIVOS', () => {
+    const miembros = [
+      miembro({ id: 'm1', personaId: 'p1', hermanoMayorId: 'p9' }),
+      miembro({ id: 'm2', personaId: 'p2' }),
+      miembro({ id: 'm3', personaId: 'p3', estado: 'Trasladado' }),
+      miembro({ id: 'm4', personaId: 'p4', estado: 'Fallecido' }),
+      miembro({ id: 'm5', personaId: 'p5', estado: 'Inactivo' }),
+      miembro({ id: 'm6', personaId: 'p6', estado: 'Disciplinado' }),
+    ];
+    const escaleras = new Map<string, EscaleraMiembro>([
+      ['m1', escalera(['pm-grupo', 'pm-academia', 'pm-ministerio', 'pm-liderazgo'])],
+      ['m2', escalera([])],
     ]);
-    expect(conteo.get('pm-integracion')).toBe(3);
-    expect(conteo.get('pm-grupo')).toBe(2);
-    expect(conteo.get('pm-ministerio')).toBe(1);
+    const t = tarjetasDeMiembros(miembros, escaleras, new Set(['p1']));
+    expect(t).toEqual({
+      activos: 2, inactivos: 1, trasladados: 1, fallecidos: 1, disciplinados: 1,
+      enGrupo: 1, diezmadores: 1, enAcademia: 1, sirviendo: 1, conHermanoMayor: 1, lideres: 1,
+    });
   });
 
-  it('coincidePasoActual: parados en el paso, escalera completa y sin filtro', () => {
-    const enGrupo = escalera(['pm-integracion'], 'pm-grupo');
-    const completa = escalera(IDS, null);
-    expect(coincidePasoActual(enGrupo, '')).toBe(true);
-    expect(coincidePasoActual(enGrupo, 'pm-grupo')).toBe(true);
-    expect(coincidePasoActual(enGrupo, 'pm-ministerio')).toBe(false);
-    expect(coincidePasoActual(enGrupo, 'completa')).toBe(false);
-    expect(coincidePasoActual(completa, 'completa')).toBe(true);
-    expect(coincidePasoActual(undefined, 'pm-grupo')).toBe(false);
+  it('pendienteDePaso: le falta ESE paso, sin importar los demás', () => {
+    const mixta = escalera(['pm-ministerio']); // sirve, pero le falta grupo
+    expect(pendienteDePaso(mixta, '')).toBe(true);
+    expect(pendienteDePaso(mixta, 'pm-grupo')).toBe(true);
+    expect(pendienteDePaso(mixta, 'pm-ministerio')).toBe(false);
+    expect(pendienteDePaso(mixta, 'completa')).toBe(false);
+    expect(pendienteDePaso(escalera(['pm-grupo', 'pm-academia', 'pm-ministerio', 'pm-liderazgo']), 'completa')).toBe(true);
+    expect(pendienteDePaso(undefined, 'pm-grupo')).toBe(false);
   });
 });

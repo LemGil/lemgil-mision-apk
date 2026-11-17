@@ -10,16 +10,13 @@ import { today } from '../lib/utils';
 import { mapaPersonas, miembroConDatos } from '../lib/personaDatos';
 import { reflejarFallecimientoEnConversion, reflejarTrasladoEnConversion } from '../lib/propagacion';
 import { showToast } from '../lib/notification';
-import { coincidePasoActual, conteoPasosCumplidos, cumplesDeMiembros, esSalidaMiembro } from './miembros/resumenMiembros';
+import { cumplesDeMiembros, esSalidaMiembro, pendienteDePaso, tarjetasDeMiembros } from './miembros/resumenMiembros';
 import { KpiCard } from '../components/KpiCard';
 import { escaleraDeMiembro, ordenarPasos, type EscaleraMiembro } from '../lib/pasosMiembro';
-
-const PALETA_PASOS = ['#f59e0b', '#22d3ee', '#34d399', '#a78bfa', '#f472b6', '#facc15'];
 import type { ModalType, Tab } from './miembros/constants';
 import { CumpleanosCard } from './miembros/CumpleanosCard';
 import { DirectorioTab } from './miembros/DirectorioTab';
 import { MinisteriosTab } from './miembros/MinisteriosTab';
-import { HitosTab } from './miembros/HitosTab';
 import { MiembroFormModal } from './miembros/MiembroFormModal';
 import { MinisterioFormModal } from './miembros/MinisterioFormModal';
 import { AsignarFormModal } from './miembros/AsignarFormModal';
@@ -39,6 +36,7 @@ export default function Miembros() {
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const ministerios = useLiveQuery(() => db.ministerios.toArray(), []) ?? [];
   const asignaciones = useLiveQuery(() => db.miembrosMinisterios.toArray(), []) ?? [];
+  const diezmadores = useLiveQuery(() => db.dadores.toArray(), []) ?? [];
   const hitos = useLiveQuery(() => db.hitos.toArray(), []) ?? [];
   const conversiones = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
   // Pasos del miembro (Fase 1): el catálogo editable y la fuente
@@ -165,38 +163,23 @@ export default function Miembros() {
           && (!filterContacto || m.contactoPreferido === filterContacto)
           && (!filterGrupo || m.grupoId === filterGrupo)
           && (!filterEstadoCivil || m.estadoCivil === filterEstadoCivil)
-          && coincidePasoActual(escalerasPorMiembro.get(m.id), filterPaso);
+          && pendienteDePaso(escalerasPorMiembro.get(m.id), filterPaso);
       })
       .sort((a, b) => `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`));
   }, [miembros, asignaciones, ministerios, search, filterEstado, filterZona, filterContacto, filterGrupo, filterEstadoCivil, escalerasPorMiembro, filterPaso]);
 
-  // Espejo de Misión (2026-11-17): TODA la información de la página
-  // responde a los filtros del Directorio — la barra y las tarjetas
-  // se calculan sobre los miembros que se están mirando; sin
-  // filtros, la foto es la membresía en la casa. El total general
-  // vive en el Panel (censo). Los cumpleaños siguen siendo SOLO de
-  // miembros (la fecha nace en la persona; el de todas las personas
-  // vive en el Panel).
-  const kpis = useMemo(() => {
-    const statusCounts = miembrosFiltrados.reduce((acc, m) => {
-      acc[m.estado] = (acc[m.estado] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    return {
-      statusCounts,
-      cumplesProx: cumplesDeMiembros(personas, miembrosFiltrados).length,
-      bautizados: miembrosFiltrados.filter((m) => m.bautizado).length,
-    };
-  }, [miembrosFiltrados, personas]);
-
-  const proximosCumples = useMemo(() => cumplesDeMiembros(personas, miembrosFiltrados), [personas, miembrosFiltrados]);
-
-  const idsFiltrados = useMemo(() => new Set(miembrosFiltrados.map((m) => m.id)), [miembrosFiltrados]);
-
-  const conteoPasos = useMemo(
-    () => conteoPasosCumplidos(miembrosFiltrados.map((m) => escalerasPorMiembro.get(m.id)).filter((e): e is EscaleraMiembro => !!e)),
-    [miembrosFiltrados, escalerasPorMiembro],
+  // Las tarjetas de la página (corrección de LemGil, 2026-11-17):
+  // la FOTO COMPLETA de la membresía — estados sobre todas las
+  // fichas y atributos sobre los activos — sin bailar con los
+  // filtros del Directorio, que mueven solo la lista. Integrados y
+  // Bautizados no son tarjetas aquí: son el logro final de Misión.
+  // Los cumpleaños siguen siendo SOLO de miembros.
+  const tarjetas = useMemo(
+    () => tarjetasDeMiembros(miembros, escalerasPorMiembro, new Set(diezmadores.map((d) => d.personaId).filter(Boolean) as string[])),
+    [miembros, escalerasPorMiembro, diezmadores],
   );
+
+  const proximosCumples = useMemo(() => cumplesDeMiembros(personas, miembros), [personas, miembros]);
 
   const selMiembro = miembros.find((m) => m.id === selectedId);
   const selMinisterio = ministerios.find((x) => x.id === selectedId);
@@ -222,12 +205,12 @@ export default function Miembros() {
   }, [searchParams, miembros]);
 
   // Menú agrupado (2026-11-16): el menú entra directo a la pestaña
-  // (?tab=ministerios / ?tab=directorio / ?tab=hitos).
+  // (?tab=ministerios / ?tab=directorio). La pestaña Hitos salió
+  // (2026-11-17): los hitos viven en la ficha de cada miembro.
   useEffect(() => {
     const t = searchParams.get('tab');
     if (t === 'ministerios') setTab('ministerios');
     else if (t === 'directorio') setTab('directorio');
-    else if (t === 'hitos') setTab('hitos');
   }, [searchParams]);
 
   const openNewM = () => { resetM(); setModal('miembro'); };
@@ -422,7 +405,6 @@ export default function Miembros() {
     showToast('Registro del paso eliminado');
   };
 
-  const openNewH = (preM?: string) => { resetH(); if (preM) setHMiembro(preM); setModal('hito'); };
   const openEditH = (id: string) => {
     const h = hitos.find((x) => x.id === id); if (!h) return;
     setEditHId(id); setHMiembro(h.miembroId || ''); setHFecha(h.fecha); setHTipo(h.tipo); setHDesc(h.descripcion);
@@ -457,37 +439,24 @@ export default function Miembros() {
     }).sort((a, b) => b.asignados - a.asignados);
   }, [ministerios, asignaciones, miembros]);
 
-  const hitosList = useMemo(() => {
-    return [...hitos]
-      .filter((h) => {
-        if (!search) return true;
-        const m = miembros.find((x) => x.id === h.miembroId);
-        return `${m?.nombre || ''} ${m?.apellido || ''} ${h.descripcion} ${h.tipo}`.toLowerCase().includes(search.toLowerCase());
-      })
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [hitos, miembros, search]);
-
   return (
     <Layout title="Miembros Integrados">
-      <div className="summary-bar">
-        <div className="summary-item"><span className="summary-icon">🧑</span><span className="summary-value">{kpis.statusCounts['Activo'] || 0}</span><span className="summary-label">Miembros activos</span></div>
-        {kpis.statusCounts['Inactivo'] > 0 && <div className="summary-item"><span className="summary-icon">💤</span><span className="summary-value">{kpis.statusCounts['Inactivo']}</span><span className="summary-label">Inactivos</span></div>}
-        {kpis.statusCounts['Trasladado'] > 0 && <div className="summary-item"><span className="summary-icon">🚚</span><span className="summary-value">{kpis.statusCounts['Trasladado']}</span><span className="summary-label">Trasladados</span></div>}
-        {kpis.statusCounts['Disciplinado'] > 0 && <div className="summary-item"><span className="summary-icon">⚠️</span><span className="summary-value">{kpis.statusCounts['Disciplinado']}</span><span className="summary-label">Disciplinados</span></div>}
-        {kpis.statusCounts['Fallecido'] > 0 && <div className="summary-item"><span className="summary-icon">✝️</span><span className="summary-value">{kpis.statusCounts['Fallecido']}</span><span className="summary-label">Fallecidos</span></div>}
-        <div className="summary-item"><span className="summary-icon">📍</span><span className="summary-value">{hitos.filter((h) => !!h.miembroId && idsFiltrados.has(h.miembroId) && h.fecha.startsWith(new Date().toISOString().slice(0, 7))).length}</span><span className="summary-label">Hitos este mes</span></div>
-        <div className="summary-item"><span className="summary-icon">🎂</span><span className="summary-value">{kpis.cumplesProx}</span><span className="summary-label">Próximos cumpleaños</span></div>
+      {/* Las tarjetas de la página: la foto completa de la membresía.
+          No bailan con los filtros del Directorio (esos mueven solo
+          la lista); los atributos cuentan sobre los miembros activos. */}
+      <div className="kpis" style={{ marginBottom: 16 }}>
+        <KpiCard label="Miembros activos" value={tarjetas.activos} icon="🧑" accent="#34d399" sub={`de ${miembros.length} fichas en total`} />
+        <KpiCard label="Inactivos" value={tarjetas.inactivos} icon="💤" accent="#94a3b8" />
+        <KpiCard label="Trasladados" value={tarjetas.trasladados} icon="🚚" accent="#f59e0b" />
+        <KpiCard label="Fallecidos" value={tarjetas.fallecidos} icon="✝️" accent="#a78bfa" />
+        <KpiCard label="Disciplinados" value={tarjetas.disciplinados} icon="⚠️" accent="#f87171" />
+        <KpiCard label="En grupo" value={tarjetas.enGrupo} icon="👥" accent="#22d3ee" sub="de los activos" />
+        <KpiCard label="Diezmadores" value={tarjetas.diezmadores} icon="💰" accent="#facc15" sub="de los activos" />
+        <KpiCard label="En la Academia" value={tarjetas.enAcademia} icon="🎓" accent="#a78bfa" sub="de los activos" />
+        <KpiCard label="Sirviendo" value={tarjetas.sirviendo} icon="🤲" accent="#4ade80" sub="de los activos" />
+        <KpiCard label="Con hermano mayor" value={tarjetas.conHermanoMayor} icon="🌱" accent="#34d399" sub="de los activos" />
+        <KpiCard label="Líderes" value={tarjetas.lideres} icon="⭐" accent="#f59e0b" sub="de los activos" />
       </div>
-
-      {/* El proceso de los miembros: una tarjeta por paso de la escalera */}
-      {pasosMiembroCatalogo.length > 0 && (
-        <div className="kpis" style={{ marginBottom: 16 }}>
-          {pasosMiembroCatalogo.map((p, i) => (
-            <KpiCard key={p.id} label={p.nombre} value={conteoPasos.get(p.id) ?? 0} icon={p.emoji || '🔹'} accent={PALETA_PASOS[i % PALETA_PASOS.length]} sub={`cumplido · de ${miembrosFiltrados.length} en la lista`} />
-          ))}
-          <KpiCard label="Bautizados" value={kpis.bautizados} icon="💧" accent="#38bdf8" sub="dato de la persona, no un paso" />
-        </div>
-      )}
 
       {miembros.length > 0 && (
         <CumpleanosCard proximosCumples={proximosCumples} />
@@ -497,7 +466,6 @@ export default function Miembros() {
         <div className="tabs" style={{ flex: 1 }}>
           <button className={`tab ${tab === 'directorio' ? 'active' : ''}`} onClick={() => { setTab('directorio'); setSearchParams({ tab: 'directorio' }); }}>📖 Directorio · {miembrosFiltrados.length}</button>
           <button className={`tab ${tab === 'ministerios' ? 'active' : ''}`} onClick={() => { setTab('ministerios'); setSearchParams({ tab: 'ministerios' }); }}>⛪ Ministerios · {ministerios.length}</button>
-          <button className={`tab ${tab === 'hitos' ? 'active' : ''}`} onClick={() => { setTab('hitos'); setSearchParams({ tab: 'hitos' }); }}>📍 Hitos · {hitos.length}</button>
         </div>
         <button className="btn btn-secondary btn-sm" style={{ marginTop: 4 }} onClick={() => setPasosEditorOpen(true)}>⚙️ Pasos</button>
       </div>
@@ -516,7 +484,7 @@ export default function Miembros() {
           filterGrupo={filterGrupo} setFilterGrupo={setFilterGrupo}
           filterEstadoCivil={filterEstadoCivil} setFilterEstadoCivil={setFilterEstadoCivil}
           filterContacto={filterContacto} setFilterContacto={setFilterContacto}
-          filterPaso={filterPaso} setFilterPaso={setFilterPaso} pasosMiembro={pasosMiembroCatalogo}
+          filterPaso={filterPaso} setFilterPaso={setFilterPaso} pasosMiembro={pasosMiembroCatalogo.filter((p) => p.fuente !== 'integracion')}
           openNewM={openNewM}
           openEditM={openEditM}
           onVer={(id) => { setSelectedId(id); setModal('detail'); }}
@@ -535,18 +503,6 @@ export default function Miembros() {
           openNewAsig={openNewAsig}
           onEliminarMin={(id) => { setSelectedId(id); setModal('delMin'); }}
           onQuitarAsig={(id) => { setSelectedId(id); setModal('delAsig'); }}
-        />
-      )}
-
-      {tab === 'hitos' && (
-        <HitosTab
-          hitos={hitos}
-          hitosList={hitosList}
-          miembros={miembros}
-          search={search} setSearch={setSearch}
-          openNewH={openNewH}
-          openEditH={openEditH}
-          onEliminarH={(id) => { setSelectedId(id); setModal('delH'); }}
         />
       )}
 
