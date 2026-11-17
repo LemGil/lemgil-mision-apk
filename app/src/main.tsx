@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import App from './App';
-import { migrateFromLocalStorage, ensureMetas, backfillIntegrados, ensureZonas, desunificarBienComun, canonizarZonas, unificarPersonas, asegurarDiezmadores, ensurePasosMiembro, ensurePasosMision, migrarEstadosAPasos, migrarRutaCongregados, migrarRutaConfeso, fusionarPasosDuplicados, normalizarPasoConverso, normalizarOrdenDeRuta, repararFusionCongregado } from './lib/migrate';
+import { migrateFromLocalStorage, ensureMetas, backfillIntegrados, ensureZonas, desunificarBienComun, canonizarZonas, unificarPersonas, asegurarDiezmadores, ensurePasosMiembro, ensurePasosMision, migrarEstadosAPasos, migrarRutaCongregados, migrarRutaConfeso, asegurarConfesoCanonico, fusionarPasosDuplicados, normalizarPasoConverso, normalizarOrdenDeRuta, repararFusionCongregado } from './lib/migrate';
 import { instalarVigilanciaDeVersion } from './lib/database';
 import { initSync } from './lib/sync';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -28,7 +28,7 @@ instalarVigilanciaDeVersion();
 // traduce los estados-etiqueta de las conversiones a identidad de paso.
 // migrarRutaCongregados (2026-11-15) va tras él: lleva el catálogo vivo
 // a la ruta Congregado → Converso.
-Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ensureZonas(), desunificarBienComun(), ensurePasosMiembro(), ensurePasosMision()]).then(() => migrarEstadosAPasos()).then(() => migrarRutaCongregados()).then(() => fusionarPasosDuplicados()).then(() => normalizarPasoConverso()).then(() => migrarRutaConfeso()).then(() => normalizarOrdenDeRuta()).then(() => repararFusionCongregado()).then(() => canonizarZonas()).then(() => unificarPersonas()).then(() => asegurarDiezmadores()).then(() => {
+Promise.all([migrateFromLocalStorage(), ensureMetas(), backfillIntegrados(), ensureZonas(), desunificarBienComun(), ensurePasosMiembro(), ensurePasosMision()]).then(() => migrarEstadosAPasos()).then(() => migrarRutaCongregados()).then(() => fusionarPasosDuplicados()).then(() => normalizarPasoConverso()).then(() => migrarRutaConfeso()).then(() => asegurarConfesoCanonico()).then(() => normalizarOrdenDeRuta()).then(() => repararFusionCongregado()).then(() => canonizarZonas()).then(() => unificarPersonas()).then(() => asegurarDiezmadores()).then(() => {
   console.log('[Main] Migraciones completadas, renderizando...');
   // El render no debe esperar a la red: si el sync se cuelga (p.ej. una tabla que
   // nunca responde), la app igualmente abre. El sync corre en paralelo.

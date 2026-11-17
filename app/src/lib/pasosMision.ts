@@ -569,7 +569,10 @@ export function ajusteDeConverso(paso: PasoSeguimiento | undefined): Partial<Pas
   if (!paso || paso.id !== PS_NUEVO) return null;
   const cambios: Partial<PasoSeguimiento> = {};
   const nombre = paso.nombre.trim().toLowerCase();
-  if (nombre === 'nuevo' || nombre === 'congregado') cambios.nombre = 'Converso';
+  // «Confeso» también: si esta fila (la identidad de Converso) quedó
+  // con el nombre del paso vecino, vuelve a «Converso» — Confeso es
+  // OTRA identidad (ps-confeso), no un renombre de esta.
+  if (nombre === 'nuevo' || nombre === 'congregado' || nombre === 'confeso') cambios.nombre = 'Converso';
   if (paso.rol === 'inicio') cambios.rol = 'camino';
   // La protección también era de su época de inicio: al frente de la
   // ruta solo queda UN paso protegido, Congregado (LemGil, 2026-11-16).
@@ -628,6 +631,38 @@ export function catalogoConConfeso(pasos: PasoSeguimiento[]): PasoSeguimiento[] 
   const semillaConfeso = PASOS_MISION_DEFECTO.find((p) => p.id === PS_CONFESO);
   if (!semillaConfeso) return pasos;
   return [...pasos, { ...semillaConfeso }];
+}
+
+export interface AjusteConfesoCanonico {
+  /** true si hay que sembrar la fila ps-confeso (falta en el catálogo). */
+  crearSemilla: boolean;
+  /** Identidades ajenas llamadas «Confeso» cuyos datos pasan a ps-confeso. */
+  reapuntarDesde: string[];
+}
+
+/**
+ * El Confeso canónico (2026-11-17): en el equipo de LemGil el paso
+ * aparecía DOS veces — su paso propio renombrado (el viejo «Profeso»)
+ * y la semilla ps-confeso — y al borrar el duplicado borró la SEMILLA
+ * y se quedó con el suyo. Sin la identidad ps-confeso, el censo del
+ * período y el registro directo «como Confeso» apuntarían a un paso
+ * que no existe. La cura ADOPTA el paso suyo: sus conversiones (estado
+ * e historial) se reapuntan a ps-confeso, su fila se borra y la
+ * semilla ocupa su lugar en la ruta (el orden sano la clava en el 2).
+ * Jamás adopta otra SEMILLA: si ps-nuevo se llamara «Confeso», eso lo
+ * cura `ajusteDeConverso` devolviéndole su nombre, no este pase.
+ */
+export function ajustesDeConfesoCanonico(pasos: PasoSeguimiento[]): AjusteConfesoCanonico {
+  const propios = pasos.filter((p) => p.ambito === 'mision');
+  const haySemilla = propios.some((p) => p.id === PS_CONFESO);
+  const idsSemilla = new Set(PASOS_MISION_DEFECTO.map((p) => p.id));
+  const ajenos = propios.filter(
+    (p) => !idsSemilla.has(p.id) && p.rol === 'camino' && p.nombre.trim().toLowerCase() === 'confeso',
+  );
+  return {
+    crearSemilla: !haySemilla && propios.length > 0,
+    reapuntarDesde: ajenos.map((p) => p.id),
+  };
 }
 
 export function catalogoConInicioSano(pasos: PasoSeguimiento[]): PasoSeguimiento[] {

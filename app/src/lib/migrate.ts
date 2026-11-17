@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
-import { PASOS_MISION_DEFECTO, PS_CONFESO, PS_FALLECIDO, PS_NUEVO, PS_TRASLADO, ajusteDeConverso, catalogoConConfeso, catalogoConCongregado, catalogoConInicioSano, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado, repararFusionEnConversion } from './pasosMision';
+import { PASOS_MISION_DEFECTO, PS_CONFESO, PS_FALLECIDO, PS_NUEVO, PS_TRASLADO, ajusteDeConverso, ajustesDeConfesoCanonico, catalogoConConfeso, catalogoConCongregado, catalogoConInicioSano, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado, repararFusionEnConversion } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -296,6 +296,47 @@ export async function migrarRutaConfeso(): Promise<number> {
  * y el historial de las conversiones que miraban a la fila borrada.
  * Idempotente: sin duplicados no toca nada.
  */
+/**
+ * El Confeso canónico (SIN bandera: corre en cada arranque y es
+ * convergente, como `normalizarPasoConverso`). Si la semilla
+ * ps-confeso falta — LemGil borró el duplicado equivocado: la semilla,
+ * no su paso propio — se siembra de nuevo y el paso suyo llamado
+ * «Confeso» se ADOPTA: sus conversiones se reapuntan a ps-confeso y
+ * su fila se borra (el borrado viaja por sync). Si la semilla ya está
+ * y aún queda un paso ajeno con el mismo nombre, se adopta igual.
+ * Sin nada que ajustar, no toca nada.
+ */
+export async function asegurarConfesoCanonico(): Promise<void> {
+  const existentes = await db.pasosSeguimiento.where('ambito').equals('mision').toArray();
+  if (existentes.length === 0) return;
+  const { crearSemilla, reapuntarDesde } = ajustesDeConfesoCanonico(existentes);
+  if (!crearSemilla && reapuntarDesde.length === 0) return;
+  if (crearSemilla) {
+    const semillaConfeso = PASOS_MISION_DEFECTO.find((p) => p.id === PS_CONFESO);
+    if (semillaConfeso) {
+      await db.pasosSeguimiento.add(createBaseRecord({ ...semillaConfeso, creado: new Date().toISOString(), version: 1 }));
+    }
+  }
+  if (reapuntarDesde.length > 0) {
+    const fusiones = new Map(reapuntarDesde.map((id) => [id, PS_CONFESO]));
+    for (const id of reapuntarDesde) {
+      await db.pasosSeguimiento.delete(id);
+    }
+    const convs = await db.conversiones.toArray();
+    let reapuntadas = 0;
+    for (const c of convs) {
+      const estado = reapuntarEstado(c.estado, fusiones);
+      const historial = (c.historial ?? []).map((h) => ({ ...h, estado: reapuntarEstado(h.estado ?? '', fusiones) }));
+      const cambio = estado !== c.estado || historial.some((h, i) => h.estado !== (c.historial ?? [])[i]?.estado);
+      if (cambio) {
+        await db.conversiones.update(c.id, { estado, historial });
+        reapuntadas++;
+      }
+    }
+    console.log(`Confeso canónico: ${reapuntarDesde.length} paso(s) adoptado(s), ${reapuntadas} conversión(es) reapuntadas`);
+  }
+}
+
 export async function fusionarPasosDuplicados(): Promise<number> {
   const FLAG_KEY = 'lemgil_pasos_duplicados_v1';
   if (localStorage.getItem(FLAG_KEY)) return 0;

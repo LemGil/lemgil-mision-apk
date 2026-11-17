@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   PASOS_MISION_DEFECTO, PS_APARTADO, PS_BAUTIZADO, PS_CONGREGADO, PS_DISCIPULADO, PS_FALLECIDO,
-  PS_CONFESO, PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConConfeso, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, ajusteDeConverso, repararFusionEnConversion, catalogoConInicioSano, colorDe,
+  PS_CONFESO, PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, ajustesDeConfesoCanonico, badgeDe, canonizarEstadoImportado, catalogoConConfeso, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, ajusteDeConverso, repararFusionEnConversion, catalogoConInicioSano, colorDe,
   contarUsoPaso, enCamino, entradaCambioDeEstado, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
   etiquetaConRespaldo, etiquetaDe, fechaDeConversion, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
   progresoEnRuta, rutaDe, salidasDe, seConvirtio, siguientePaso, tipoHitoDe, usoDelPaso,
@@ -824,5 +824,50 @@ describe("Confeso (2026-11-17): hizo la oración de fe, a prueba de permanencia"
     expect(sano.find((p) => p.id === PS_CONGREGADO)?.orden).toBe(1);
     expect(sano.find((p) => p.id === PS_CONFESO)?.orden).toBe(2);
     expect(sano.find((p) => p.id === PS_NUEVO)?.orden).toBe(3);
+  });
+});
+
+describe("Confeso canónico: adopción del paso propio (2026-11-17)", () => {
+  const pasoSuyo = {
+    id: "uuid-profeso", ambito: "mision", nombre: "Confeso", emoji: "📌", orden: 3,
+    rol: "camino", protegido: false, fuente: "manual", creado: "2026-11-16T00:00:00.000Z",
+  } as PasoSeguimiento;
+
+  it("semilla presente y sin ajenos: nada que hacer", () => {
+    expect(ajustesDeConfesoCanonico(PASOS_MISION_DEFECTO)).toEqual({ crearSemilla: false, reapuntarDesde: [] });
+  });
+
+  it("borró la semilla y quedó el suyo: se siembra y se adopta el suyo", () => {
+    const catalogo = [...PASOS_MISION_DEFECTO.filter((p) => p.id !== PS_CONFESO), pasoSuyo];
+    expect(ajustesDeConfesoCanonico(catalogo)).toEqual({ crearSemilla: true, reapuntarDesde: ["uuid-profeso"] });
+  });
+
+  it("semilla presente y el suyo también (el duplicado original): se adopta el suyo", () => {
+    expect(ajustesDeConfesoCanonico([...PASOS_MISION_DEFECTO, pasoSuyo])).toEqual({ crearSemilla: false, reapuntarDesde: ["uuid-profeso"] });
+  });
+
+  it("sin semilla y sin paso suyo: solo se siembra", () => {
+    const catalogo = PASOS_MISION_DEFECTO.filter((p) => p.id !== PS_CONFESO);
+    expect(ajustesDeConfesoCanonico(catalogo)).toEqual({ crearSemilla: true, reapuntarDesde: [] });
+  });
+
+  it("el nombre se reconoce con espacios y mayúsculas; «Confesos» no es Confeso", () => {
+    const conEspacios = { ...pasoSuyo, nombre: "  CONFESO " };
+    expect(ajustesDeConfesoCanonico([conEspacios]).reapuntarDesde).toEqual(["uuid-profeso"]);
+    const plural = { ...pasoSuyo, nombre: "Confesos" };
+    expect(ajustesDeConfesoCanonico([plural]).reapuntarDesde).toEqual([]);
+  });
+
+  it("jamás adopta otra semilla: ps-nuevo llamado «Confeso» NO se reapunta", () => {
+    const conversoRenombrado = PASOS_MISION_DEFECTO.map((p) => (p.id === PS_NUEVO ? { ...p, nombre: "Confeso" } : p));
+    expect(ajustesDeConfesoCanonico(conversoRenombrado).reapuntarDesde).toEqual([]);
+    // Su cura es el renombre de vuelta, no la adopción.
+    expect(ajusteDeConverso(conversoRenombrado.find((p) => p.id === PS_NUEVO))).toMatchObject({ nombre: "Converso" });
+  });
+
+  it("un paso de MIEMBRO llamado Confeso no se toca, y el catálogo vacío no siembra", () => {
+    const deMiembro = { ...pasoSuyo, ambito: "miembro" } as PasoSeguimiento;
+    expect(ajustesDeConfesoCanonico([deMiembro])).toEqual({ crearSemilla: false, reapuntarDesde: [] });
+    expect(ajustesDeConfesoCanonico([])).toEqual({ crearSemilla: false, reapuntarDesde: [] });
   });
 });
