@@ -10,6 +10,7 @@ import { db } from '../lib/database';
 import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { MS_FULL, fmt, monthKey, inRange, money } from '../lib/utils';
 import { esGozne, fechaDeConversion, seConvirtio } from '../lib/pasosMision';
+import { calcularCenso } from '../lib/censo';
 import { showToast } from '../lib/notification';
 
 const num = (n: number) => n.toLocaleString('en-US');
@@ -21,6 +22,7 @@ export default function Reportes() {
   const convs = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
   const pasosSeguimiento = useLiveQuery(() => db.pasosSeguimiento.toArray(), []) ?? [];
   const personasReg = useLiveQuery(() => db.personas.toArray(), []) ?? [];
+  const miembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
   const grupos = useLiveQuery(() => db.grupos.toArray(), []) ?? [];
   const evangels = useLiveQuery(() => db.evangelismos.toArray(), []) ?? [];
   const cursos = useLiveQuery(() => db.cursos.toArray(), []) ?? [];
@@ -186,8 +188,9 @@ export default function Reportes() {
       manos: { beneficiarios: beneficiarios.length, campanas: campanas.filter((c) => inRange(c.fechaInicio, desde, hasta)).length, entregas: entrRango.length, familias: benefUnicos, personas },
       negocios: { activos: negActivos, emprendedores: new Set(negocios.map((n) => n.emprendedor?.toLowerCase()).filter(Boolean)).size, ingresos: negIngresos },
       comunicacion: { publicaciones: pubRango.length, alcance: pubAlcance, engagement: pubEng },
+      censo: calcularCenso(personasReg, { conversiones: convs, miembros, estudiantes, dadores: diezmadores, beneficiarios }, pasosSeguimiento, { desde, hasta }, today),
     };
-  }, [convs, personasReg, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, pasosSeguimiento, desde, hasta]);
+  }, [convs, personasReg, miembros, grupos, evangels, cursos, estudiantes, certs, diezmadores, aportes, colaboradores, aportesComun, beneficiarios, campanas, entregas, negocios, publicaciones, pasosSeguimiento, desde, hasta, today]);
 
   /* Constructores de exportación compartidos: el cálculo en vivo y el
      snapshot guardado (Historial) exportan con el MISMO formato. */
@@ -401,6 +404,32 @@ export default function Reportes() {
             </div>
 
             <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+              <ModuleCard color="var(--gold)" emoji="👥" title="Censo de la Congregación" rows={[
+                ['TOTAL DE CONGREGADOS', datos.censo.total],
+                ...datos.censo.etapas.map((e): [string, number] => [e.etiqueta, e.cantidad]),
+                ['Miembros', datos.censo.miembros],
+                ['Diezmadores', datos.censo.diezmadores],
+                ['— DEMOGRAFÍA —', ''],
+                ['Hombres', datos.censo.hombres],
+                ['Mujeres', datos.censo.mujeres],
+                ['Sexo sin dato', datos.censo.sexoSinDato],
+                ['Niños (0–11)', datos.censo.ninos],
+                ['Jóvenes (12–29)', datos.censo.jovenes],
+                ['Adultos (30–59)', datos.censo.adultos],
+                ['Ancianos (60+)', datos.censo.ancianos],
+                ['Sin fecha de nacimiento', datos.censo.edadSinDato],
+                ['— FUERA DEL TOTAL —', ''],
+                ['Miembros inactivos', datos.censo.miembrosInactivos],
+                ['Bajas · Apartados', datos.censo.bajas.apartados],
+                ['Bajas · Traslados', datos.censo.bajas.traslados],
+                ['Bajas · Fallecidos', datos.censo.bajas.fallecidos],
+                ['Bajas · Otras salidas', datos.censo.bajas.otrasSalidas],
+                ['— DEL PERÍODO —', ''],
+                ['Confesiones', datos.censo.periodo.confesiones],
+                ['Conversiones (permanecieron)', datos.censo.periodo.conversiones],
+                ['Bajas del período', datos.censo.periodo.bajas],
+              ]} />
+
               <ModuleCard color="var(--mision-purple)" emoji="🙏" title="Misión" rows={[
                 ['Conversiones (período)', datos.conv.total],
                 ['Registrados en Misión (período)', datos.conv.mesActual],

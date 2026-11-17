@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { showToast } from './notification';
 import { MS, fmt } from './utils';
 import { conteoGrupo } from './grupoStats';
+import { CENSO_VACIO, type CensoCongregacion } from './censo';
 import { esGozne, etiquetaDe, idCanonico } from './pasosMision';
 import type { DiezmadorVista, EvangelismoVista } from './personaDatos';
 import type {
@@ -150,6 +151,8 @@ export interface CumplimientoBC {
 
 /** Datos del Reporte General (Reportes.datos / snapshot guardado en db.reportes). */
 export interface ReporteDatos {
+  /** El censo de la congregación (2026-11-17): personas, no registros. */
+  censo: CensoCongregacion;
   conv: { total: number; mesActual: number; integrados: number; grupos: number; personasUnicas: number };
   evang: { total: number; contactos: number; conversiones: number };
   academia: { cursos: number; cursosActivos: number; estudiantes: number; certificados: number };
@@ -177,6 +180,7 @@ export interface ReporteDatos {
 
 /** Snapshot vacío: base segura para mostrar informes guardados incompletos. */
 export const REPORTE_DATOS_VACIO: ReporteDatos = {
+  censo: CENSO_VACIO,
   conv: { total: 0, mesActual: 0, integrados: 0, grupos: 0, personasUnicas: 0 },
   evang: { total: 0, contactos: 0, conversiones: 0 },
   academia: { cursos: 0, cursosActivos: 0, estudiantes: 0, certificados: 0 },
@@ -202,6 +206,13 @@ export function parseReporteResumen(raw: string | null | undefined): ReporteDato
   try {
     const p = JSON.parse(raw) as Partial<ReporteDatos>;
     return {
+      censo: {
+        ...CENSO_VACIO,
+        ...(p.censo ?? {}),
+        etapas: p.censo?.etapas ?? [],
+        bajas: { ...CENSO_VACIO.bajas, ...(p.censo?.bajas ?? {}) },
+        periodo: { ...CENSO_VACIO.periodo, ...(p.censo?.periodo ?? {}) },
+      },
       conv: { ...REPORTE_DATOS_VACIO.conv, ...(p.conv ?? {}) },
       evang: { ...REPORTE_DATOS_VACIO.evang, ...(p.evang ?? {}) },
       academia: { ...REPORTE_DATOS_VACIO.academia, ...(p.academia ?? {}) },
@@ -1269,6 +1280,30 @@ export function exportReporteGeneralPDF(opts: { datos: ReporteDatos; periodo: st
     });
     y = (doc as any).lastAutoTable.finalY + 8;
   };
+
+  const censo = datos.censo ?? CENSO_VACIO;
+  section('Censo de la Congregación', [
+    ['TOTAL DE CONGREGADOS', censo.total.toString()],
+    ...censo.etapas.map((e): [string, string] => [e.etiqueta, e.cantidad.toString()]),
+    ['Miembros', censo.miembros.toString()],
+    ['Diezmadores', censo.diezmadores.toString()],
+    ['Hombres', censo.hombres.toString()],
+    ['Mujeres', censo.mujeres.toString()],
+    ['Sexo sin dato', censo.sexoSinDato.toString()],
+    ['Niños (0–11)', censo.ninos.toString()],
+    ['Jóvenes (12–29)', censo.jovenes.toString()],
+    ['Adultos (30–59)', censo.adultos.toString()],
+    ['Ancianos (60+)', censo.ancianos.toString()],
+    ['Sin fecha de nacimiento', censo.edadSinDato.toString()],
+    ['Miembros inactivos (fuera del total)', censo.miembrosInactivos.toString()],
+    ['Bajas · Apartados', censo.bajas.apartados.toString()],
+    ['Bajas · Traslados', censo.bajas.traslados.toString()],
+    ['Bajas · Fallecidos', censo.bajas.fallecidos.toString()],
+    ['Bajas · Otras salidas', censo.bajas.otrasSalidas.toString()],
+    ['Del período · Confesiones', censo.periodo.confesiones.toString()],
+    ['Del período · Conversiones', censo.periodo.conversiones.toString()],
+    ['Del período · Bajas', censo.periodo.bajas.toString()],
+  ]);
 
   section('Misión', [
     ['Conversiones (período)', datos.conv.total.toString()],

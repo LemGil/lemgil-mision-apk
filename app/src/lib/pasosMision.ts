@@ -29,6 +29,14 @@ import type { Conversion, Hito, HistorialEntry, PasoSeguimiento } from './types'
 
 /** Identidades fijas de las semillas (nunca cambian; la etiqueta sí). */
 export const PS_CONGREGADO = 'ps-congregado';
+/**
+ * Confeso (2026-11-17, definición de LemGil): hizo la oración de fe /
+ * Confesión de Fe; está por verse si permanece. Si permanece y se le
+ * ven frutos de conversión, pasa a Converso. La confesión NO cuenta
+ * como conversión hasta perseverar (seConvirtio sigue mirando a
+ * PS_NUEVO). Su paso propio «Profeso» era este mismo concepto.
+ */
+export const PS_CONFESO = 'ps-confeso';
 export const PS_NUEVO = 'ps-nuevo';
 export const PS_DISCIPULADO = 'ps-discipulado';
 export const PS_BAUTIZADO = 'ps-bautizado';
@@ -40,6 +48,7 @@ export const PS_FALLECIDO = 'ps-fallecido';
 /** Etiqueta legada → identidad. «Seguimiento» fue un nombre viejo del Discipulado. */
 export const ALIAS_ESTADOS_LEGADO: Record<string, string> = {
   Congregado: PS_CONGREGADO,
+  Confeso: PS_CONFESO,
   Nuevo: PS_NUEVO,
   Converso: PS_NUEVO,
   Discipulado: PS_DISCIPULADO,
@@ -89,13 +98,14 @@ export const PASOS_MISION_DEFECTO: PasoSeguimiento[] = [
   // visita) y la CONVERSIÓN es el avance a «Converso» — la semilla que
   // antes se llamaba «Nuevo» (su identidad no cambia: ps-nuevo).
   semilla(PS_CONGREGADO, 'Congregado', '🙏', 1, 'inicio', true),
-  semilla(PS_NUEVO, 'Converso', '🌱', 2, 'camino'),
-  semilla(PS_DISCIPULADO, 'Discipulado', '📖', 3, 'camino'),
-  semilla(PS_BAUTIZADO, 'Bautizado', '💧', 4, 'camino'),
-  semilla(PS_INTEGRADO, 'Integrado', '🏘️', 5, 'gozne', true),
-  semilla(PS_APARTADO, 'Apartado', '🚪', 6, 'salida', true),
-  semilla(PS_TRASLADO, 'Trasladado', '🧳', 7, 'salida', true),
-  semilla(PS_FALLECIDO, 'Fallecido', '✝️', 8, 'salida', true),
+  semilla(PS_CONFESO, 'Confeso', '🤲', 2, 'camino'),
+  semilla(PS_NUEVO, 'Converso', '🌱', 3, 'camino'),
+  semilla(PS_DISCIPULADO, 'Discipulado', '📖', 4, 'camino'),
+  semilla(PS_BAUTIZADO, 'Bautizado', '💧', 5, 'camino'),
+  semilla(PS_INTEGRADO, 'Integrado', '🏘️', 6, 'gozne', true),
+  semilla(PS_APARTADO, 'Apartado', '🚪', 7, 'salida', true),
+  semilla(PS_TRASLADO, 'Trasladado', '🧳', 8, 'salida', true),
+  semilla(PS_FALLECIDO, 'Fallecido', '✝️', 9, 'salida', true),
 ];
 
 /** Orden del catálogo: por `orden`; desempate estable por creación e id (el mismo de pasosMiembro.ordenarPasos). */
@@ -260,6 +270,7 @@ export function siguientePaso(pasos: PasoSeguimiento[] | undefined, valor: strin
  */
 export function tipoHitoDe(valor: string): Hito['tipo'] {
   switch (idCanonico(valor)) {
+    case PS_CONFESO: return 'Confesión';
     case PS_NUEVO: return 'Conversión';
     case PS_DISCIPULADO: return 'Discipulado';
     case PS_BAUTIZADO: return 'Bautismo';
@@ -604,14 +615,31 @@ export function repararFusionEnConversion(c: Conversion): { estado: string; hist
  * Converso 2, y TODO lo demás — pasos propios de la iglesia como
  * «Profeso» y las salidas — conserva su orden relativo actual.
  */
+/**
+ * La ruta con Confeso (2026-11-17, pura; la aplica el pase
+ * `migrarRutaConfeso`): si el catálogo vivo aún no tiene el paso
+ * Confeso, entra su semilla. El ORDEN fino (Congregado → Confeso →
+ * Converso) lo fija después `catalogoConInicioSano`, que corre en
+ * cada arranque. Si LemGil renombra el paso, su nombre se respeta:
+ * aquí solo se siembra la identidad cuando falta del todo.
+ */
+export function catalogoConConfeso(pasos: PasoSeguimiento[]): PasoSeguimiento[] {
+  if (pasos.some((p) => p.id === PS_CONFESO)) return pasos;
+  const semillaConfeso = PASOS_MISION_DEFECTO.find((p) => p.id === PS_CONFESO);
+  if (!semillaConfeso) return pasos;
+  return [...pasos, { ...semillaConfeso }];
+}
+
 export function catalogoConInicioSano(pasos: PasoSeguimiento[]): PasoSeguimiento[] {
   const propios = ordenar(pasos.filter((p) => p.ambito === 'mision'));
   const cong = propios.find((p) => p.id === PS_CONGREGADO);
   if (!cong) return pasos;
+  const conf = propios.find((p) => p.id === PS_CONFESO);
   const conv = propios.find((p) => p.id === PS_NUEVO);
-  const resto = propios.filter((p) => p.id !== PS_CONGREGADO && p.id !== PS_NUEVO);
+  const resto = propios.filter((p) => p.id !== PS_CONGREGADO && p.id !== PS_CONFESO && p.id !== PS_NUEVO);
   const secuencia = [
     cong,
+    ...(conf ? [conf] : []),
     ...(conv ? [conv] : []),
     ...resto.filter((p) => p.rol !== 'salida'),
     ...resto.filter((p) => p.rol === 'salida'),

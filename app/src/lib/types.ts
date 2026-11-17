@@ -77,6 +77,12 @@ export interface Persona {
   email: string;
   direccion: string;
   /**
+   * Sexo de la persona (2026-11-17): lo pide el censo de la
+   * congregación (Hombres / Mujeres). Las fichas viejas no lo traen
+   * (null o ausente = «sin dato») y se completan al editarlas.
+   */
+  sexo?: 'M' | 'F' | null;
+  /**
    * Ubicación fijada en el mapa (2026-11-16): la marca a mano el
    * maestro — GPS al visitar o toque en el mapa — porque la dirección
    * escrita no se puede geocodificar con fiabilidad. Null = sin fijar.
@@ -512,7 +518,7 @@ export interface Hito {
   miembroId?: string;
   estudianteId?: string;
   fecha: string;
-  tipo: 'Conversión' | 'Bautismo' | 'Discipulado' | 'Curso Completado' | 'Integración' | 'Liderazgo' | 'Matrimonio' | 'Otro';
+  tipo: 'Confesión' | 'Conversión' | 'Bautismo' | 'Discipulado' | 'Curso Completado' | 'Integración' | 'Liderazgo' | 'Matrimonio' | 'Otro';
   descripcion: string;
   /**
    * Pasos del miembro (Fase 1): cuando el hito REGISTRA un paso de la

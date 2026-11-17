@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   PASOS_MISION_DEFECTO, PS_APARTADO, PS_BAUTIZADO, PS_CONGREGADO, PS_DISCIPULADO, PS_FALLECIDO,
-  PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, ajusteDeConverso, repararFusionEnConversion, catalogoConInicioSano, colorDe,
+  PS_CONFESO, PS_INTEGRADO, PS_NUEVO, PS_TRASLADO, badgeDe, canonizarEstadoImportado, catalogoConConfeso, catalogoConCongregado, fusionarDuplicadosPorNombre, reapuntarEstado, ajusteDeConverso, repararFusionEnConversion, catalogoConInicioSano, colorDe,
   contarUsoPaso, enCamino, entradaCambioDeEstado, esGozne, esInicio, esSalida, estadoCoincideConFiltro,
   etiquetaConRespaldo, etiquetaDe, fechaDeConversion, idCanonico, indiceEnRuta, pasoGozne, pasoInicio, pasosPipeline,
   progresoEnRuta, rutaDe, salidasDe, seConvirtio, siguientePaso, tipoHitoDe, usoDelPaso,
@@ -21,13 +21,13 @@ const renombrado: PasoSeguimiento[] = PASOS_MISION_DEFECTO.map((p) =>
 /** Un paso intermedio NUEVO, agregado por la iglesia entre Discipulado y Bautizado. */
 const pasoNuevo: PasoSeguimiento = {
   id: "ps-formacion-inicial", ambito: "mision", nombre: "Formación inicial", emoji: "🌿",
-  orden: 3.5, fuente: "manual", rol: "camino", creado: "2026-01-01T00:00:00.000Z", version: 1,
+  orden: 4.5, fuente: "manual", rol: "camino", creado: "2026-01-01T00:00:00.000Z", version: 1,
 };
 const conPasoNuevo: PasoSeguimiento[] = [...PASOS_MISION_DEFECTO, pasoNuevo];
 
 describe("pasosMision: la ruta y los roles", () => {
   it("la ruta es inicio → camino → gozne, sin las salidas, en orden", () => {
-    expect(rutaDe([]).map((p) => p.id)).toEqual([PS_CONGREGADO, PS_NUEVO, PS_DISCIPULADO, PS_BAUTIZADO, PS_INTEGRADO]);
+    expect(rutaDe([]).map((p) => p.id)).toEqual([PS_CONGREGADO, PS_CONFESO, PS_NUEVO, PS_DISCIPULADO, PS_BAUTIZADO, PS_INTEGRADO]);
     expect(salidasDe([]).map((p) => p.id)).toEqual([PS_APARTADO, PS_TRASLADO, PS_FALLECIDO]);
     expect(pasoInicio([]).id).toBe(PS_CONGREGADO);
     expect(pasoGozne([])?.id).toBe(PS_INTEGRADO);
@@ -35,7 +35,7 @@ describe("pasosMision: la ruta y los roles", () => {
 
   it("un catálogo desordenado se ordena por `orden`", () => {
     const desorden = [...PASOS_MISION_DEFECTO].reverse();
-    expect(rutaDe(desorden).map((p) => p.id)).toEqual([PS_CONGREGADO, PS_NUEVO, PS_DISCIPULADO, PS_BAUTIZADO, PS_INTEGRADO]);
+    expect(rutaDe(desorden).map((p) => p.id)).toEqual([PS_CONGREGADO, PS_CONFESO, PS_NUEVO, PS_DISCIPULADO, PS_BAUTIZADO, PS_INTEGRADO]);
   });
 
   it("esInicio / enCamino / esGozne / esSalida por rol", () => {
@@ -56,7 +56,8 @@ describe("pasosMision: la ruta y los roles", () => {
   });
 
   it("siguientePaso camina la ruta y se detiene en el gozne, las salidas y lo desconocido", () => {
-    expect(siguientePaso([], PS_CONGREGADO)?.id).toBe(PS_NUEVO);
+    expect(siguientePaso([], PS_CONGREGADO)?.id).toBe(PS_CONFESO);
+    expect(siguientePaso([], PS_CONFESO)?.id).toBe(PS_NUEVO);
     expect(siguientePaso([], PS_NUEVO)?.id).toBe(PS_DISCIPULADO);
     expect(siguientePaso([], PS_BAUTIZADO)?.id).toBe(PS_INTEGRADO);
     expect(siguientePaso([], PS_INTEGRADO)).toBeNull();
@@ -64,13 +65,13 @@ describe("pasosMision: la ruta y los roles", () => {
     expect(siguientePaso([], PS_TRASLADO)).toBeNull();
     expect(siguientePaso([], PS_FALLECIDO)).toBeNull();
     expect(siguientePaso([], "valor-desconocido")).toBeNull();
-    expect(indiceEnRuta([], PS_BAUTIZADO)).toBe(3);
+    expect(indiceEnRuta([], PS_BAUTIZADO)).toBe(4);
     expect(indiceEnRuta([], PS_APARTADO)).toBe(-1);
   });
 
   it("un paso de camino nuevo entra en la ruta, en su posición", () => {
     expect(rutaDe(conPasoNuevo).map((p) => p.id))
-      .toEqual([PS_CONGREGADO, PS_NUEVO, PS_DISCIPULADO, "ps-formacion-inicial", PS_BAUTIZADO, PS_INTEGRADO]);
+      .toEqual([PS_CONGREGADO, PS_CONFESO, PS_NUEVO, PS_DISCIPULADO, "ps-formacion-inicial", PS_BAUTIZADO, PS_INTEGRADO]);
     expect(enCamino(conPasoNuevo, "ps-formacion-inicial")).toBe(true);
     expect(siguientePaso(conPasoNuevo, PS_DISCIPULADO)?.id).toBe("ps-formacion-inicial");
     expect(siguientePaso(conPasoNuevo, "ps-formacion-inicial")?.id).toBe(PS_BAUTIZADO);
@@ -131,9 +132,10 @@ describe("pasosMision: etiquetas, alias y presentación", () => {
   });
 
   it("un paso nuevo toma badge y color de su posición en la ruta", () => {
-    // «Formación inicial» queda en el índice 3 de la ruta → púrpura.
-    expect(badgeDe(conPasoNuevo, "ps-formacion-inicial")).toBe("badge-purple");
-    expect(colorDe(conPasoNuevo, "ps-formacion-inicial")).toBe("var(--purple)");
+    // «Formación inicial» queda en el índice 4 de la ruta → la rotación
+    // (azul → amarillo → verde → púrpura) vuelve al azul.
+    expect(badgeDe(conPasoNuevo, "ps-formacion-inicial")).toBe("badge-blue");
+    expect(colorDe(conPasoNuevo, "ps-formacion-inicial")).toBe("var(--blue)");
     expect(badgeDe([], "valor-desconocido")).toBe("badge-blue");
   });
 });
@@ -311,24 +313,29 @@ describe("migrarEstadosAPasos (Fase 2)", () => {
 
 describe("ensurePasosMision: Traslado entra sin romper el catálogo sembrado", () => {
   /**
-   * El catálogo VIEJO (Fase 2 + Traslado, antes de Congregado): siete
-   * pasos, con ps-nuevo como «Nuevo» de rol inicio y Fallecido en 7.
+   * El catálogo VIEJO, congelado como literal (Fase 2 + Traslado, antes
+   * de Congregado y de Confeso): siete pasos, con ps-nuevo como «Nuevo»
+   * de rol inicio y Fallecido en 7. Como literal NO se deriva de la
+   * semilla actual: la historia no se mueve cuando la ruta crece.
    */
-  const catalogoViejo = (): PasoSeguimiento[] =>
-    PASOS_MISION_DEFECTO
-      .filter((p) => p.id !== PS_CONGREGADO)
-      .map((p) => (p.id === PS_NUEVO ? { ...p, nombre: "Nuevo", rol: "inicio" as const, orden: 1 }
-        : p.id === PS_FALLECIDO ? { ...p, orden: 7 }
-          : { ...p, orden: p.orden - 1 }));
+  const catalogoViejo = (): PasoSeguimiento[] => [
+    { id: PS_NUEVO, ambito: "mision", nombre: "Nuevo", emoji: "🌱", orden: 1, fuente: "manual", rol: "inicio", creado: "", version: 1 },
+    { id: PS_DISCIPULADO, ambito: "mision", nombre: "Discipulado", emoji: "📖", orden: 2, fuente: "manual", rol: "camino", creado: "", version: 1 },
+    { id: PS_BAUTIZADO, ambito: "mision", nombre: "Bautizado", emoji: "💧", orden: 3, fuente: "manual", rol: "camino", creado: "", version: 1 },
+    { id: PS_INTEGRADO, ambito: "mision", nombre: "Integrado", emoji: "🏘️", orden: 4, fuente: "manual", rol: "gozne", protegido: true, creado: "", version: 1 },
+    { id: PS_APARTADO, ambito: "mision", nombre: "Apartado", emoji: "🚪", orden: 5, fuente: "manual", rol: "salida", protegido: true, creado: "", version: 1 },
+    { id: PS_TRASLADO, ambito: "mision", nombre: "Trasladado", emoji: "🧳", orden: 6, fuente: "manual", rol: "salida", protegido: true, creado: "", version: 1 },
+    { id: PS_FALLECIDO, ambito: "mision", nombre: "Fallecido", emoji: "✝️", orden: 7, fuente: "manual", rol: "salida", protegido: true, creado: "", version: 1 },
+  ];
 
   beforeAll(async () => { await db.open(); });
   beforeEach(async () => { await db.pasosSeguimiento.clear(); });
 
   it("ámbito vacío: nace la semilla completa, con las salidas Apartado → Traslado → Fallecido", async () => {
     const pasos = await ensurePasosMision();
-    expect(pasos).toHaveLength(8);
+    expect(pasos).toHaveLength(9);
     expect(salidasDe(pasos).map((p) => [p.id, p.orden])).toEqual([
-      [PS_APARTADO, 6], [PS_TRASLADO, 7], [PS_FALLECIDO, 8],
+      [PS_APARTADO, 7], [PS_TRASLADO, 8], [PS_FALLECIDO, 9],
     ]);
   });
 
@@ -433,15 +440,16 @@ describe("Bordes de la Fase 2 · F2: canonizar el estado que vuelve por CSV", ()
 });
 
 describe("Bordes de la Fase 2 · F6: el progreso se mide DENTRO de la ruta", () => {
-  it("la ruta semilla tiene 5 pasos: Congregado 20 %, Integrado 100 % (antes: 57 %, «paso 4 de 7»)", () => {
-    expect(progresoEnRuta([], PS_CONGREGADO)).toEqual({ porcentaje: 20, rotulo: "paso 1 de 5" });
-    expect(progresoEnRuta([], PS_NUEVO)).toEqual({ porcentaje: 40, rotulo: "paso 2 de 5" });
-    expect(progresoEnRuta([], PS_DISCIPULADO)).toEqual({ porcentaje: 60, rotulo: "paso 3 de 5" });
-    expect(progresoEnRuta([], PS_INTEGRADO)).toEqual({ porcentaje: 100, rotulo: "paso 5 de 5" });
+  it("la ruta semilla tiene 6 pasos: Congregado 17 %, Integrado 100 % (con Confeso desde 2026-11-17)", () => {
+    expect(progresoEnRuta([], PS_CONGREGADO)).toEqual({ porcentaje: 17, rotulo: "paso 1 de 6" });
+    expect(progresoEnRuta([], PS_CONFESO)).toEqual({ porcentaje: 33, rotulo: "paso 2 de 6" });
+    expect(progresoEnRuta([], PS_NUEVO)).toEqual({ porcentaje: 50, rotulo: "paso 3 de 6" });
+    expect(progresoEnRuta([], PS_DISCIPULADO)).toEqual({ porcentaje: 67, rotulo: "paso 4 de 6" });
+    expect(progresoEnRuta([], PS_INTEGRADO)).toEqual({ porcentaje: 100, rotulo: "paso 6 de 6" });
   });
 
   it("tolera la etiqueta legada", () => {
-    expect(progresoEnRuta([], "Integrado")).toEqual({ porcentaje: 100, rotulo: "paso 5 de 5" });
+    expect(progresoEnRuta([], "Integrado")).toEqual({ porcentaje: 100, rotulo: "paso 6 de 6" });
   });
 
   it("en una salida no hay porcentaje engañoso: 0 y el rótulo es la etiqueta del estado", () => {
@@ -456,9 +464,9 @@ describe("Bordes de la Fase 2 · F6: el progreso se mide DENTRO de la ruta", () 
 
   it("el denominador crece con los pasos propios del camino, no con las salidas", () => {
     expect(progresoEnRuta(conPasoNuevo, "ps-formacion-inicial"))
-      .toEqual({ porcentaje: 67, rotulo: "paso 4 de 6" });
+      .toEqual({ porcentaje: 71, rotulo: "paso 5 de 7" });
     expect(progresoEnRuta(conPasoNuevo, PS_INTEGRADO))
-      .toEqual({ porcentaje: 100, rotulo: "paso 6 de 6" });
+      .toEqual({ porcentaje: 100, rotulo: "paso 7 de 7" });
   });
 });
 
@@ -582,13 +590,17 @@ describe("Congregado → Converso: la conversión es el AVANCE (2026-11-15)", ()
 });
 
 describe("catalogoConCongregado: la transformación pura del catálogo vivo", () => {
-  /** El catálogo de producción ANTES del cambio (con Traslado, sin Congregado). */
-  const catalogoAnterior = (): PasoSeguimiento[] =>
-    PASOS_MISION_DEFECTO
-      .filter((p) => p.id !== PS_CONGREGADO)
-      .map((p) => (p.id === PS_NUEVO ? { ...p, nombre: "Nuevo", rol: "inicio" as const, orden: 1 }
-        : p.id === PS_FALLECIDO ? { ...p, orden: 7 }
-          : { ...p, orden: p.orden - 1 }));
+  /** El catálogo de producción ANTES del cambio (con Traslado, sin
+   *  Congregado ni Confeso), congelado como literal. */
+  const catalogoAnterior = (): PasoSeguimiento[] => [
+    { id: PS_NUEVO, ambito: "mision", nombre: "Nuevo", emoji: "🌱", orden: 1, fuente: "manual", rol: "inicio", creado: "", version: 1 },
+    { id: PS_DISCIPULADO, ambito: "mision", nombre: "Discipulado", emoji: "📖", orden: 2, fuente: "manual", rol: "camino", creado: "", version: 1 },
+    { id: PS_BAUTIZADO, ambito: "mision", nombre: "Bautizado", emoji: "💧", orden: 3, fuente: "manual", rol: "camino", creado: "", version: 1 },
+    { id: PS_INTEGRADO, ambito: "mision", nombre: "Integrado", emoji: "🏘️", orden: 4, fuente: "manual", rol: "gozne", protegido: true, creado: "", version: 1 },
+    { id: PS_APARTADO, ambito: "mision", nombre: "Apartado", emoji: "🚪", orden: 5, fuente: "manual", rol: "salida", protegido: true, creado: "", version: 1 },
+    { id: PS_TRASLADO, ambito: "mision", nombre: "Trasladado", emoji: "🧳", orden: 6, fuente: "manual", rol: "salida", protegido: true, creado: "", version: 1 },
+    { id: PS_FALLECIDO, ambito: "mision", nombre: "Fallecido", emoji: "✝️", orden: 7, fuente: "manual", rol: "salida", protegido: true, creado: "", version: 1 },
+  ];
 
   it("Congregado abre la ruta como inicio; ps-nuevo pasa a «Converso» en el camino", () => {
     const nuevo = catalogoConCongregado(catalogoAnterior());
@@ -621,12 +633,15 @@ describe("catalogoConCongregado: la transformación pura del catálogo vivo", ()
 });
 
 describe("migrarRutaCongregados: el pase sobre la base", () => {
-  const catalogoAnterior = (): PasoSeguimiento[] =>
-    PASOS_MISION_DEFECTO
-      .filter((p) => p.id !== PS_CONGREGADO)
-      .map((p) => (p.id === PS_NUEVO ? { ...p, nombre: "Nuevo", rol: "inicio" as const, orden: 1, creado: "2026-01-01T00:00:00.000Z" }
-        : p.id === PS_FALLECIDO ? { ...p, orden: 7, creado: "2026-01-01T00:00:00.000Z" }
-          : { ...p, orden: p.orden - 1, creado: "2026-01-01T00:00:00.000Z" }));
+  const catalogoAnterior = (): PasoSeguimiento[] => [
+    { id: PS_NUEVO, ambito: "mision", nombre: "Nuevo", emoji: "🌱", orden: 1, fuente: "manual", rol: "inicio", creado: "2026-01-01T00:00:00.000Z", version: 1 },
+    { id: PS_DISCIPULADO, ambito: "mision", nombre: "Discipulado", emoji: "📖", orden: 2, fuente: "manual", rol: "camino", creado: "2026-01-01T00:00:00.000Z", version: 1 },
+    { id: PS_BAUTIZADO, ambito: "mision", nombre: "Bautizado", emoji: "💧", orden: 3, fuente: "manual", rol: "camino", creado: "2026-01-01T00:00:00.000Z", version: 1 },
+    { id: PS_INTEGRADO, ambito: "mision", nombre: "Integrado", emoji: "🏘️", orden: 4, fuente: "manual", rol: "gozne", protegido: true, creado: "2026-01-01T00:00:00.000Z", version: 1 },
+    { id: PS_APARTADO, ambito: "mision", nombre: "Apartado", emoji: "🚪", orden: 5, fuente: "manual", rol: "salida", protegido: true, creado: "2026-01-01T00:00:00.000Z", version: 1 },
+    { id: PS_TRASLADO, ambito: "mision", nombre: "Trasladado", emoji: "🧳", orden: 6, fuente: "manual", rol: "salida", protegido: true, creado: "2026-01-01T00:00:00.000Z", version: 1 },
+    { id: PS_FALLECIDO, ambito: "mision", nombre: "Fallecido", emoji: "✝️", orden: 7, fuente: "manual", rol: "salida", protegido: true, creado: "2026-01-01T00:00:00.000Z", version: 1 },
+  ];
 
   beforeAll(async () => { await db.open(); });
   beforeEach(async () => {
@@ -747,7 +762,7 @@ describe("la fusión NUNCA entre semillas, y la reparación de lo fusionado", ()
 describe("catalogoConInicioSano: Congregado primero, Converso segundo, siempre", () => {
   const ordenDe = (pasos: PasoSeguimiento[], id: string) => pasos.find((p) => p.id === id)!.orden;
 
-  it("el Converso resucitado con el orden viejo (1) baja al 2 y Congregado queda al frente", () => {
+  it("el Converso resucitado con el orden viejo (1) baja al 3 (Confeso toma el 2) y Congregado queda al frente", () => {
     // El catálogo tal como volvió por sincronización en el equipo de
     // LemGil: ps-nuevo con orden 1 (su época de inicio) y creado más
     // antiguo que ps-congregado — el desempate lo pintaba primero.
@@ -758,10 +773,11 @@ describe("catalogoConInicioSano: Congregado primero, Converso segundo, siempre",
     });
     const sano = catalogoConInicioSano(vuelto);
     expect(ordenDe(sano, PS_CONGREGADO)).toBe(1);
-    expect(ordenDe(sano, PS_NUEVO)).toBe(2);
-    expect(ordenDe(sano, "ps-discipulado")).toBe(3);
-    expect(ordenDe(sano, PS_INTEGRADO)).toBe(5);
-    expect(ordenDe(sano, PS_FALLECIDO)).toBe(8);
+    expect(ordenDe(sano, PS_CONFESO)).toBe(2);
+    expect(ordenDe(sano, PS_NUEVO)).toBe(3);
+    expect(ordenDe(sano, "ps-discipulado")).toBe(4);
+    expect(ordenDe(sano, PS_INTEGRADO)).toBe(6);
+    expect(ordenDe(sano, PS_FALLECIDO)).toBe(9);
   });
 
   it("un paso propio de la iglesia («Profeso») conserva su lugar relativo tras Converso", () => {
@@ -771,12 +787,42 @@ describe("catalogoConInicioSano: Congregado primero, Converso segundo, siempre",
     };
     const conProfeso = [...PASOS_MISION_DEFECTO.map((p) => (p.orden >= 3 ? { ...p, orden: p.orden + 1 } : p)), profeso];
     const sano = catalogoConInicioSano(conProfeso);
-    expect(ordenDe(sano, "uuid-profeso")).toBe(3);
-    expect(ordenDe(sano, "ps-discipulado")).toBe(4);
+    expect(ordenDe(sano, "uuid-profeso")).toBe(4);
+    expect(ordenDe(sano, "ps-discipulado")).toBe(5);
   });
 
   it("un catálogo ya sano no cambia ningún orden", () => {
     const sano = catalogoConInicioSano(PASOS_MISION_DEFECTO);
     for (const p of PASOS_MISION_DEFECTO) expect(ordenDe(sano, p.id)).toBe(p.orden);
+  });
+});
+
+describe("Confeso (2026-11-17): hizo la oración de fe, a prueba de permanencia", () => {
+  it("la ruta sembrada es Congregado → Confeso → Converso → Discipulado → Bautizado → Integrado", () => {
+    expect(rutaDe(undefined).map((p) => p.id)).toEqual([
+      PS_CONGREGADO, PS_CONFESO, PS_NUEVO, PS_DISCIPULADO, PS_BAUTIZADO, PS_INTEGRADO,
+    ]);
+    expect(siguientePaso(undefined, PS_CONGREGADO)?.id).toBe(PS_CONFESO);
+    expect(siguientePaso(undefined, PS_CONFESO)?.id).toBe(PS_NUEVO);
+  });
+
+  it("estar en Confeso NO es haberse convertido; en Converso sí", () => {
+    const convEn = (estado: string) => ({ estado, historial: [] }) as unknown as Conversion;
+    expect(seConvirtio(convEn(PS_CONFESO))).toBe(false);
+    expect(seConvirtio(convEn(PS_NUEVO))).toBe(true);
+    expect(tipoHitoDe(PS_CONFESO)).toBe("Confesión");
+    expect(idCanonico("Confeso")).toBe(PS_CONFESO);
+  });
+
+  it("catalogoConConfeso siembra la identidad solo si falta; el orden sano la clava en el 2", () => {
+    const sinConfeso = PASOS_MISION_DEFECTO.filter((p) => p.id !== PS_CONFESO);
+    const conConfeso = catalogoConConfeso(sinConfeso);
+    expect(conConfeso.some((p) => p.id === PS_CONFESO)).toBe(true);
+    expect(catalogoConConfeso(conConfeso)).toBe(conConfeso);
+    const desordenado = conConfeso.map((p) => (p.id === PS_CONFESO ? { ...p, orden: 99 } : p));
+    const sano = catalogoConInicioSano(desordenado);
+    expect(sano.find((p) => p.id === PS_CONGREGADO)?.orden).toBe(1);
+    expect(sano.find((p) => p.id === PS_CONFESO)?.orden).toBe(2);
+    expect(sano.find((p) => p.id === PS_NUEVO)?.orden).toBe(3);
   });
 });

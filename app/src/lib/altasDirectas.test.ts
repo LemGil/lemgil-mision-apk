@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { beneficiarioDeAlta, conversionDeAlta, estadoDeAlta, miembroDeAlta, opcionesEfectivas } from "./altasDirectas";
+import { PS_CONFESO } from "./pasosMision";
 import { PS_CONGREGADO, PS_INTEGRADO, PS_NUEVO } from "./pasosMision";
 
 const HOY = "2026-11-15";
@@ -79,5 +80,16 @@ describe("altasDirectas al EDITAR: opcionesEfectivas no duplica procesos", () =>
   it("con todo ya creado, no se aplica ninguna alta", () => {
     expect(opcionesEfectivas(todas, { mision: true, miembro: true, beneficiario: true }))
       .toEqual({ mision: false, entrada: "converso", integrado: false, beneficiario: false });
+  });
+});
+
+describe("altasDirectas: la entrada como Confeso (2026-11-17)", () => {
+  it("nace en el paso Confeso con su «Registro inicial» en el historial", () => {
+    const opciones = { mision: true, entrada: "confeso" as const, integrado: false, beneficiario: false };
+    expect(estadoDeAlta(opciones, undefined)).toBe(PS_CONFESO);
+    const c = conversionDeAlta("p1", opciones, undefined, "2026-11-17");
+    expect(c?.estado).toBe(PS_CONFESO);
+    expect(c?.historial).toHaveLength(1);
+    expect(c?.historial?.[0].nota).toBe("Registro inicial");
   });
 });

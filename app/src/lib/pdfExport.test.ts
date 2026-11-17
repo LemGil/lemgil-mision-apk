@@ -14,6 +14,7 @@ import {
   type ReporteDatos,
 } from "./pdfExport";
 import type { Conversion } from "./types";
+import { CENSO_VACIO } from "./censo";
 import { setGlobalNotificationFn } from "./notification";
 
 // jsPDF guarda con URL.createObjectURL + clic en un <a>: en jsdom hay que simularlo.
@@ -73,6 +74,7 @@ const cumplimiento: CumplimientoBC = {
 };
 
 const datosReporte: ReporteDatos = {
+  censo: CENSO_VACIO,
   conv: { total: 14, mesActual: 14, integrados: 5, grupos: 3, personasUnicas: 11 },
   evang: { total: 4, contactos: 120, conversiones: 9 },
   academia: { cursos: 6, cursosActivos: 4, estudiantes: 21, certificados: 8 },

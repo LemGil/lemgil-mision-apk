@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import type { Table } from 'dexie';
 import { zonaCanonica } from './zonas';
 import { asegurarPersonasDeDiezmadores, ejecutarMigracionPersonas } from './personas';
-import { PASOS_MISION_DEFECTO, PS_FALLECIDO, PS_NUEVO, PS_TRASLADO, ajusteDeConverso, catalogoConCongregado, catalogoConInicioSano, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado, repararFusionEnConversion } from './pasosMision';
+import { PASOS_MISION_DEFECTO, PS_CONFESO, PS_FALLECIDO, PS_NUEVO, PS_TRASLADO, ajusteDeConverso, catalogoConConfeso, catalogoConCongregado, catalogoConInicioSano, fusionarDuplicadosPorNombre, idCanonico, reapuntarEstado, repararFusionEnConversion } from './pasosMision';
 
 const PREFIX = 'lemgil_';
 
@@ -253,6 +253,36 @@ export async function migrarRutaCongregados(): Promise<number> {
   }
   localStorage.setItem(FLAG_KEY, '1');
   if (cambios > 0) console.log(`Ruta de Misión: ${cambios} paso(s) ajustados a Congregado → Converso`);
+  return cambios;
+}
+
+/**
+ * La ruta gana el paso Confeso (2026-11-17): hizo la oración de fe y
+ * está por verse si permanece; si permanece, pasa a Converso. Pase de
+ * una sola vez por bandera, como el de Congregado: siembra la
+ * identidad en el catálogo vivo (la fila viaja por sincronización a
+ * los demás equipos) y el orden fino lo deja `normalizarOrdenDeRuta`,
+ * que corre después en la misma cadena y en cada arranque.
+ */
+export async function migrarRutaConfeso(): Promise<number> {
+  const FLAG_KEY = 'lemgil_ruta_confeso_v1';
+  if (localStorage.getItem(FLAG_KEY)) return 0;
+  const existentes = await db.pasosSeguimiento.where('ambito').equals('mision').toArray();
+  if (existentes.length === 0) {
+    localStorage.setItem(FLAG_KEY, '1');
+    return 0;
+  }
+  const destino = catalogoConConfeso(existentes);
+  let cambios = 0;
+  if (destino.length !== existentes.length) {
+    const nuevo = destino.find((p) => p.id === PS_CONFESO);
+    if (nuevo) {
+      await db.pasosSeguimiento.add(createBaseRecord({ ...nuevo, creado: nuevo.creado || new Date().toISOString(), version: 1 }));
+      cambios = 1;
+    }
+  }
+  localStorage.setItem(FLAG_KEY, '1');
+  if (cambios > 0) console.log('Ruta de Misión: paso Confeso sembrado entre Congregado y Converso');
   return cambios;
 }
 

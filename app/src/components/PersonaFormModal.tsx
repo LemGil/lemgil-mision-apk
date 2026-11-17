@@ -59,6 +59,7 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
   const [direccion, setDireccion] = useState('');
   const [zona, setZona] = useState('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
+  const [sexo, setSexo] = useState<'M' | 'F' | ''>('');
   const [profesion, setProfesion] = useState('');
   const [estadoCivil, setEstadoCivil] = useState<Persona['estadoCivil']>('Soltero');
   const [contactoPreferido, setContactoPreferido] = useState<Persona['contactoPreferido']>('WhatsApp');
@@ -70,7 +71,7 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
   const [hermanoMayorId, setHermanoMayorId] = useState('');
   // Altas directas: qué procesos nacen con la persona (al crear o al editar).
   const [altaMision, setAltaMision] = useState(false);
-  const [altaEntrada, setAltaEntrada] = useState<'congregado' | 'converso'>('congregado');
+  const [altaEntrada, setAltaEntrada] = useState<'congregado' | 'confeso' | 'converso'>('congregado');
   const [altaIntegrado, setAltaIntegrado] = useState(false);
   const [altaBeneficiario, setAltaBeneficiario] = useState(false);
 
@@ -84,6 +85,7 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
     setDireccion(persona?.direccion ?? '');
     setZona(persona?.zona ?? '');
     setFechaNacimiento(persona?.fechaNacimiento ?? '');
+    setSexo(persona?.sexo ?? '');
     setProfesion(persona?.profesion ?? '');
     setEstadoCivil(persona?.estadoCivil ?? 'Soltero');
     setContactoPreferido(persona?.contactoPreferido ?? 'WhatsApp');
@@ -111,6 +113,7 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
       direccion: direccion.trim(),
       zona,
       fechaNacimiento,
+      sexo: sexo === '' ? null : sexo,
       profesion: profesion.trim(),
       estadoCivil,
       contactoPreferido,
@@ -249,6 +252,13 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
       </div>
       <div className="form-row">
         <div className="form-group"><label className="form-label">Fecha de nacimiento</label><input className="form-input" type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} /></div>
+        <div className="form-group"><label className="form-label">Sexo</label>
+          <select className="form-select" value={sexo} onChange={(e) => setSexo(e.target.value as 'M' | 'F' | '')}>
+            <option value="">Sin especificar</option>
+            <option value="M">Hombre</option>
+            <option value="F">Mujer</option>
+          </select>
+        </div>
         <div className="form-group"><label className="form-label">Profesión</label><input className="form-input" value={profesion} onChange={(e) => setProfesion(e.target.value)} /></div>
       </div>
       <div className="form-row">
@@ -300,11 +310,15 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
             <div style={{ marginLeft: 26, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 4 }}>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
                 <input type="radio" name="alta-entrada" checked={altaEntrada === 'congregado'} onChange={() => setAltaEntrada('congregado')} />
-                <span>Como <strong>Congregado</strong> — asiste, aún no se ha convertido</span>
+                <span>Como <strong>Congregado</strong> — asiste, aún no ha confesado la fe</span>
+              </label>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                <input type="radio" name="alta-entrada" checked={altaEntrada === 'confeso'} onChange={() => setAltaEntrada('confeso')} />
+                <span>Como <strong>Confeso</strong> — ya hizo la oración de fe, por ver si permanece</span>
               </label>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
                 <input type="radio" name="alta-entrada" checked={altaEntrada === 'converso'} onChange={() => setAltaEntrada('converso')} />
-                <span>Como <strong>Converso</strong> — ya aceptó la fe</span>
+                <span>Como <strong>Converso</strong> — ya permanece, se le ven frutos</span>
               </label>
             </div>
           )}

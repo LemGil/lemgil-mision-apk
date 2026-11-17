@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import type { Beneficiario, Conversion, Miembro, PasoSeguimiento } from './types';
-import { PS_INTEGRADO, PS_NUEVO, pasoGozne, pasoInicio } from './pasosMision';
+import { PS_CONFESO, PS_INTEGRADO, PS_NUEVO, pasoGozne, pasoInicio } from './pasosMision';
 
 /**
  * Altas directas desde el registro inicial (2026-11-15): el formulario
@@ -27,8 +27,9 @@ import { PS_INTEGRADO, PS_NUEVO, pasoGozne, pasoInicio } from './pasosMision';
 export interface OpcionesAltaDirecta {
   /** Crear el registro en Misión. */
   mision: boolean;
-  /** Cómo entra a Misión: 'congregado' (asiste) o 'converso' (ya aceptó la fe). */
-  entrada: 'congregado' | 'converso';
+  /** Cómo entra a Misión: 'congregado' (asiste), 'confeso' (ya hizo la
+   *  oración de fe, a prueba de permanencia) o 'converso' (ya permanece). */
+  entrada: 'congregado' | 'confeso' | 'converso';
   /** Crear el miembro en Miembros. */
   integrado: boolean;
   /** Crear el beneficiario en Manos Abiertas. */
@@ -61,6 +62,7 @@ export function opcionesEfectivas(opciones: OpcionesAltaDirecta, existentes: Pro
 export function estadoDeAlta(opciones: OpcionesAltaDirecta, pasos?: PasoSeguimiento[]): string {
   if (opciones.integrado) return pasoGozne(pasos)?.id ?? PS_INTEGRADO;
   if (opciones.entrada === 'converso') return PS_NUEVO;
+  if (opciones.entrada === 'confeso') return PS_CONFESO;
   return pasoInicio(pasos).id;
 }
 
