@@ -8,7 +8,7 @@ import { createBaseRecord } from '../lib/utils/recordHelpers';
 import { buscarPorIdentidad } from '../lib/personas';
 import { posiblesRepetidas } from '../lib/personaVista';
 import { beneficiarioDeAlta, conversionDeAlta, miembroDeAlta, opcionesEfectivas } from '../lib/altasDirectas';
-import { PS_INTEGRADO, entradaCambioDeEstado, pasoGozne } from '../lib/pasosMision';
+import { PS_BAUTIZADO, PS_CONFESO, PS_INTEGRADO, PS_NUEVO, entradaCambioDeEstado, etiquetaConRespaldo, pasoGozne, pasoInicio } from '../lib/pasosMision';
 import { syncMemberFromConversion } from '../pages/mision-biblica/syncMember';
 import { today } from '../lib/utils';
 import type { Conversion, Persona } from '../lib/types';
@@ -46,6 +46,16 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
   const todasConversiones = useLiveQuery(() => db.conversiones.toArray(), []) ?? [];
   const todosMiembros = useLiveQuery(() => db.miembros.toArray(), []) ?? [];
   const todosBeneficiarios = useLiveQuery(() => db.beneficiarios.toArray(), []) ?? [];
+  // Los nombres de las ETAPAS se leen VIVOS del catálogo (acuerdo con
+  // LemGil, 2026-11-17): si la iglesia renombra un paso en el editor
+  // — como el inicio, hoy «Alcanzado» —, este formulario lo sigue
+  // solo. «Congregados» como nombre de la congregación/lista es otra
+  // cosa y no sale de aquí.
+  const etInicio = etiquetaConRespaldo(pasosSeguimiento, pasoInicio(pasosSeguimiento).id);
+  const etConfeso = etiquetaConRespaldo(pasosSeguimiento, PS_CONFESO);
+  const etConverso = etiquetaConRespaldo(pasosSeguimiento, PS_NUEVO);
+  const etBautizado = etiquetaConRespaldo(pasosSeguimiento, PS_BAUTIZADO);
+  const etIntegrado = etiquetaConRespaldo(pasosSeguimiento, pasoGozne(pasosSeguimiento)?.id ?? PS_INTEGRADO);
   const conversionExistente = persona ? todasConversiones.find((c) => c.personaId === persona.id) : undefined;
   const yaEnMision = !!conversionExistente;
   const yaMiembro = !!persona && todosMiembros.some((m) => m.personaId === persona.id);
@@ -71,7 +81,7 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
   const [hermanoMayorId, setHermanoMayorId] = useState('');
   // Altas directas: qué procesos nacen con la persona (al crear o al editar).
   const [altaMision, setAltaMision] = useState(false);
-  const [altaEntrada, setAltaEntrada] = useState<'congregado' | 'confeso' | 'converso'>('congregado');
+  const [altaEntrada, setAltaEntrada] = useState<'congregado' | 'confeso' | 'converso' | 'bautizado'>('congregado');
   const [altaIntegrado, setAltaIntegrado] = useState(false);
   const [altaBeneficiario, setAltaBeneficiario] = useState(false);
 
@@ -304,36 +314,40 @@ export function PersonaFormModal({ open, onClose, persona, onSaved, altasDirecta
           <div className="form-section">🏁 Al guardar, dar de alta también como</div>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '4px 0', cursor: yaEnMision ? 'default' : 'pointer' }}>
             <input type="checkbox" checked={altaMision} disabled={yaEnMision} onChange={(e) => setAltaMision(e.target.checked)} />
-            <span><strong>Congregado</strong> — entra a la lista de Misión{yaEnMision && <span style={{ color: 'var(--dim)' }}> · ya está en Misión</span>}</span>
+            <span><strong>{etInicio}</strong> — entra a la lista de Misión{yaEnMision && <span style={{ color: 'var(--dim)' }}> · ya está en Misión</span>}</span>
           </label>
           {altaMision && (
             <div style={{ marginLeft: 26, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 4 }}>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
                 <input type="radio" name="alta-entrada" checked={altaEntrada === 'congregado'} onChange={() => setAltaEntrada('congregado')} />
-                <span>Como <strong>Congregado</strong> — asiste, aún no ha confesado la fe</span>
+                <span>Como <strong>{etInicio}</strong> — asiste, aún no ha confesado la fe</span>
               </label>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
                 <input type="radio" name="alta-entrada" checked={altaEntrada === 'confeso'} onChange={() => setAltaEntrada('confeso')} />
-                <span>Como <strong>Confeso</strong> — ya hizo la oración de fe, por ver si permanece</span>
+                <span>Como <strong>{etConfeso}</strong> — ya hizo la oración de fe, por ver si permanece</span>
               </label>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
                 <input type="radio" name="alta-entrada" checked={altaEntrada === 'converso'} onChange={() => setAltaEntrada('converso')} />
-                <span>Como <strong>Converso</strong> — ya permanece, se le ven frutos</span>
+                <span>Como <strong>{etConverso}</strong> — ya permanece, se le ven frutos</span>
+              </label>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                <input type="radio" name="alta-entrada" checked={altaEntrada === 'bautizado'} onChange={() => setAltaEntrada('bautizado')} />
+                <span>Como <strong>{etBautizado}</strong> — llega de traslado, ya bautizado; tras su tiempo de prueba se integra</span>
               </label>
             </div>
           )}
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '4px 0', cursor: yaMiembro ? 'default' : 'pointer' }}>
             <input type="checkbox" checked={altaIntegrado} disabled={yaMiembro} onChange={(e) => setAltaIntegrado(e.target.checked)} />
-            <span><strong>Integrado</strong> — pasa directo a Miembros{yaMiembro && <span style={{ color: 'var(--dim)' }}> · ya es miembro</span>}</span>
+            <span><strong>{etIntegrado}</strong> — pasa directo a Miembros{yaMiembro && <span style={{ color: 'var(--dim)' }}> · ya es miembro</span>}</span>
           </label>
           {altaMision && altaIntegrado && (
             <div style={{ marginLeft: 26, fontSize: 12, color: 'var(--dim)', paddingBottom: 4 }}>
-              Con Congregado + Integrado, su registro en Misión nace ya en Integrado y el miembro queda enlazado a él.
+              Con {etInicio} + {etIntegrado}, su registro en Misión nace ya en {etIntegrado} y el miembro queda enlazado a él.
             </div>
           )}
           {yaEnMision && altaIntegrado && !yaMiembro && (
             <div style={{ marginLeft: 26, fontSize: 12, color: 'var(--dim)', paddingBottom: 4 }}>
-              Ya está en Misión: su registro pasa a Integrado y el miembro nace enlazado a él.
+              Ya está en Misión: su registro pasa a {etIntegrado} y el miembro nace enlazado a él.
             </div>
           )}
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '4px 0', cursor: yaBeneficiario ? 'default' : 'pointer' }}>

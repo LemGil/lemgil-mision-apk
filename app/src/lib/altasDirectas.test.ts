@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { beneficiarioDeAlta, conversionDeAlta, estadoDeAlta, miembroDeAlta, opcionesEfectivas } from "./altasDirectas";
 import { PS_CONFESO } from "./pasosMision";
-import { PS_CONGREGADO, PS_INTEGRADO, PS_NUEVO } from "./pasosMision";
+import { PS_BAUTIZADO, PS_CONGREGADO, PS_INTEGRADO, PS_NUEVO } from "./pasosMision";
 
 const HOY = "2026-11-15";
 const base = { mision: false, entrada: "congregado" as const, integrado: false, beneficiario: false };
@@ -80,6 +80,28 @@ describe("altasDirectas al EDITAR: opcionesEfectivas no duplica procesos", () =>
   it("con todo ya creado, no se aplica ninguna alta", () => {
     expect(opcionesEfectivas(todas, { mision: true, miembro: true, beneficiario: true }))
       .toEqual({ mision: false, entrada: "converso", integrado: false, beneficiario: false });
+  });
+});
+
+describe("altasDirectas: la entrada como Bautizado, el traslado (2026-11-17)", () => {
+  it("nace en el paso Bautizado, con la marca de bautizado y su «Registro inicial»", () => {
+    const opciones = { mision: true, entrada: "bautizado" as const, integrado: false, beneficiario: false };
+    expect(estadoDeAlta(opciones, undefined)).toBe(PS_BAUTIZADO);
+    const c = conversionDeAlta("p1", opciones, undefined, "2026-11-17");
+    expect(c?.estado).toBe(PS_BAUTIZADO);
+    expect(c?.bautizado).toBe(true);
+    expect(c?.historial).toHaveLength(1);
+    expect(c?.historial?.[0].nota).toBe("Registro inicial");
+  });
+
+  it("las demás entradas nacen sin la marca de bautizado", () => {
+    const c = conversionDeAlta("p1", { mision: true, entrada: "converso" as const, integrado: false, beneficiario: false }, undefined, "2026-11-17");
+    expect(c?.bautizado).toBe(false);
+  });
+
+  it("Integrado sigue ganando: con las dos casillas nace en el gozne", () => {
+    const opciones = { mision: true, entrada: "bautizado" as const, integrado: true, beneficiario: false };
+    expect(estadoDeAlta(opciones, undefined)).toBe(PS_INTEGRADO);
   });
 });
 

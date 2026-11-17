@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import type { Beneficiario, Conversion, Miembro, PasoSeguimiento } from './types';
-import { PS_CONFESO, PS_INTEGRADO, PS_NUEVO, pasoGozne, pasoInicio } from './pasosMision';
+import { PS_BAUTIZADO, PS_CONFESO, PS_INTEGRADO, PS_NUEVO, pasoGozne, pasoInicio } from './pasosMision';
 
 /**
  * Altas directas desde el registro inicial (2026-11-15): el formulario
@@ -28,8 +28,10 @@ export interface OpcionesAltaDirecta {
   /** Crear el registro en Misión. */
   mision: boolean;
   /** Cómo entra a Misión: 'congregado' (asiste), 'confeso' (ya hizo la
-   *  oración de fe, a prueba de permanencia) o 'converso' (ya permanece). */
-  entrada: 'congregado' | 'confeso' | 'converso';
+   *  oración de fe, a prueba de permanencia), 'converso' (ya permanece)
+   *  o 'bautizado' (llega de TRASLADO ya bautizado — pedido de LemGil,
+   *  2026-11-17: tras su tiempo de prueba se integra). */
+  entrada: 'congregado' | 'confeso' | 'converso' | 'bautizado';
   /** Crear el miembro en Miembros. */
   integrado: boolean;
   /** Crear el beneficiario en Manos Abiertas. */
@@ -63,6 +65,7 @@ export function estadoDeAlta(opciones: OpcionesAltaDirecta, pasos?: PasoSeguimie
   if (opciones.integrado) return pasoGozne(pasos)?.id ?? PS_INTEGRADO;
   if (opciones.entrada === 'converso') return PS_NUEVO;
   if (opciones.entrada === 'confeso') return PS_CONFESO;
+  if (opciones.entrada === 'bautizado') return PS_BAUTIZADO;
   return pasoInicio(pasos).id;
 }
 
@@ -87,7 +90,10 @@ export function conversionDeAlta(
   const conversion: Conversion = {
     id: uuid(),
     nombre: '', apellido: '', telefono: '', edad: '', direccion: '', zona: '',
-    grupoId: '', hermanoMayorId: null, email: '', profesion: '', bautizado: false,
+    grupoId: '', hermanoMayorId: null, email: '', profesion: '',
+    // Quien entra COMO Bautizado (traslado) ya lo está: el registro
+    // nace con la marca puesta, como lo afirma el paso donde nace.
+    bautizado: estado === PS_BAUTIZADO,
     fechaBautismo: '', conyuge: '', hijos: '', numeroIdentidad: undefined,
     fecha: hoy, familia: 'No', estado, notas: '', personaId, evangelismoId: null,
     historial: estado !== inicio ? [{ fecha: hoy, estado, nota: 'Registro inicial' }] : [],
