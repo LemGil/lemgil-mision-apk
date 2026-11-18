@@ -3,6 +3,8 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { SyncIndicator } from './SyncIndicator';
 import { forcePushAllLocal } from '../lib/sync';
+import { db } from '../lib/database';
+import { construirRespaldo, descargarRespaldo } from '../lib/respaldo';
 import { useErrorNotification } from '../lib/errorNotifications';
 
 interface LayoutProps {
@@ -26,6 +28,16 @@ export function Layout({ title, breadcrumb, right, children }: LayoutProps) {
     }
   };
 
+  const handleRespaldo = async () => {
+    try {
+      const respaldo = await construirRespaldo(db);
+      descargarRespaldo(respaldo);
+      showSuccess('Respaldo descargado: guárdalo, es la materia prima de la migración a la app nueva.');
+    } catch (e) {
+      showError('Error al crear el respaldo: ' + e);
+    }
+  };
+
   return (
     <div className="app-layout">
       <Sidebar />
@@ -34,6 +46,9 @@ export function Layout({ title, breadcrumb, right, children }: LayoutProps) {
         <div className="page-content">{children}</div>
       </div>
       <div style={{ position: 'fixed', bottom: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+        <button className="btn btn-secondary btn-sm" onClick={handleRespaldo} style={{ fontSize: 10, padding: '4px 8px', opacity: 0.6 }}>
+          💾 Respaldo JSON
+        </button>
         <button className="btn btn-secondary btn-sm" onClick={handleForceSync} style={{ fontSize: 10, padding: '4px 8px', opacity: 0.6 }}>
           🔄 Forzar Sync Total
         </button>
